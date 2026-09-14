@@ -175,7 +175,11 @@ assert(lifePlanAttachmentRoute.includes("workspaces/${workspace.id}/users/${auth
 assert(!client.includes("const myRecordLegacyTabs"), "Legacy My Record tabs must not be retained as an alternate renderer.");
 assert(!client.includes("const myRecordV2Tabs"), "V2 should be the canonical My Record tab list, not a gated alternate.");
 assert(!route.includes("v2Only"), "V2-only delete gates must be removed from the canonical My Record API.");
-assert(loader.includes("loadMyRecordForWorkspace(supabase, workspace.id, viewer),"), "Ryan, Dirk, and generic workspaces should use the same My Record loader path.");
+/* USA-275: one loader path still serves every workspace. The signed-in viewer
+   is the record owner; only a read-only connected read substitutes the one
+   account that accepted the connection (never an arbitrary user). */
+assert(loader.includes("loadMyRecordForWorkspace(supabase, workspace.id, recordViewer),"), "Ryan, Dirk, and generic workspaces should use the same My Record loader path.");
+assert(loader.includes("const recordViewer: DosAuthorizedUser | null = connectedRead\n    ? (connectedRead.recordUserId") && loader.includes("      : null)\n    : viewer ?? null;"), "Outside a connected read, My Record loads for the signed-in viewer exactly as before.");
 assert(loader.includes(".from(\"dos_user_external_assessment_results\")"), "Loader should load external assessment results for every authenticated DOS workspace.");
 assert(loader.includes(".from(\"dos_user_prophetic_words\")"), "Loader should load prophetic words for every authenticated DOS workspace.");
 assert(loader.includes(".from(\"dos_user_learning_books\")"), "Loader should load Learning books for every authenticated DOS workspace.");

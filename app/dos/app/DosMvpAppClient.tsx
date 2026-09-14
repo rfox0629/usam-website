@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { ArrowLeft, ArrowRight, BarChart3, Bell, BookOpen, Briefcase, Cake, CalendarDays, Camera, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Church, ClipboardCheck, Clock, Coffee, Droplet, ExternalLink, FileImage, FileText, Film, Flame, Gift, GitBranch, Globe2, Heart, HeartHandshake, HelpCircle, Link2, LogOut, Mail, MapPin, Megaphone, MessageCircle, Mic, Moon, MoreHorizontal, Palette, Pencil, Phone, Play, Plus, RefreshCw, Search, Send, Settings, Shield, Sparkles, Sprout, Square, StickyNote, Target, Trash2, User, UserPlus, Users, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ChangeEvent, ComponentProps, FormEvent, KeyboardEvent, MouseEvent, ReactNode } from "react";
 import {
@@ -59,7 +59,7 @@ import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupAttendance, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { MinistryTimeInvestmentReport } from "@/src/components/dos/reports/MinistryTimeInvestmentReport";
 import { exitAfterSaveNeedsConfirmation } from "@/src/lib/dos/unsaved-work";
-import { buildDosMinistryReport, dosDiscipleshipMeetingPersonId, dosMinistryFruitEntriesFromAppData, dosMinistryGatheringsFromAppData, dosMinistryReportInputFromAppData, formatDosMinistryMinutes, type DosMinistryReportRow, type DosMinistryReportTotals } from "@/src/lib/dos/ministry-report";
+import { buildDosMinistryReport, dosDiscipleshipMeetingPersonId, dosMeetingContextLabel, dosMinistryFruitEntriesFromAppData, dosMinistryGatheringsFromAppData, dosMinistryReportInputFromAppData, formatDosMinistryMinutes, type DosMinistryReportRow, type DosMinistryReportTotals } from "@/src/lib/dos/ministry-report";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions } from "@/src/lib/dos/review-form-config";
 import { dosTestimonyReviewFormDefinition } from "@/src/lib/dos/testimony-form-config";
 import { selectPersonDetailFruitSummary, type PersonDetailFruitSummary } from "@/src/lib/dos/person-fruit-summary";
@@ -128,12 +128,16 @@ import {
   type RelationshipTypeValue,
 } from "@/src/lib/dos/relationship-model";
 import { canonicalFruitGroupOptions } from "@/src/lib/dos/fruit-vocabulary";
+import { ConnectedWorkspaceSheet } from "@/src/components/dos/multiplication/ConnectedWorkspaceSheet";
+import { AddDiscipleshipConnectionSheet, DiscipleshipConnectionsSheet, DiscipleshipEntrySheet, InviteAccountSheet, PersonDosAccountSection, type DiscipleshipAction } from "@/src/components/dos/multiplication/DiscipleshipSheets";
+import { MultiplicationSummaryLine, MultiplicationTree } from "@/src/components/dos/multiplication/MultiplicationTree";
+import type { DosConnectedWorkspaceView } from "@/src/lib/dos/discipleship-connected-view";
+import { createDosDiscipleshipGraph, dosNormalizedPersonName, type DosAppDiscipleship, type DosDiscipleEntry, type DosDiscipleRef, type DosDiscipleshipGraph } from "@/src/lib/dos/discipleship-graph";
 import { householdNameKey, normalizeHouseholdMembers } from "@/src/lib/dos/household-members";
 import { dosFollowUpGuideResources, dosTableTeachingResources } from "@/src/lib/dos/guide-resources";
 import { getFeaturedRemnantVideo, getRemnantVideos, remnantCollection, remnantEmbedUrl, remnantWatchUrl, type RemnantVideo } from "@/src/lib/remnant/content";
 import {
   accountabilityConfirmedSubjects,
-  personIsMultiplying,
   accountabilityCountProgress,
   accountabilityFrequencyLabels,
   accountabilityProgressKind,
@@ -2752,8 +2756,10 @@ function formatDurationLabel(minutes: number | null) {
   return parts.length ? parts.join(" ") : "0 min";
 }
 
+/* USA-275: one mapping for every surface; the options above must agree with
+   it (asserted by the report regression). */
 function meetingTypeLabel(value: string) {
-  return meetingTypeOptions.find((option) => option.value === value)?.label ?? "Table";
+  return dosMeetingContextLabel(value);
 }
 
 function normalizeTableRole(value: FormDataEntryValue | string | null | undefined): DosAppTableRole {
@@ -34862,6 +34868,33 @@ function relationalExcerpt(text: string | null | undefined, firstName: string, m
    heading creates a new one. Rows used to carry their own action button, which
    put "Check in", "Add person" and "Add progress" on a surface meant to be
    scanned and left no way to open the goal itself. */
+/* USA-275: the three People overview groups -- MULTIPLICATION, ACTIVITY,
+   FRUIT & FEEDBACK. DOS blue, uppercase, moderately bold and a step larger
+   than the subsection eyebrows (11.5px) beneath it, clearly smaller than the
+   person's name (25px). Always visible: never an accordion. */
+function PersonOverviewGroup({ action, children, label }: { action?: ReactNode; children: ReactNode; label: string }) {
+  return (
+    <section aria-label={label} className="mt-4 rounded-2xl border border-dos-hairline bg-white px-4 pb-1 pt-4" data-overview-group={label}>
+      <div className="flex min-h-6 items-center justify-between gap-3">
+        <h2 className="text-[14px] font-bold uppercase leading-[1.2] tracking-[0.06em] text-dos-eyebrowSection">{label}</h2>
+        {action}
+      </div>
+      <div className="mt-1">{children}</div>
+    </section>
+  );
+}
+
+type PersonMultiplicationProps = {
+  discipleship: DosAppDiscipleship;
+  graph: DosDiscipleshipGraph;
+  onAction: DiscipleshipAction;
+  onAdd: (input?: { initialName?: string }) => void;
+  onInviteAccount: () => void;
+  onManageEntry: (entry: DosDiscipleEntry) => void;
+  onOpenEntry: (entry: DosDiscipleEntry) => void;
+  onViewConnectedActivity: (workspaceId: string) => void;
+};
+
 function PersonRecordRow({
   children,
   onOpen,
@@ -35132,6 +35165,7 @@ function PersonDetailOverlay({
   index,
   leaderReflections,
   meetings,
+  multiplication,
   discipleshipMeetings,
   discipleshipRelationships,
   reminders,
@@ -35203,6 +35237,8 @@ function PersonDetailOverlay({
   index: number;
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
+  /* USA-275: the one discipleship graph and its actions. */
+  multiplication: PersonMultiplicationProps;
   /* USA-265: My Record discipleship meetings and their saved relationships.
      The ones that belong to this person appear with its meetings. */
   discipleshipMeetings: DosAppUserMentorMeeting[];
@@ -35710,7 +35746,24 @@ function PersonDetailOverlay({
      rather than a description. Nothing replaces it when there is no
      Multiplying: a line that says less is better than one padded with a
      fallback label. */
-  const isMultiplying = personIsMultiplying(commitments);
+  /* USA-275: Multiplying is derived from at least one active outgoing
+     discipleship connection in the one discipleship graph -- never a manual
+     flag, accountability subjects or Fruit. Those earlier indicators stay as
+     history and are offered in MULTIPLICATION as a way to add the named
+     people. It never changes circle placement. */
+  const personGraphRef: DosDiscipleRef = { kind: "person", personId: person.id, workspaceId: multiplication.discipleship.workspaceId };
+  const isMultiplying = multiplication.graph.isMultiplying(personGraphRef);
+  const multiplicationEntries = multiplication.graph.directDisciples(personGraphRef);
+  const readableAccount = multiplication.graph.readableAccountFor(person.id);
+  const personAccount = multiplication.discipleship.accounts.find((account) => account.personId === person.id && (account.status === "pending" || account.status === "accepted")) ?? null;
+  const personDecisions = multiplication.discipleship.decisions.filter((decision) => decision.status === "confirmed" && decision.matchedPersonId === person.id);
+  const legacyMultiplicationNames = Array.from(new Set(commitments
+    .filter((commitment) => accountabilityProgressKind(commitment) === "people")
+    .flatMap((commitment) => accountabilityConfirmedSubjects(commitment.updates).map((subject) => subject.name))))
+    .filter((name) => !multiplicationEntries.some((entry) => dosNormalizedPersonName(entry.name) === dosNormalizedPersonName(name)));
+  const hasLegacyMultiplication = legacyMultiplicationNames.length > 0
+    || person.discipleshipStage === "disciple_maker"
+    || fruitEvents.some((event) => event.personId === person.id && /began_discipling_others|started discipling others|multiplying/i.test(`${event.fruitType} ${event.title ?? ""}`));
   const relationshipSignal = isMultiplying ? `${relationshipTypePill} · Multiplying` : relationshipTypePill;
   const relationshipLine = `${relationshipSignal} · ${currentCircleLabel}`;
   /* Declared after conceptPrayerItems below so the summary counts exactly the
@@ -36167,13 +36220,41 @@ function PersonDetailOverlay({
                     meetings lead the page as a matched pair. */}
                 {renderMeetingCards()}
 
-                {/* One white overview surface with blue section eyebrows and
-                    hairline-separated groups. Every record is a row you open;
-                    lists cap at three. */}
-                <div className="mt-4 rounded-2xl border border-dos-hairline bg-white px-4 pb-1 pt-4">
-                  {conceptJourneys.length ? (
-                    <section aria-label="Journey" className="border-b border-dos-rule py-3 last:border-b-0">
-                      <Eyebrow>Journey</Eyebrow>
+                {/* USA-275: three visible groups, each one white surface with a
+                    DOS blue group heading above the existing blue subsection
+                    eyebrows. Only multiplication descendants expand. */}
+                <PersonOverviewGroup
+                  action={multiplication.discipleship.supported ? (
+                    <button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={() => multiplication.onAdd()} type="button">+ Add</button>
+                  ) : undefined}
+                  label="Multiplication"
+                >
+                  <div className="pb-3">
+                    <MultiplicationTree entries={multiplicationEntries} graph={multiplication.graph} onManage={multiplication.onManageEntry} onOpen={multiplication.onOpenEntry} />
+                    {!multiplicationEntries.length && hasLegacyMultiplication && multiplication.discipleship.supported ? (
+                      <div className="mt-2">
+                        <p className="text-[13px] font-semibold text-dos-secondary">Earlier records mention discipling others.</p>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {legacyMultiplicationNames.map((name) => (
+                            <button className="min-h-9 rounded-dos-3 border border-dos-line bg-white px-3 text-[13px] font-semibold text-dos-primary hover:border-dos-blue100" key={name} onClick={() => multiplication.onAdd({ initialName: name })} type="button">Add {name}</button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                    <MultiplicationSummaryLine graph={multiplication.graph} reference={personGraphRef} />
+                    {readableAccount?.discipleWorkspaceId ? (
+                      <button className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 border-t border-dos-rule pt-2 text-left text-[13.5px] font-semibold text-dos-blue" onClick={() => multiplication.onViewConnectedActivity(readableAccount.discipleWorkspaceId as string)} type="button">
+                        <span>{firstName}&rsquo;s DOS activity</span>
+                        <ChevronRight aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
+                      </button>
+                    ) : null}
+                  </div>
+                </PersonOverviewGroup>
+
+                <PersonOverviewGroup label="Activity">
+                  <section aria-label="Journey" className="border-b border-dos-rule py-3 first:pt-1 last:border-b-0">
+                    <Eyebrow>Journey</Eyebrow>
+                    {conceptJourneys.length ? (
                       <div className="divide-y divide-dos-rule">
                         {conceptJourneys.map((journey) => (
                           <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
@@ -36195,8 +36276,10 @@ function PersonDetailOverlay({
                           </div>
                         ))}
                       </div>
-                    </section>
-                  ) : null}
+                    ) : (
+                      <p className="text-[14.5px] leading-[1.5] text-dos-body">No Journey yet.</p>
+                    )}
+                  </section>
 
                   {/* ACCOUNTABILITY: one section for everything this person is
                       working on, whether a rhythm or a one-time goal. Add sits
@@ -36242,6 +36325,28 @@ function PersonDetailOverlay({
                     {renderViewAll("accountability", accountabilityTopics.length)}
                   </section>
 
+                  {/* Groups are a membership fact, not active work. */}
+                  <section aria-label="Groups" className="border-b border-dos-rule py-3 last:border-b-0">
+                    <Eyebrow>Groups</Eyebrow>
+                    {personGroups.length ? (
+                      <div className="divide-y divide-dos-rule">
+                        {personGroups.map((group) => (
+                          <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={group.id}>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</p>
+                              {group.leaderPersonId === person.id ? (
+                                <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">Leader</p>
+                              ) : null}
+                            </div>
+                            <PDButton onClick={() => onOpenGroup(group.id)}>View</PDButton>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[14.5px] leading-[1.5] text-dos-body">Not in a group yet.</p>
+                    )}
+                  </section>
+
                   {/* Prayer is not accountability. Something we are praying about
                       for them is not something they are responsible for doing,
                       so it reads as its own compact section. */}
@@ -36268,8 +36373,10 @@ function PersonDetailOverlay({
                     )}
                     {renderViewAll("prayer", conceptPrayerItems.length, () => setIsPersonPrayerOpen(true))}
                   </section>
+                </PersonOverviewGroup>
 
-                  <section aria-label="Fruit" className="border-b border-dos-rule py-3 last:border-b-0 lg:hidden">
+                <PersonOverviewGroup label="Fruit &amp; Feedback">
+                  <section aria-label="Fruit" className="border-b border-dos-rule py-3 first:pt-1 last:border-b-0">
                     {renderFruit()}
                   </section>
 
@@ -36306,42 +36413,24 @@ function PersonDetailOverlay({
                       <p className="text-[14.5px] leading-[1.5] text-dos-body">No feedback yet.</p>
                     )}
                   </section>
+                </PersonOverviewGroup>
 
-                  {/* Groups are a membership fact, not active work. Separated by
-                      structure and type rather than a new colour. */}
-                  {personGroups.length ? (
-                    <section aria-label="Groups" className="border-b border-dos-rule py-3 last:border-b-0">
-                      <Eyebrow>Groups</Eyebrow>
-                      <div className="divide-y divide-dos-rule">
-                        {personGroups.map((group) => (
-                          <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={group.id}>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</p>
-                              {group.leaderPersonId === person.id ? (
-                                <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">Leader</p>
-                              ) : null}
-                            </div>
-                            <PDButton onClick={() => onOpenGroup(group.id)}>View</PDButton>
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  ) : null}
-
-                  {conceptFollowUps.length || upcomingGatherings.length ? (
-                    <section className="border-b border-dos-rule py-3 last:border-b-0 lg:hidden">
-                      {renderNextMeeting(false)}
-                    </section>
-                  ) : null}
-                </div>
+                {/* Follow-ups and upcoming gatherings keep their place after the
+                    overview on a phone (the desktop aside shows them beside
+                    it), so the three groups sit directly under the meeting
+                    cards. */}
+                {conceptFollowUps.length || upcomingGatherings.length ? (
+                  <div className="mt-4 rounded-2xl border border-dos-hairline bg-white px-4 py-3 lg:hidden" data-overview-followups="true">
+                    {renderNextMeeting(false)}
+                  </div>
+                ) : null}
               </div>
 
-              <aside className="mt-4 hidden w-[292px] shrink-0 self-start rounded-2xl border border-dos-hairline bg-white px-5 py-4 lg:block xl:w-[308px]">
-                {conceptFollowUps.length || upcomingGatherings.length ? (
-                  <div className="mb-6 border-b border-dos-rule pb-5">{renderNextMeeting(true)}</div>
-                ) : null}
-                {renderFruit()}
-              </aside>
+              {conceptFollowUps.length || upcomingGatherings.length ? (
+                <aside className="mt-4 hidden w-[292px] shrink-0 self-start rounded-2xl border border-dos-hairline bg-white px-5 py-4 lg:block xl:w-[308px]">
+                  {renderNextMeeting(true)}
+                </aside>
+              ) : null}
             </div>
           </article>
         ) : null}
@@ -36663,6 +36752,27 @@ function PersonDetailOverlay({
                 ) : null}
               </div>
             </section>
+
+            {/* USA-275: this Person's own DOS account, by explicit invitation
+                and acceptance only, and ending the discipleship connection. */}
+            <PersonDosAccountSection
+              account={personAccount}
+              decisions={personDecisions}
+              isDiscipling={person.roleInMyLife === "discipling_them"}
+              isReadable={Boolean(readableAccount)}
+              onCancelInvite={(accountConnectionId) => multiplication.onAction("cancel_invite", { accountConnectionId })}
+              onDisconnect={(accountConnectionId) => multiplication.onAction("disconnect_account", { accountConnectionId })}
+              onEndDiscipleship={() => multiplication.onAction("end_person_discipleship", { personId: person.id })}
+              onInvite={multiplication.onInviteAccount}
+              onUndoDecision={(matchId) => multiplication.onAction("undo_match", { matchId })}
+              onViewActivity={() => {
+                if (readableAccount?.discipleWorkspaceId) {
+                  multiplication.onViewConnectedActivity(readableAccount.discipleWorkspaceId);
+                }
+              }}
+              personName={person.name}
+              supported={multiplication.discipleship.supported}
+            />
 
             {/* Four distinct dimensions, explained by structure rather than
                prose. The engagement scale number is never exposed. */}
@@ -37910,6 +38020,63 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
   const libraryScrollPositionRef = useRef(0);
   const calendarAutoSyncKeyRef = useRef<string | null>(null);
   const isPreview = data.workspace.isPreview === true;
+  /* USA-275: one discipleship graph for People, the Multiplying indicator,
+     Reports and the read-only connected view. Recomputed from each payload;
+     the server already limited it to what this viewer may read. */
+  const discipleshipGraph = useMemo(() => createDosDiscipleshipGraph(data.discipleship.graph), [data.discipleship.graph]);
+  const [connectedView, setConnectedView] = useState<{ personId: string | null; workspaceId: string } | null>(null);
+  const [addConnectionFor, setAddConnectionFor] = useState<{ initialName?: string; personId: string } | null>(null);
+  const [managedDiscipleEntry, setManagedDiscipleEntry] = useState<DosDiscipleEntry | null>(null);
+  const [inviteAccountPersonId, setInviteAccountPersonId] = useState<string | null>(null);
+  const [isDiscipleshipConnectionsOpen, setIsDiscipleshipConnectionsOpen] = useState(false);
+  const runDiscipleshipAction = useCallback<DiscipleshipAction>(async (action, payload) => {
+    if (isPreview) {
+      return "Preview mode is read-only. Demo changes are not saved.";
+    }
+
+    if (!data.discipleship.supported) {
+      return "Discipleship connections are not available in this environment yet.";
+    }
+
+    try {
+      const response = await fetch("/api/dos/app/discipleship", {
+        body: JSON.stringify({ ...payload, action, workspaceId: data.workspace.id }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as { error?: string };
+
+      if (!response.ok) {
+        return result.error ?? "Unable to save.";
+      }
+
+      router.refresh();
+
+      return null;
+    } catch {
+      return "Unable to save. Check your connection and try again.";
+    }
+  }, [data.discipleship.supported, data.workspace.id, isPreview, router]);
+  const loadConnectedView = useCallback(async (workspaceId: string): Promise<DosConnectedWorkspaceView> => {
+    const previewView = data.discipleship.previewConnectedViews?.[workspaceId];
+
+    if (previewView) {
+      return previewView;
+    }
+
+    if (isPreview) {
+      throw new Error("Not available in preview.");
+    }
+
+    const response = await fetch(`/api/dos/app/discipleship?${new URLSearchParams({ connectedWorkspaceId: workspaceId, workspaceId: data.workspace.id }).toString()}`, { cache: "no-store" });
+    const result = await response.json().catch(() => ({})) as { view?: DosConnectedWorkspaceView };
+
+    if (!response.ok || !result.view) {
+      throw new Error("Not available.");
+    }
+
+    return result.view;
+  }, [data.discipleship.previewConnectedViews, data.workspace.id, isPreview]);
   const commitmentsEnabled = data.featureFlags.commitmentsAccountability === true;
   /* Advanced Feature: controls whether the engagement framework is SHOWN. Every
      person's stored engagement_level is loaded either way and is submitted back
@@ -38605,6 +38772,15 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
      structured adapter (types, tags, ratings, completed sessions), and the
      multiplication column learns only which people carry a verified DOS
      identity link. Nothing narrative is passed. */
+  /* USA-275: current direct disciples per Person, from the same graph. */
+  const ministryMultiplication = useMemo(() => Object.fromEntries(people.map((person) => {
+    const reference: DosDiscipleRef = { kind: "person", personId: person.id, workspaceId: data.discipleship.workspaceId };
+
+    return [person.id, {
+      connected: Boolean(discipleshipGraph.readableAccountFor(person.id)),
+      disciples: discipleshipGraph.countedDisciples(reference).map((entry) => ({ key: entry.key, name: entry.name })),
+    }];
+  })), [data.discipleship.workspaceId, discipleshipGraph, people]);
   const ministryReportInput = useMemo(() => dosMinistryReportInputFromAppData({
     accountabilityCheckIns: data.accountabilityCheckIns,
     accountabilitySchedules: data.accountabilitySchedules,
@@ -38626,8 +38802,9 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     gatherings: dosMinistryGatheringsFromAppData(groups),
     linkedPersonIds: data.identityLinkedPersonIds,
     meetings: data.meetings,
+    multiplication: ministryMultiplication,
     people,
-  }), [data.accountabilityCheckIns, data.accountabilitySchedules, data.fruit, data.fruitEvents, data.guidedResourceProgress, data.identityLinkedPersonIds, data.meetings, data.myRecord.mentorMeetings, data.myRecord.mentorRelationships, data.participantReviews, data.participantTestimonies, groups, people]);
+  }), [data.accountabilityCheckIns, data.accountabilitySchedules, data.fruit, data.fruitEvents, data.guidedResourceProgress, data.identityLinkedPersonIds, data.meetings, data.myRecord.mentorMeetings, data.myRecord.mentorRelationships, data.participantReviews, data.participantTestimonies, groups, ministryMultiplication, people]);
   const reportNow = useMemo(() => new Date(), []);
   const homeMinistryReport = useMemo(
     () => buildDosMinistryReport({ ...ministryReportInput, now: reportNow, range: "30d" }),
@@ -40601,6 +40778,39 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
       reminder_type: reminder.reminderType,
       title: reminder.title,
     }, "PATCH", false);
+  }
+
+  /* USA-275: a name in Multiplication opens what the viewer may read: their
+     own full Person record, a connected account's read-only DOS, a person
+     inside a connected workspace, or -- for a name alone -- its entry. */
+  function openDiscipleEntry(entry: DosDiscipleEntry) {
+    if (entry.ref.kind === "name") {
+      setManagedDiscipleEntry(entry);
+      return;
+    }
+
+    const account = discipleshipGraph.readableAccountFor(entry.ref.personId);
+
+    if (entry.ref.workspaceId === data.discipleship.workspaceId) {
+      setConnectedView(null);
+      openPersonDetail(entry.ref.personId);
+      return;
+    }
+
+    setConnectedView(account?.discipleWorkspaceId
+      ? { personId: null, workspaceId: account.discipleWorkspaceId }
+      : { personId: entry.ref.personId, workspaceId: entry.ref.workspaceId });
+  }
+
+  function openDiscipleEntryFromReports(entry: DosDiscipleEntry) {
+    if (entry.ref.kind === "person" && entry.ref.workspaceId === data.discipleship.workspaceId) {
+      const personId = entry.ref.personId;
+
+      openRecordFromReports(() => openPersonDetail(personId));
+      return;
+    }
+
+    openDiscipleEntry(entry);
   }
 
   function openPersonDetail(personId: string) {
@@ -45122,6 +45332,29 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                   </button>
                 </div>
 
+                {/* USA-275: connection requests, entries to confirm, and the
+                    accounts this user is connected to -- shown only when there
+                    is something. Manage circles stays exactly where it is. */}
+                {data.discipleship.incomingRequests.length || data.discipleship.confirmations.length || data.discipleship.mentorAccounts.length || data.discipleship.decisions.length ? (
+                  <button
+                    className="mt-3 flex min-h-11 w-full items-center justify-between gap-3 rounded-dos-3 border border-dos-line bg-white px-3 py-2 text-left transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+                    onClick={() => setIsDiscipleshipConnectionsOpen(true)}
+                    type="button"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-dos-label font-semibold text-dos-primary">Discipleship connections</span>
+                      <span className="block truncate text-dos-meta text-dos-secondary">
+                        {[
+                          data.discipleship.incomingRequests.length ? `${data.discipleship.incomingRequests.length} ${data.discipleship.incomingRequests.length === 1 ? "request" : "requests"}` : null,
+                          data.discipleship.confirmations.length ? `${data.discipleship.confirmations.length} to confirm` : null,
+                          !data.discipleship.incomingRequests.length && !data.discipleship.confirmations.length && data.discipleship.mentorAccounts.length ? `Connected to ${data.discipleship.mentorAccounts.map((account) => account.mentorWorkspaceName).join(", ")}` : null,
+                        ].filter(Boolean).join(" · ") || "Answered entries"}
+                      </span>
+                    </span>
+                    <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-eyebrow" strokeWidth={2} />
+                  </button>
+                ) : null}
+
                 {peopleImportMessage ? (
                   <p className={`mt-3 rounded-2xl border p-3 text-sm ${
                     peopleImportMessage.tone === "success"
@@ -45919,6 +46152,13 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                         actions leave for the full record (USA-268). */}
                     <MinistryTimeInvestmentReport
                       input={ministryReportInput}
+                      multiplication={{
+                        graph: discipleshipGraph,
+                        loadView: loadConnectedView,
+                        onOpenEntry: openDiscipleEntryFromReports,
+                        onViewConnected: (workspaceId) => setConnectedView({ personId: null, workspaceId }),
+                        workspaceId: data.discipleship.workspaceId,
+                      }}
                       now={reportNow}
                       onOpenMeeting={(meetingId, kind) => openRecordFromReports(() => (kind === "discipleship_meeting" ? openDiscipleshipMeeting(meetingId) : openMeetingDetail(meetingId)))}
                       onOpenPerson={(personId) => openRecordFromReports(() => openPersonDetail(personId))}
@@ -46119,8 +46359,91 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
               guidedResourceProgress={data.guidedResourceProgress}
               circleScore={scoreByPersonId.get(selectedPerson.id) ?? null}
               confirmedPlacement={confirmedPlacementByPersonId.get(selectedPerson.id) ?? null}
+              multiplication={{
+                discipleship: data.discipleship,
+                graph: discipleshipGraph,
+                onAction: runDiscipleshipAction,
+                onAdd: (input) => setAddConnectionFor({ initialName: input?.initialName, personId: selectedPerson.id }),
+                onInviteAccount: () => setInviteAccountPersonId(selectedPerson.id),
+                onManageEntry: setManagedDiscipleEntry,
+                onOpenEntry: openDiscipleEntry,
+                onViewConnectedActivity: (workspaceId) => setConnectedView({ personId: null, workspaceId }),
+              }}
               workspace={data.workspace}
             />
+        ) : null}
+
+        {/* USA-275: Multiplication sheets. */}
+        {addConnectionFor ? (() => {
+          const mentor = people.find((person) => person.id === addConnectionFor.personId);
+
+          return mentor ? (
+            <AddDiscipleshipConnectionSheet
+              candidates={people.filter((person) => person.id !== mentor.id && person.status !== "archived").map((person) => ({ id: person.id, name: person.name }))}
+              initialName={addConnectionFor.initialName}
+              mentorName={mentor.name}
+              onClose={() => setAddConnectionFor(null)}
+              onSubmit={(input) => runDiscipleshipAction("add_connection", { ...input, mentorPersonId: mentor.id })}
+            />
+          ) : null;
+        })() : null}
+
+        {inviteAccountPersonId ? (() => {
+          const invitee = people.find((person) => person.id === inviteAccountPersonId);
+
+          return invitee ? (
+            <InviteAccountSheet
+              defaultEmail={invitee.email ?? ""}
+              onClose={() => setInviteAccountPersonId(null)}
+              onSubmit={(email) => runDiscipleshipAction("invite_account", { email, personId: invitee.id })}
+              personName={invitee.name}
+            />
+          ) : null;
+        })() : null}
+
+        {managedDiscipleEntry ? (() => {
+          const entry = managedDiscipleEntry;
+          const connectionId = entry.connectionId;
+          /* Only a row recorded in this workspace can be ended or removed here. */
+          const isOwnRow = Boolean(connectionId) && data.discipleship.graph.connections.some((connection) => connection.id === connectionId && connection.workspaceId === data.discipleship.workspaceId);
+
+          return (
+            <DiscipleshipEntrySheet
+              entry={entry}
+              onClose={() => setManagedDiscipleEntry(null)}
+              onEnd={isOwnRow ? () => runDiscipleshipAction("end_connection", { connectionId }) : null}
+              onOpen={entry.ref.kind === "person" ? () => {
+                setManagedDiscipleEntry(null);
+                openDiscipleEntry(entry);
+              } : null}
+              onRemove={isOwnRow ? () => runDiscipleshipAction("remove_connection", { connectionId }) : null}
+            />
+          );
+        })() : null}
+
+        {isDiscipleshipConnectionsOpen ? (
+          <DiscipleshipConnectionsSheet
+            discipleship={data.discipleship}
+            onAction={runDiscipleshipAction}
+            onClose={() => setIsDiscipleshipConnectionsOpen(false)}
+            people={people.filter((person) => person.status !== "archived").map((person) => ({ id: person.id, name: person.name }))}
+          />
+        ) : null}
+
+        {connectedView ? (
+          <ConnectedWorkspaceSheet
+            graph={discipleshipGraph}
+            initial={connectedView}
+            key={`${connectedView.workspaceId}:${connectedView.personId ?? ""}`}
+            loadView={loadConnectedView}
+            onClose={() => setConnectedView(null)}
+            onOpenOwnPerson={(personId) => {
+              setConnectedView(null);
+              openPersonDetail(personId);
+            }}
+            resourceTitle={(slug) => getDosResourceBySlug(slug)?.title ?? slug.replace(/-/g, " ")}
+            viewerWorkspaceId={data.discipleship.workspaceId}
+          />
         ) : null}
 
         {selectedMeetingWithReview ? (

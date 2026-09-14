@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { buildFallbackCircleDataFromActivity, type DosCircleData, type DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
+import { dosConnectedWorkspaceViewFromAppData, type DosConnectedWorkspaceView } from "@/src/lib/dos/discipleship-connected-view";
+import type { DosAppDiscipleship, DosGraphAccountConnection, DosGraphConnection, DosGraphPerson } from "@/src/lib/dos/discipleship-graph";
 import {
   type DosAppData,
   type DosAppAssessmentResult,
@@ -272,6 +274,213 @@ function buildDemoTableInvitationBookings(): DosTableInvitationBooking[] {
       timezone: "America/Chicago",
     },
   ];
+}
+
+/* USA-275: a synthetic discipleship chain for the DB-free preview. Ryan
+   disciples Tanner Kent; Tanner's own DOS account is connected and lists three
+   people he disciples; Aaron Johnson's account is connected under Tanner.
+   Ryan recorded "Daniel Reyes" under George by name only, and Dirk (Ryan's
+   discipler, `?perspective=dirk`) sees Ryan → Tanner → Aaron read-only. None
+   of these are production records. */
+const demoDirkWorkspaceId = "00000000-0000-4000-8000-000000000069";
+const demoTannerWorkspaceId = "00000000-0000-4000-8000-000000000071";
+const demoAaronWorkspaceId = "00000000-0000-4000-8000-000000000072";
+
+function demoGraphPerson(id: string, workspaceId: string, name: string, roleInMyLife = "discipling_them"): DosGraphPerson {
+  return { id, name, roleInMyLife, status: "active", workspaceId };
+}
+
+const demoTannerPeople: DosGraphPerson[] = [
+  demoGraphPerson("demo-tanner-aaron-johnson", demoTannerWorkspaceId, "Aaron Johnson"),
+  demoGraphPerson("demo-tanner-caleb-stone", demoTannerWorkspaceId, "Caleb Stone"),
+  demoGraphPerson("demo-tanner-luke-harmon", demoTannerWorkspaceId, "Luke Harmon"),
+  demoGraphPerson("demo-tanner-owen-price", demoTannerWorkspaceId, "Owen Price", "walking_with_them"),
+];
+
+const demoAaronPeople: DosGraphPerson[] = [
+  demoGraphPerson("demo-aaron-eli-brooks", demoAaronWorkspaceId, "Eli Brooks"),
+  demoGraphPerson("demo-aaron-noah-west", demoAaronWorkspaceId, "Noah West", "walking_with_them"),
+];
+
+const demoDownstreamAccounts: DosGraphAccountConnection[] = [
+  { discipleUserId: "demo-user-tanner", discipleWorkspaceId: demoTannerWorkspaceId, id: "demo-account-tanner", identityLinkVerified: true, mentorWorkspaceId: demoWorkspaceId, personId: "demo-person-tanner-kent", status: "accepted" },
+  { discipleUserId: "demo-user-aaron", discipleWorkspaceId: demoAaronWorkspaceId, id: "demo-account-aaron", identityLinkVerified: true, mentorWorkspaceId: demoTannerWorkspaceId, personId: "demo-tanner-aaron-johnson", status: "accepted" },
+];
+
+const demoRecordedConnections: DosGraphConnection[] = [
+  { createdAt: "2026-08-20T10:00:00-05:00", discipleName: "Daniel Reyes", disciplePersonId: null, endedAt: null, id: "demo-connection-george-daniel", mentorPersonId: "demo-person-george-jenko", startedOn: null, status: "active", workspaceId: demoWorkspaceId },
+];
+
+function demoConnectedView(workspaceId: string, ownerName: string, depth: number, people: DosGraphPerson[]): DosConnectedWorkspaceView {
+  return {
+    accountability: [],
+    depth,
+    discipleshipMeetings: [],
+    feedback: [],
+    fruit: [],
+    groups: [],
+    journeys: [],
+    meetings: [],
+    ownerName,
+    people: people.map((person) => ({ id: person.id, name: person.name, notes: null, relationshipTypeValue: person.roleInMyLife === "discipling_them" ? "discipling" : "walking_with", roleInMyLife: person.roleInMyLife, status: person.status })),
+    prayer: [],
+    readOnly: true,
+    workspaceId,
+  };
+}
+
+function demoTannerView(depth: number): DosConnectedWorkspaceView {
+  const view = demoConnectedView(demoTannerWorkspaceId, "Tanner Kent", depth, demoTannerPeople);
+  const aaronMeeting = "demo-tanner-meeting-aaron";
+
+  return {
+    ...view,
+    accountability: [
+      { date: daysAgoIso(-3).slice(0, 10), detail: "weekly", id: "demo-tanner-schedule-aaron", kind: "schedule", minutes: null, personId: "demo-tanner-aaron-johnson", status: "active", title: "Scripture reading" },
+    ],
+    discipleshipMeetings: [
+      { date: daysAgoIso(12).slice(0, 10), discussed: "Leading a first discipleship meeting.", id: "demo-tanner-my-record-ryan", mentorName: "Ryan Fox", minutes: 60 },
+    ],
+    feedback: [
+      { comments: "Grateful for the time in John 15.", id: "demo-tanner-feedback-aaron", meetingId: aaronMeeting, overallRating: "Very helpful", personId: "demo-tanner-aaron-johnson", submittedAt: daysAgoIso(9), wantsFollowUp: null },
+    ],
+    fruit: [
+      { date: daysAgoIso(10), description: null, fruitType: "began_discipling_others", id: "demo-tanner-fruit-aaron", meetingId: aaronMeeting, personId: "demo-tanner-aaron-johnson", title: "Aaron began meeting with Eli" },
+    ],
+    groups: [
+      { gatherings: [{ date: daysAgoIso(7, 7), id: "demo-tanner-gathering-1", presentPersonIds: ["demo-tanner-aaron-johnson", "demo-tanner-caleb-stone"], status: "completed", title: "Thursday Breakfast" }], id: "demo-tanner-group-breakfast", memberPersonIds: ["demo-tanner-aaron-johnson", "demo-tanner-caleb-stone", "demo-tanner-luke-harmon"], name: "Thursday Breakfast" },
+    ],
+    journeys: [
+      { completedAt: null, id: "demo-tanner-journey-aaron", personId: "demo-tanner-aaron-johnson", resourceSlug: "discipleship-foundations", startDate: daysAgoIso(20).slice(0, 10), status: "in_progress" },
+    ],
+    meetings: [
+      { conversationFlowKey: "none", date: daysAgoIso(10, 18), id: aaronMeeting, meetingStatus: "logged", minutes: 90, notes: "Read John 15 together.", personIds: ["demo-tanner-aaron-johnson"], prayerNeeds: null, source: "table", tableRole: "ministering", tableRoleRecorded: true, type: "kitchen_table", whatHappened: "Aaron asked how to start meeting with Eli." },
+      { conversationFlowKey: "none", date: daysAgoIso(4, 12), id: "demo-tanner-meeting-caleb", meetingStatus: "logged", minutes: 60, notes: null, personIds: ["demo-tanner-caleb-stone"], prayerNeeds: "Wisdom for a job decision.", source: "table", tableRole: "ministering", tableRoleRecorded: true, type: "phone", whatHappened: null },
+    ],
+    people: view.people.map((person) => (person.id === "demo-tanner-aaron-johnson" ? { ...person, notes: "Started meeting with Eli in August." } : person)),
+    prayer: [
+      { answeredAt: null, createdAt: daysAgoIso(6), id: "demo-tanner-prayer-caleb", personIds: ["demo-tanner-caleb-stone"], request: "Wisdom for a job decision.", status: "active", title: "Job decision" },
+    ],
+  };
+}
+
+function demoAaronView(depth: number): DosConnectedWorkspaceView {
+  const view = demoConnectedView(demoAaronWorkspaceId, "Aaron Johnson", depth, demoAaronPeople);
+
+  return {
+    ...view,
+    meetings: [
+      { conversationFlowKey: "none", date: daysAgoIso(5, 7), id: "demo-aaron-meeting-eli", meetingStatus: "logged", minutes: 45, notes: "Coffee and Mark 1.", personIds: ["demo-aaron-eli-brooks"], prayerNeeds: null, source: "table", tableRole: "ministering", tableRoleRecorded: true, type: "coffee", whatHappened: null },
+    ],
+  };
+}
+
+function buildDemoDiscipleship(people: DosAppPerson[]): DosAppDiscipleship {
+  const own = people.map((person) => ({ id: person.id, name: person.name, roleInMyLife: person.roleInMyLife, status: person.status, workspaceId: demoWorkspaceId }));
+
+  return {
+    accounts: [
+      { acceptedAt: "2026-08-25T19:00:00-05:00", id: "demo-account-tanner", inviteEmail: "tanner.kent@example.com", personId: "demo-person-tanner-kent", status: "accepted" },
+      { acceptedAt: null, id: "demo-account-george", inviteEmail: "george.jenko@example.com", personId: "demo-person-george-jenko", status: "pending" },
+    ],
+    /* Dirk recorded "Ryan disciples Tanner Kent" before Ryan connected: one
+       explicit decision, with Ryan's own Tanner offered first, never chosen. */
+    confirmations: [
+      { accountConnectionId: "demo-account-ryan", connectionId: "demo-dirk-connection-ryan-tanner", discipleName: "Tanner Kent", mentorWorkspaceName: "Bond Family", sameNamePersonIds: ["demo-person-tanner-kent"], startedOn: null },
+    ],
+    decisions: [],
+    graph: {
+      accountConnections: demoDownstreamAccounts,
+      connections: demoRecordedConnections,
+      matches: [],
+      people: [...own, ...demoTannerPeople, ...demoAaronPeople],
+      readableWorkspaceIds: [demoWorkspaceId, demoTannerWorkspaceId, demoAaronWorkspaceId],
+    },
+    incomingRequests: [],
+    mentorAccounts: [{ acceptedAt: "2026-08-18T20:00:00-05:00", id: "demo-account-ryan", mentorWorkspaceName: "Bond Family", upstreamViewerNames: ["Bond Family"] }],
+    previewConnectedViews: {
+      [demoAaronWorkspaceId]: demoAaronView(2),
+      [demoTannerWorkspaceId]: demoTannerView(1),
+    },
+    readableWorkspaces: [
+      { depth: 1, fromWorkspaceId: demoWorkspaceId, ownerName: "Tanner Kent", viaAccountConnectionId: "demo-account-tanner", viaPersonId: "demo-person-tanner-kent", workspaceId: demoTannerWorkspaceId },
+      { depth: 2, fromWorkspaceId: demoTannerWorkspaceId, ownerName: "Aaron Johnson", viaAccountConnectionId: "demo-account-aaron", viaPersonId: "demo-tanner-aaron-johnson", workspaceId: demoAaronWorkspaceId },
+    ],
+    supported: true,
+    workspaceId: demoWorkspaceId,
+  };
+}
+
+/* `?perspective=dirk`: Dirk's own workspace, where Ryan is a Person he
+   disciples and Ryan's account is connected. Everything of Ryan's arrives
+   read-only through the same projection the API uses. */
+function buildDirkPerspectiveData(ryan: DosAppData): DosAppData {
+  const template = ryan.people.find((person) => person.id === "demo-person-tanner-kent") ?? ryan.people[0];
+  const dirkPeople: DosAppPerson[] = [
+    { ...template, church: null, email: null, id: "demo-dirk-person-ryan-fox", lastActivityAt: daysAgoIso(3), name: "Ryan Fox", notes: null, phone: "", relationshipContext: "church", relationshipType: "Discipling · Church · Exploring", relationshipTypeValue: "discipling", roleInMyLife: "discipling_them", status: "active" },
+    { ...template, church: null, email: null, id: "demo-dirk-person-sam-lucas", lastActivityAt: daysAgoIso(20), name: "Sam Lucas", notes: null, phone: "", relationshipContext: "friend", relationshipType: "Walking With · Friend · Exploring", relationshipTypeValue: "walking_with", roleInMyLife: "walking_with_them", status: "active" },
+  ];
+  const dirkOwn = dirkPeople.map((person) => ({ id: person.id, name: person.name, roleInMyLife: person.roleInMyLife, status: person.status, workspaceId: demoDirkWorkspaceId }));
+  const ryanOwn = ryan.people.map((person) => ({ id: person.id, name: person.name, roleInMyLife: person.roleInMyLife, status: person.status, workspaceId: demoWorkspaceId }));
+  const ryanAccount: DosGraphAccountConnection = { discipleUserId: "demo-user-ryan", discipleWorkspaceId: demoWorkspaceId, id: "demo-account-ryan", identityLinkVerified: true, mentorWorkspaceId: demoDirkWorkspaceId, personId: "demo-dirk-person-ryan-fox", status: "accepted" };
+
+  return {
+    ...ryan,
+    accountabilityCheckInCommitments: [],
+    accountabilityCheckIns: [],
+    accountabilitySchedules: [],
+    assessmentResults: [],
+    circlePlacements: [],
+    circles: null,
+    commitments: [],
+    discipleship: {
+      accounts: [{ acceptedAt: "2026-08-18T20:00:00-05:00", id: ryanAccount.id, inviteEmail: "ryan@foxfamily.org", personId: ryanAccount.personId, status: "accepted" }],
+      confirmations: [],
+      decisions: [],
+      graph: {
+        accountConnections: [ryanAccount, ...demoDownstreamAccounts],
+        connections: demoRecordedConnections,
+        matches: [],
+        people: [...dirkOwn, ...ryanOwn, ...demoTannerPeople, ...demoAaronPeople],
+        readableWorkspaceIds: [demoDirkWorkspaceId, demoWorkspaceId, demoTannerWorkspaceId, demoAaronWorkspaceId],
+      },
+      incomingRequests: [],
+      mentorAccounts: [],
+      previewConnectedViews: {
+        [demoAaronWorkspaceId]: demoAaronView(3),
+        [demoTannerWorkspaceId]: demoTannerView(2),
+        [demoWorkspaceId]: dosConnectedWorkspaceViewFromAppData(ryan, { depth: 1, ownerName: "Ryan Fox", workspaceId: demoWorkspaceId }),
+      },
+      readableWorkspaces: [
+        { depth: 1, fromWorkspaceId: demoDirkWorkspaceId, ownerName: "Ryan Fox", viaAccountConnectionId: ryanAccount.id, viaPersonId: ryanAccount.personId, workspaceId: demoWorkspaceId },
+        { depth: 2, fromWorkspaceId: demoWorkspaceId, ownerName: "Tanner Kent", viaAccountConnectionId: "demo-account-tanner", viaPersonId: "demo-person-tanner-kent", workspaceId: demoTannerWorkspaceId },
+        { depth: 3, fromWorkspaceId: demoTannerWorkspaceId, ownerName: "Aaron Johnson", viaAccountConnectionId: "demo-account-aaron", viaPersonId: "demo-tanner-aaron-johnson", workspaceId: demoAaronWorkspaceId },
+      ],
+      supported: true,
+      workspaceId: demoDirkWorkspaceId,
+    },
+    fruit: [],
+    fruitEvents: [],
+    groups: [],
+    guidedResourceProgress: [],
+    identityLinkedPersonIds: [],
+    leaderReflections: [],
+    meetings: [],
+    myRecord: { ...ryan.myRecord, assessmentResults: [], externalAssessmentResults: [], journalEntries: [], learningBooks: [], lifePlan: null, mentorMeetings: [], mentorRelationships: [], prayerLogs: [], propheticWords: [], userId: "demo-user-dirk", workspaceId: demoDirkWorkspaceId },
+    participantReviews: [],
+    participantTestimonies: [],
+    people: dirkPeople,
+    prayerLogs: [],
+    /* Dirk has no prayer partners in this fixture (written as a filter so the
+       prayer UI regression's slice of Ryan's partners stays unambiguous). */
+    prayerPartners: ryan.prayerPartners.filter(() => false),
+    prayerRequests: [],
+    reminders: [],
+    resourceAssignments: [],
+    tableInvitationBookings: [],
+    tableInvitations: [],
+    workspace: { ...ryan.workspace, displayName: "Bond Family", greetingName: "Dirk", id: demoDirkWorkspaceId, userEmail: "dirk@example.com", userFullName: "Dirk Bond", userPersonId: null, userPhone: null },
+  };
 }
 
 function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppData {
@@ -2079,6 +2288,7 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
        Philip do not, exactly as production. The downstream reader is not
        built, so George reads "Not resolved yet" and the others "Not connected". */
     identityLinkedPersonIds: ["demo-person-george-jenko"],
+    discipleship: buildDemoDiscipleship(people),
     /* The preview behaves as if the covered / Journey columns exist. */
     gatheringJourneyFieldsSupported: true,
     accountabilityCheckIns: [
@@ -2816,7 +3026,7 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
 export default async function DosAppPreviewPage({
   searchParams,
 }: {
-  searchParams: Promise<{ demo?: string; form?: string; gallery?: string; links?: string; workspace?: string }>;
+  searchParams: Promise<{ demo?: string; form?: string; gallery?: string; links?: string; perspective?: string; workspace?: string }>;
 }) {
   if (!isDemoPreviewRouteEnabled) {
     redirect("/dos");
@@ -2842,5 +3052,8 @@ export default async function DosAppPreviewPage({
     return <RecipientFormsGallery form={form as RecipientFormPreviewKey} />;
   }
 
-  return <DosMvpAppClient data={buildDosPreviewDemoData({ links: params.links === "active" ? "active" : null })} />;
+  const demoData = buildDosPreviewDemoData({ links: params.links === "active" ? "active" : null });
+
+  // USA-275: Dirk's read-only view of Ryan's connected downline.
+  return <DosMvpAppClient data={params.perspective === "dirk" ? buildDirkPerspectiveData(demoData) : demoData} />;
 }
