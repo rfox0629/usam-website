@@ -16410,7 +16410,13 @@ const meetingCalendarViewTabs: ReadonlyArray<SegmentedTabOption<MeetingCalendarV
   { label: "Week", value: "week" },
 ];
 
-const meetingCalendarWeekHours = Array.from({ length: 13 }, (_, index) => index + 8);
+/* 6 AM through the 9 PM row. The grid used to start at 8 AM, which drew an
+   early meeting (7:00) in the 8 AM row as if it began an hour later. */
+const meetingCalendarWeekHours = Array.from({ length: 16 }, (_, index) => index + 6);
+const weekFirstHour = meetingCalendarWeekHours[0];
+const weekLastHour = meetingCalendarWeekHours[meetingCalendarWeekHours.length - 1];
+/* Height of one hour row on the week grid; event blocks are sized from it. */
+const weekHourRowPx = 52;
 const availabilityPreferredTimeOptions = ["Morning", "Afternoon", "Evening"] as const;
 const availabilityDayOptions = [
   { id: "mon", label: "Monday", shortLabel: "Mon" },
@@ -19213,35 +19219,43 @@ function WeekStatTile({
 }
 
 function calendarItemTone(kind: MeetingCalendarItemKind) {
+  /* `solid` is the filled block used on the week and month grids, where the
+     text is white (founder request 2026-09-14: read like Google Calendar).
+     `bg` / `text` stay for the lighter agenda rows and the key. */
   switch (kind) {
     case "google":
       return {
         bg: "bg-[#EEF6FF]",
         dot: "bg-[#0EA5E9]",
+        solid: "bg-[#0369A1]",
         text: "text-[#0369A1]",
       };
     case "birthday":
       return {
         bg: "bg-[#DCFCE7]",
         dot: "bg-[#16A34A]",
+        solid: "bg-dos-green",
         text: "text-[#15803D]",
       };
     case "anniversary":
       return {
         bg: "bg-[#EAF2FF]",
         dot: "bg-[#2563EB]",
+        solid: "bg-dos-blueText",
         text: "text-[#1D4ED8]",
       };
     case "follow_up":
       return {
         bg: "bg-[#DCFCE7]",
         dot: "bg-[#16A34A]",
+        solid: "bg-dos-green",
         text: "text-[#15803D]",
       };
     case "prayer":
       return {
         bg: "bg-[#DCFCE7]",
         dot: "bg-[#16A34A]",
+        solid: "bg-dos-green",
         text: "text-[#15803D]",
       };
     case "meeting":
@@ -19249,6 +19263,7 @@ function calendarItemTone(kind: MeetingCalendarItemKind) {
       return {
         bg: "bg-[#EBF2FF]",
         dot: "bg-[#2563EB]",
+        solid: "bg-dos-blue",
         text: "text-[#1D4ED8]",
       };
   }
@@ -20218,14 +20233,20 @@ function MeetingCalendarView({
     const date = parseDisplayDate(item.date) ?? selectedDate;
     const dayStart = startOfDisplayDay(date.toISOString()) ?? weekStart;
     const dayIndex = Math.max(0, Math.min(6, Math.round((dayStart.getTime() - weekStart.getTime()) / (24 * 60 * 60 * 1000))));
-    const minuteOfDay = Math.max(8 * 60, Math.min(20 * 60, calendarItemMinuteOfDay(item)));
-    const rowStart = Math.floor((minuteOfDay - 8 * 60) / 60) + 2;
-    const span = Math.max(1, Math.min(3, Math.ceil(calendarItemDurationMinutes(item) / 60)));
-    const marginTop = Math.round(((minuteOfDay % 60) / 60) * 28);
+    const minuteOfDay = Math.max(weekFirstHour * 60, Math.min(weekLastHour * 60, calendarItemMinuteOfDay(item)));
+    const rowStart = Math.floor((minuteOfDay - weekFirstHour * 60) / 60) + 2;
+    /* Sized to the real start and duration, the way Google Calendar draws a
+       week, instead of filling whole hour rows (founder request 2026-09-14). */
+    const offsetMinutes = minuteOfDay % 60;
+    const durationMinutes = Math.max(30, Math.min(calendarItemDurationMinutes(item), (weekLastHour + 1) * 60 - minuteOfDay));
+    const span = Math.max(1, Math.min(meetingCalendarWeekHours.length - (rowStart - 2), Math.ceil((offsetMinutes + durationMinutes) / 60)));
+    const marginTop = Math.round((offsetMinutes / 60) * weekHourRowPx);
+    const height = Math.max(24, Math.min(span * weekHourRowPx - marginTop, Math.round((durationMinutes / 60) * weekHourRowPx)) - 2);
 
     return {
       gridColumn: `${dayIndex + 2}`,
       gridRow: `${rowStart} / span ${span}`,
+      height: `${height}px`,
       marginTop: `${marginTop}px`,
     };
   }
@@ -20326,7 +20347,7 @@ function MeetingCalendarView({
 	                  <button
 	                    aria-label={`${new Intl.DateTimeFormat("en-US", { dateStyle: "full" }).format(date)}${dayItems.length ? `, ${dayItems.length} on the calendar` : ""}`}
 	                    aria-pressed={isSelected}
-	                    className={`grid min-h-[64px] content-start rounded-[16px] px-1.5 py-1.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:min-h-[58px] max-[350px]:rounded-[14px] md:min-h-[86px] md:px-2 ${
+	                    className={`grid min-h-[64px] content-start rounded-[16px] px-0.5 py-1.5 text-left transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-[#2563EB]/30 max-[350px]:min-h-[58px] max-[350px]:rounded-[14px] md:min-h-[86px] md:px-2 ${
 	                      isSelected
 	                        ? "bg-[#2563EB] text-white shadow-[0_10px_24px_rgba(37,99,235,0.22)]"
 	                        : isToday
@@ -20345,19 +20366,19 @@ function MeetingCalendarView({
 
 	                          return (
 	                            <span
-	                              className={`flex min-w-0 items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-black leading-3 md:text-[10px] ${
+	                              className={`block min-w-0 overflow-hidden whitespace-nowrap rounded-[4px] px-1 py-px text-[10px] font-semibold leading-[14px] md:text-[11px] ${
 	                                isSelected
-	                                  ? "bg-white/18 text-white"
-	                                  : `${tone.bg} ${tone.text}`
+	                                  ? "bg-white text-dos-blueText"
+	                                  : `${tone.solid} text-white`
 	                              }`}
 	                              key={item.id}
 	                            >
-	                              <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${isSelected ? "bg-white" : tone.dot}`} />
-	                              <span className="truncate">{calendarDayCellTitle(item)}</span>
+	                              
+	                              {calendarDayCellTitle(item)}
 	                            </span>
 	                          );
 	                        })}
-	                        {dayItems.length > 2 ? <span className={`px-1 text-[9px] font-bold leading-3 ${isSelected ? "text-white" : "text-[#64748B]"}`}>+{dayItems.length - 2} more</span> : null}
+	                        {dayItems.length > 2 ? <span className={`px-1 text-[10px] font-semibold leading-[14px] ${isSelected ? "text-white" : "text-[#64748B]"}`}>+{dayItems.length - 2} more</span> : null}
 	                      </span>
 	                    ) : null}
 	                  </button>
@@ -20394,12 +20415,12 @@ function MeetingCalendarView({
 
                 return (
                   <div className="contents" key={hour}>
-                    <div className="border-r border-t border-[#EFF6FF] bg-white px-1.5 py-2 text-left text-[9px] font-bold text-[#94A3B8]" style={{ fontFamily: font.rajdhani, gridColumn: "1", gridRow }}>
+                    <div className="border-r border-t border-[#EFF6FF] bg-white whitespace-nowrap px-1 py-1 text-left text-[10px] font-semibold text-dos-secondary" style={{ fontFamily: font.rajdhani, gridColumn: "1", gridRow }}>
                       {calendarWeekHourLabel(hour)}
                     </div>
                     {weekDays.map((day, dayIndex) => (
                       <div
-                        className={`min-h-[52px] border-t border-[#EFF6FF] bg-white ${dayIndex === weekDays.length - 1 ? "" : "border-r"}`}
+                        className={`h-[52px] border-t border-[#EFF6FF] bg-white ${dayIndex === weekDays.length - 1 ? "" : "border-r"}`}
                         key={`${calendarDateKey(day)}-${hour}`}
                         style={{ gridColumn: String(dayIndex + 2), gridRow }}
                       />
@@ -20412,14 +20433,14 @@ function MeetingCalendarView({
 
                 return (
                   <button
-                    className={`z-10 m-1 min-w-0 rounded-[14px] border px-1.5 py-1 text-left shadow-[0_8px_18px_rgba(37,99,235,0.08)] ${tone.bg} ${tone.text}`}
+                    className={`z-10 mx-px flex min-w-0 flex-col justify-start self-start overflow-hidden rounded-[5px] px-1 py-0.5 text-left text-white ${tone.solid}`}
                     key={`week-${item.id}`}
                     onClick={() => openCalendarItem(item)}
                     style={weekEventStyle(item)}
                     type="button"
                   >
-                    <span className="block truncate text-[10px] font-black leading-4 sm:text-xs">{item.title}</span>
-                    <span className="block truncate text-[9px] font-bold leading-3 opacity-80 sm:text-[10px]">{formatTime(item.date) || calendarItemSourceLabel(item)}</span>
+                    <span className="block break-words text-[11px] font-semibold leading-[13px] [overflow-wrap:anywhere] sm:text-xs sm:leading-4">{item.title}</span>
+                    <span className="mt-px hidden truncate text-[10px] font-medium leading-3 text-white/90 sm:block">{formatTime(item.date) || calendarItemSourceLabel(item)}</span>
                   </button>
                 );
               })}
@@ -39336,13 +39357,15 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     setSelectedOutcomeTags([]);
   }
 
-  /* Return to where the flow began, with the saved meeting visible. Only the
-     Home origin lands on Home, and it says so rather than leaving the user
-     wondering whether the save worked. */
-  function returnAfterMeetingSave(meetingId: string | null) {
+  /* Return to where the flow began. Only the Home origin lands on Home, and it
+     says so rather than leaving the user wondering whether the save worked.
+     Founder decision (2026-09-14): saving never opens the saved meeting's own
+     screen. It lands on the calendar (or the Person / Timeline the flow came
+     from), where the new meeting is visible in place. */
+  function returnAfterMeetingSave() {
     const origin = meetingFlowOriginRef.current;
 
-    setSelectedMeetingId(meetingId);
+    setSelectedMeetingId(null);
 
     if (origin.kind === "person") {
       setSelectedPersonId(origin.personId);
@@ -43822,8 +43845,8 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
         }
 
         closeForm();
-        returnAfterMeetingSave(workflowIds.meetingId);
-        setPostMeetingFollowUpId(shouldUseLeaderReflection ? workflowIds.meetingId : null);
+        returnAfterMeetingSave();
+        setPostMeetingFollowUpId(null);
         router.refresh();
       } catch (error) {
         setErrorMessage(error instanceof Error ? error.message : "Unable to save meeting.");
@@ -43881,8 +43904,15 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
           return;
         }
 
+        /* Founder decision (2026-09-14): land on the calendar at the new
+           meeting's day rather than opening the meeting's own screen. */
+        const scheduledDateKey = calendarDateKeyFromValue(scheduledDate) ?? selectedMeetingsCalendarDate;
+
+        setSelectedMeetingId(null);
         setActiveTab("meetings");
-        setSelectedMeetingId(result.id);
+        setMeetingsView("calendar");
+        setSelectedMeetingsCalendarDate(scheduledDateKey);
+        setMeetingsCalendarMonth(startOfCalendarMonth(dateFromCalendarKey(scheduledDateKey)));
       }
     })();
   }
@@ -44079,10 +44109,12 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
         }
       }
 
+      /* Logging a scheduled meeting is a save like any other (founder,
+         2026-09-14): return to the calendar day it came from instead of
+         opening the meeting's own screen and its follow-up. */
       closeForm();
-      setActiveTab("meetings");
-      setSelectedMeetingId(selectedMeeting.id);
-      setPostMeetingFollowUpId(shouldUseLeaderReflection ? selectedMeeting.id : null);
+      returnAfterMeetingSave();
+      setPostMeetingFollowUpId(null);
       router.refresh();
     })();
   }

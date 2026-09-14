@@ -87,8 +87,8 @@ for (const emojiCopy of ["🍞 Ministering", "📖 Being Discipled", "🤝 Mutua
 
 assert(
   appClient.includes("tableRoleIncludesMinistering(tableRole)") &&
-  appClient.includes("setPostMeetingFollowUpId(shouldUseLeaderReflection ?"),
-  "Quick Review/Testimony prompt must remain gated to ministering and mutual discipleship roles.",
+  appClient.includes("showPostMeetingFollowUp && isLoggedTableMeeting && roleAllowsFruitReviews"),
+  "Quick Review/Testimony prompt must remain gated to ministering and mutual discipleship roles (it is no longer opened automatically after a save, founder 2026-09-14).",
 );
 assert(
   appClient.includes("ministryLoggedMeetings") &&

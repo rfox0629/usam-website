@@ -101,4 +101,16 @@ if (process.exitCode) {
   process.exit(process.exitCode);
 }
 
+// Founder request (2026-09-14): week and month events read like Google Calendar --
+// solid filled blocks with white text; week titles wrap instead of truncating and
+// blocks are sized to their duration; month bars drop the dot and clip, not ellipsize.
+{
+  const view = client.slice(client.indexOf("function MeetingCalendarView("), client.indexOf("<CalendarKey items={filteredItems} />"));
+  const tone = client.slice(client.indexOf("function calendarItemTone("), client.indexOf("function calendarItemTone(") + 2000);
+  assert((tone.match(/solid: "/g) ?? []).length === 6, "Every calendar item kind has a solid fill.");
+  assert(view.includes("text-white ${tone.solid}") && view.includes("[overflow-wrap:anywhere]") && !view.includes('<span className="block truncate text-[10px] font-black leading-4 sm:text-xs">{item.title}</span>'), "Week blocks are solid and their titles wrap rather than truncate.");
+  assert(view.includes("height: `${height}px`") && view.includes("weekHourRowPx"), "Week blocks are sized to the event's duration.");
+  assert(view.includes("`${tone.solid} text-white`") && !view.includes("h-1.5 w-1.5 shrink-0 rounded-full") && !view.includes('<span className="truncate">{calendarDayCellTitle(item)}</span>'), "Month bars are solid, dot-free and clip their text.");
+}
+
 console.log("DOS calendar sync regression checks passed.");

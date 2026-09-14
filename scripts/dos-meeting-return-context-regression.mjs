@@ -43,7 +43,7 @@ assert(
   "Logging from the calendar must remember the date.",
 );
 assert(
-  client.includes("function returnAfterMeetingSave(meetingId: string | null)"),
+  client.includes("function returnAfterMeetingSave()"),
   "There must be one place that decides where a save returns to.",
 );
 const returnBlock = client.slice(client.indexOf("function returnAfterMeetingSave"), client.indexOf("function closeForm()"));
@@ -51,7 +51,15 @@ assert(returnBlock.includes('if (origin.kind === "person") {') && returnBlock.in
 assert(returnBlock.includes('if (origin.kind === "calendar") {') && returnBlock.includes("setSelectedMeetingsCalendarDate(origin.calendarDateKey)"), "From a calendar date, return to that date.");
 assert(returnBlock.includes('if (origin.kind === "timeline") {') && returnBlock.includes('setMeetingsView("timeline")'), "From Timeline, return to Timeline.");
 assert(returnBlock.includes('setActiveTab("home");\n    setMeetingSaveConfirmation('), "From Home, return to Home with a confirmation.");
-assert(returnBlock.includes("setSelectedMeetingId(meetingId)"), "The saved meeting must be the selected one wherever we return to.");
+// Founder decision (2026-09-14): saving lands on the calendar / origin and never
+// opens the saved meeting's own screen (nor its post-save follow-up screen).
+assert(returnBlock.includes("setSelectedMeetingId(null)") && !returnBlock.includes("setSelectedMeetingId(meetingId)"), "Saving must not open the saved meeting's screen.");
+assert(client.includes("returnAfterMeetingSave();\n        setPostMeetingFollowUpId(null);"), "Logging must not queue the post-save follow-up screen.");
+const scheduleSuccess = client.slice(client.indexOf("function handleScheduleMeetingSubmit"), client.indexOf("function handleEditMeetingSubmit"));
+assert(!scheduleSuccess.includes("setSelectedMeetingId(result.id)"), "Scheduling must not open the new meeting's screen.");
+const editMeetingSubmit = client.slice(client.indexOf("function handleEditMeetingSubmit"), client.indexOf("function handleEditMeetingSubmit") + 12000);
+assert(editMeetingSubmit.includes("closeForm();\n      returnAfterMeetingSave();\n      setPostMeetingFollowUpId(null);") && !editMeetingSubmit.includes("setPostMeetingFollowUpId(shouldUseLeaderReflection ? selectedMeeting.id : null)"), "Logging a scheduled meeting returns like any other save, without opening the meeting.");
+assert(scheduleSuccess.includes('setMeetingsView("calendar");') && scheduleSuccess.includes("setSelectedMeetingsCalendarDate(scheduledDateKey);") && scheduleSuccess.includes("setMeetingsCalendarMonth(startOfCalendarMonth(dateFromCalendarKey(scheduledDateKey)));"), "Scheduling lands on the Meetings calendar at the new meeting's day and month.");
 assert(
   !/closeForm\(\);\s*\n\s*setActiveTab\("meetings"\);\s*\n\s*setSelectedMeetingId\(workflowIds\.meetingId\);/.test(client),
   "Saving must no longer send every flow to the Meetings tab.",
