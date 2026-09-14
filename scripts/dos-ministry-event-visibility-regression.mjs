@@ -64,8 +64,10 @@ assert(
   migration.includes("ministry_event_people_actor_check"),
   "Ministry event people rows must require a field_person_id, team_member_id, or user_id actor link.",
 );
+/* USA-275: a read-only connected read passes no viewer, so it sees only the
+   workspace-scoped meetings and never role-visible events for anyone else. */
 assert(
-  loader.includes("loadMeetingsForWorkspace(supabase, workspace.id, viewer)"),
+  loader.includes("loadMeetingsForWorkspace(supabase, workspace.id, connectedRead ? null : viewer)"),
   "Canonical DOS loader must pass the viewer into meeting visibility loading.",
 );
 assert(

@@ -25,6 +25,8 @@ import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } 
 import { loadTableInvitationBookingsForWorkspace, loadTableInvitationsForWorkspace, type DosTableInvitationBooking } from "@/src/lib/dos/table-invitation-data";
 import type { DosTableInvitation } from "@/src/lib/dos/table-invitations";
 import type { DosAuthorizedUser } from "@/src/lib/dos/auth";
+import { loadDosAppDiscipleship } from "@/src/lib/dos/discipleship-connections";
+import { emptyDosAppDiscipleship, type DosAppDiscipleship } from "@/src/lib/dos/discipleship-graph";
 import {
   dosCommitmentsFeatureFlag,
   isDosAccountabilityFrequency,
@@ -987,6 +989,11 @@ export type DosAppData = {
      could be reached at all ("Not connected" otherwise). Nothing is read from
      the linked person's workspace here. */
   identityLinkedPersonIds: string[];
+  /* USA-275: the discipleship graph this viewer may use — own Discipling
+     selections, recorded connections, accepted account connections and
+     identity decisions, plus the workspaces readable upstream-to-downstream.
+     Computed per request; never cached. */
+  discipleship: DosAppDiscipleship;
   /* 2026-09-11: whether dos_group_gatherings carries covered_summary and the
      journey_* columns (an additive migration applied only with founder
      authorization). Until it does, the gathering screen hides those fields
@@ -4437,10 +4444,22 @@ async function loadHouseholdMembersForWorkspace(supabase: SupabaseAdminClient, w
   return fallbackResult;
 }
 
+/* USA-275: `connectedRead` loads another workspace for a read-only connected
+   view that the caller has already authorized. It performs no write of any
+   kind (no household sync, no viewer Person, no identity link, no group seed,
+   no circle recalculation) and never recurses into discipleship loading. My
+   Record is read for `recordUserId`, the account that accepted the
+   connection, and nobody else. */
+export type DosAppDataLoadOptions = {
+  connectedRead?: { recordUserId: string | null };
+};
+
 export async function loadDosAppData(
   workspaceRef?: DosAppWorkspaceRef | string | null,
   viewer?: DosAuthorizedUser | null,
+  options: DosAppDataLoadOptions = {},
 ): Promise<LoadResult<DosAppData>> {
+  const connectedRead = options.connectedRead ?? null;
   const workspaceResult = await loadWorkspace(workspaceRef);
 
   if (workspaceResult.status !== "ready") {
@@ -4449,7 +4468,7 @@ export async function loadDosAppData(
 
   const workspace = workspaceResult.data;
   const supabase = createSupabaseAdminClient();
-  const householdPeopleSync = await syncHouseholdTeamMembersAsPeople(supabase, { workspaceId: workspace.id });
+  const householdPeopleSync = connectedRead ? { error: null } : await syncHouseholdTeamMembersAsPeople(supabase, { workspaceId: workspace.id });
 
   if (householdPeopleSync.error) {
     return {
@@ -4458,7 +4477,7 @@ export async function loadDosAppData(
     };
   }
 
-  const viewerPersonSync = viewer
+  const viewerPersonSync = viewer && !connectedRead
     ? await ensureDosViewerPerson(supabase, {
       email: viewer.email,
       phone: "phone" in viewer ? viewer.phone : null,
@@ -4477,7 +4496,7 @@ export async function loadDosAppData(
 
   let viewerPersonId: string | null = null;
 
-  if (viewer) {
+  if (viewer && !connectedRead) {
     const identityResult = await resolveDosIdentityForWorkspace(supabase, viewer, {
       workspaceDisplayName: workspace.display_name,
       workspaceId: workspace.id,
@@ -4495,7 +4514,12 @@ export async function loadDosAppData(
     }
   }
 
-  const groupsSeedResult = await ensureRyanDosWorkspaceGroups(supabase, workspace);
+  const groupsSeedResult = connectedRead ? { error: null } : await ensureRyanDosWorkspaceGroups(supabase, workspace);
+  const recordViewer: DosAuthorizedUser | null = connectedRead
+    ? (connectedRead.recordUserId
+      ? { access: "member", email: "", isActive: true, prayerPermissions: [], role: "member", status: "authorized", userId: connectedRead.recordUserId }
+      : null)
+    : viewer ?? null;
 
   if (groupsSeedResult.error) {
     console.warn("Unable to seed Ryan DOS groups.", groupsSeedResult.error.message);
@@ -4503,7 +4527,7 @@ export async function loadDosAppData(
 
   const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, featureFlagsResult, commitmentsResult, accountabilitySchedulesResult, accountabilityCheckInsResult, resourceAssignmentsResult, guidedResourceProgressResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, tableInvitationBookingsResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
-    loadMeetingsForWorkspace(supabase, workspace.id, viewer),
+    loadMeetingsForWorkspace(supabase, workspace.id, connectedRead ? null : viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
     loadFruitForWorkspace(supabase, workspace.id),
     loadAssessmentResultsForWorkspace(supabase, workspace.id),
@@ -4526,7 +4550,7 @@ export async function loadDosAppData(
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
     loadHouseholdMembersForWorkspace(supabase, workspace.id),
-    loadMyRecordForWorkspace(supabase, workspace.id, viewer),
+    loadMyRecordForWorkspace(supabase, workspace.id, recordViewer),
     loadTableInvitationsForWorkspace(supabase, workspace.id),
     loadTableInvitationBookingsForWorkspace(supabase, workspace.id),
     loadOrganizationForWorkspace(supabase, workspace.slug),
@@ -5494,9 +5518,12 @@ export async function loadDosAppData(
       accountabilitySchedules,
       assessmentResults,
       calendarConnection,
-      circles: await loadFreshCircleData(workspace.id, people, meetings.filter((meeting) => meeting.meetingStatus === "logged")),
-      circlePlacements: await loadConfirmedPlacementsSafely(workspace.id),
-      identityLinkedPersonIds: await loadIdentityLinkedPersonIdsSafely(supabase, workspace.id, people.map((person) => person.id)),
+      circles: connectedRead ? null : await loadFreshCircleData(workspace.id, people, meetings.filter((meeting) => meeting.meetingStatus === "logged")),
+      circlePlacements: connectedRead ? [] : await loadConfirmedPlacementsSafely(workspace.id),
+      identityLinkedPersonIds: connectedRead ? [] : await loadIdentityLinkedPersonIdsSafely(supabase, workspace.id, people.map((person) => person.id)),
+      discipleship: connectedRead
+        ? emptyDosAppDiscipleship(workspace.id)
+        : await loadDosAppDiscipleship(supabase, { people, viewer, workspace }),
       gatheringJourneyFieldsSupported: groupsResult.data.journeyFieldsSupported,
       commitments,
       externalCalendarEvents,

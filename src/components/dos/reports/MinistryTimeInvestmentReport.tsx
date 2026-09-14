@@ -2,7 +2,11 @@
 
 import { ArrowDown, ArrowLeft, ArrowUp, ChevronDown, ChevronRight } from "lucide-react";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { connectedDateLabel, type ConnectedViewLoader } from "@/src/components/dos/multiplication/ConnectedWorkspaceSheet";
+import { MultiplicationSummaryLine, MultiplicationTree } from "@/src/components/dos/multiplication/MultiplicationTree";
 import { DosDetailSection, DosDetailSheet } from "@/src/components/dos/overlays/DosSurfaces";
+import type { DosConnectedWorkspaceView } from "@/src/lib/dos/discipleship-connected-view";
+import { dosMultiplicationEmptyState, type DosDiscipleEntry, type DosDiscipleshipGraph } from "@/src/lib/dos/discipleship-graph";
 import { Button, PillRail, Segmented } from "@/src/components/dos/ui";
 import {
   buildDosMinistryReport,
@@ -167,13 +171,13 @@ function multiplicationDetail(row: DosMinistryPersonRow) {
 
   switch (row.downstreamStatus) {
     case "resolved":
-      return `${name}'s own Person records name ${row.downstream.map((link) => link.name).join(", ")}.`;
+      return `${name} disciples ${row.downstream.map((link) => link.name).join(", ")}.`;
     case "not_recorded":
-      return `${name}'s own Person records were read and name no one ${name} is discipling.`;
+      return dosMultiplicationEmptyState;
     case "not_resolved":
       return `${name} has a linked DOS identity, but reading ${name}'s own records is not built yet.`;
     case "not_connected":
-      return `${name} has no verified DOS identity, so ${name}'s own records cannot be read.`;
+      return dosMultiplicationEmptyState;
     default:
       return "Multiplication applies to people you are discipling.";
   }
@@ -370,14 +374,27 @@ function MetricCard({ label, onOpen, value }: { label: string; onOpen: () => voi
 
 /* ---------- the report ---------- */
 
+/* USA-275: the one discipleship graph, so the Multiplication column, its
+   names and further generations, and connected activity are the same
+   relationships People shows. */
+export type MinistryReportMultiplication = {
+  graph: DosDiscipleshipGraph;
+  loadView: ConnectedViewLoader;
+  onOpenEntry: (entry: DosDiscipleEntry) => void;
+  onViewConnected: (workspaceId: string) => void;
+  workspaceId: string;
+};
+
 export function MinistryTimeInvestmentReport({
   input,
+  multiplication = null,
   now,
   onOpenMeeting,
   onOpenPerson,
   storageKey,
 }: {
   input: Omit<DosMinistryReportInput, "now" | "period" | "range">;
+  multiplication?: MinistryReportMultiplication | null;
   /* Injected so the visual suite's pinned clock applies. */
   now: Date;
   /* Open the full source record. Reports calls these only from an explicit
@@ -759,6 +776,7 @@ export function MinistryTimeInvestmentReport({
           fruitById={fruitById}
           fruitForPerson={fruitForPerson}
           meetingById={meetingById}
+          multiplication={multiplication}
           nameById={nameById}
           now={now}
           onBack={backDetail}
@@ -832,11 +850,92 @@ function PersonTableRow({
 
 /* ---------- read-only detail over the report ---------- */
 
+/* Downstream activity stays attributed to its owner and outside every
+   personal figure: it is read from the connected account's own records and
+   never merged into this report's totals. */
+function inPeriod(value: string | null | undefined, period: { end: string; start: string }) {
+  if (!value) {
+    return false;
+  }
+
+  const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T12:00:00`) : new Date(value);
+
+  if (Number.isNaN(parsed.getTime())) {
+    return false;
+  }
+
+  const key = `${parsed.getFullYear()}-${String(parsed.getMonth() + 1).padStart(2, "0")}-${String(parsed.getDate()).padStart(2, "0")}`;
+
+  return key >= period.start && key <= period.end;
+}
+
+export function summarizeConnectedActivity(view: DosConnectedWorkspaceView, period: { end: string; start: string }) {
+  const meetings = view.meetings.filter((meeting) => meeting.meetingStatus === "logged" && inPeriod(meeting.date, period));
+
+  return {
+    fruit: view.fruit.filter((fruit) => inPeriod(fruit.date, period)).length,
+    gatherings: view.groups.flatMap((group) => group.gatherings).filter((gathering) => gathering.status === "completed" && inPeriod(gathering.date, period)).length,
+    meetings: meetings.length,
+    minutes: meetings.reduce((sum, meeting) => sum + (meeting.minutes ?? 0), 0),
+  };
+}
+
+function ConnectedActivitySummary({
+  loadView,
+  onView,
+  period,
+  workspaceId,
+}: {
+  loadView: ConnectedViewLoader;
+  onView: () => void;
+  period: { end: string; start: string };
+  workspaceId: string;
+}) {
+  const [state, setState] = useState<{ status: "error" | "loading" } | { status: "ready"; view: DosConnectedWorkspaceView }>({ status: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    setState({ status: "loading" });
+    loadView(workspaceId)
+      .then((view) => !cancelled && setState({ status: "ready", view }))
+      .catch(() => !cancelled && setState({ status: "error" }));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadView, workspaceId]);
+
+  if (state.status !== "ready") {
+    return state.status === "loading" ? <p className="mt-3 text-dos-meta text-dos-secondary" role="status">Loading connected activity…</p> : null;
+  }
+
+  const summary = summarizeConnectedActivity(state.view, period);
+  const first = state.view.ownerName.split(/\s+/)[0] || state.view.ownerName;
+
+  return (
+    <div className="mt-3 rounded-dos-2 bg-dos-surface2 px-3 py-3" data-connected-activity={workspaceId}>
+      <p className="text-dos-label font-semibold text-dos-primary">{first}&rsquo;s own records · {connectedDateLabel(period.start)} – {connectedDateLabel(period.end)}</p>
+      <Facts
+        items={[
+          { label: "Meetings", value: summary.meetings },
+          { label: "Logged duration", value: formatDosMinistryMinutes(summary.minutes) },
+          summary.gatherings ? { label: "Group gatherings", value: summary.gatherings } : null,
+          { label: "Fruit", value: summary.fruit },
+        ]}
+      />
+      <p className="mt-1 text-dos-meta text-dos-secondary">Attributed to {first}. Not included in your totals.</p>
+      <div className="mt-2"><Button compact onClick={onView} variant="tinted">View {first}&rsquo;s activity</Button></div>
+    </div>
+  );
+}
+
 function ReportDetailSheet({
   detail,
   fruitById,
   fruitForPerson,
   meetingById,
+  multiplication,
   nameById,
   now,
   onBack,
@@ -852,6 +951,7 @@ function ReportDetailSheet({
   fruitById: Map<string, DosMinistryFruitRow>;
   fruitForPerson: (personId: string) => DosMinistryFruitRow[];
   meetingById: Map<string, DosMinistryMeetingRecord>;
+  multiplication: MinistryReportMultiplication | null;
   nameById: Map<string, string>;
   now: Date;
   onBack: () => void;
@@ -984,8 +1084,31 @@ function ReportDetailSheet({
             {row.directionConflict ? <p className="mt-2 rounded-dos-1 bg-dos-blue50 px-3 py-2 text-dos-meta text-dos-blueText">{row.directionConflict}</p> : null}
           </DosDetailSection>
           <DosDetailSection label="Multiplication">
-            <Facts items={[{ label: "Status", value: dosMinistryMultiplicationLabel(row) }]} />
-            <p className="mt-1 text-dos-meta text-dos-secondary">{multiplicationDetail(row)}</p>
+            {multiplication ? (() => {
+              const reference = { kind: "person" as const, personId: row.personId, workspaceId: multiplication.workspaceId };
+              const account = multiplication.graph.readableAccountFor(row.personId);
+
+              return (
+                <>
+                  <MultiplicationTree emptyText={dosMultiplicationEmptyState} entries={multiplication.graph.directDisciples(reference)} graph={multiplication.graph} onOpen={multiplication.onOpenEntry} />
+                  <MultiplicationSummaryLine graph={multiplication.graph} reference={reference} />
+                  <p className="mt-2 text-dos-meta text-dos-secondary">Current connections, not limited to this period.</p>
+                  {account?.discipleWorkspaceId ? (
+                    <ConnectedActivitySummary
+                      loadView={multiplication.loadView}
+                      onView={() => multiplication.onViewConnected(account.discipleWorkspaceId as string)}
+                      period={report.period}
+                      workspaceId={account.discipleWorkspaceId}
+                    />
+                  ) : null}
+                </>
+              );
+            })() : (
+              <>
+                <Facts items={[{ label: "Status", value: dosMinistryMultiplicationLabel(row) }]} />
+                <p className="mt-1 text-dos-meta text-dos-secondary">{multiplicationDetail(row)}</p>
+              </>
+            )}
           </DosDetailSection>
           <DosDetailSection label="Contributing records">
             <RecordList currentPersonId={row.personId} now={now} onOpenRecord={onOpenRecord} records={row.records} />

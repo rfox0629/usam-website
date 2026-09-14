@@ -8,6 +8,7 @@ import { relationshipModelCounts } from "@/src/lib/dos/relationship-model";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { DosMobileMessageScreen } from "../app/DosMobileMessageScreen";
 import { DosMvpAppClient } from "../app/DosMvpAppClient";
+import { emptyDosAppDiscipleship } from "@/src/lib/dos/discipleship-graph";
 
 export const dynamic = "force-dynamic";
 
@@ -243,6 +244,9 @@ function filterDosAppDataForSharedGroups(data: DosAppData, sharedGroupIds: strin
     /* Identity links are the missionary's own and are never shared into a
        collective view. */
     identityLinkedPersonIds: [],
+    /* USA-275: discipleship connections and connected visibility are the
+       missionary's own and are never shared into a collective view. */
+    discipleship: emptyDosAppDiscipleship(data.workspace.id),
     gatheringJourneyFieldsSupported: data.gatheringJourneyFieldsSupported,
     /* Circle placement is the missionary's own and is never shared into a
        collective view. */

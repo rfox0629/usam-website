@@ -44,6 +44,8 @@ import {
   formatDosMinistryDate,
   formatDosMinistryMinutes,
   formatDosMinistryPeriod,
+  dosMeetingContextLabel,
+  dosMeetingContextLabels,
 } from "../src/lib/dos/ministry-report.ts";
 
 const now = new Date("2026-09-09T12:00:00");
@@ -281,12 +283,12 @@ assert.equal(narrow.relationshipRows.find((row) => row.personId === "dirk").comp
 assert.equal(report.relationshipRows.some((row) => row.personId === "quiet"), false, "No direction and no activity means no row.");
 
 // 9. Multiplication only from a resolved Person relationship: "0" is a verified zero, "—" is unavailable.
-assert.deepEqual([tanner.downstreamStatus, dosMinistryMultiplicationLabel(tanner), dosMinistryMultiplicationCell(tanner)], ["not_connected", "Not connected", "—"], "Without a verified DOS identity nothing can be read, so nothing is claimed.");
+assert.deepEqual([tanner.downstreamStatus, dosMinistryMultiplicationLabel(tanner), dosMinistryMultiplicationCell(tanner)], ["not_connected", "No discipleship connections added", "0"], "USA-275: nothing was added; the empty state never implies no ministry.");
 assert.deepEqual(tanner.downstream, []);
 const linkedOnly = build("30d", undefined, { linkedPersonIds: ["tanner"] }).investedRows.find((row) => row.personId === "tanner");
 assert.deepEqual([linkedOnly.downstreamStatus, dosMinistryMultiplicationLabel(linkedOnly), dosMinistryMultiplicationCell(linkedOnly)], ["not_resolved", "Not resolved yet", "—"]);
 const readEmpty = build("30d", undefined, { downstreamReadPersonIds: ["tanner"], linkedPersonIds: ["tanner"] }).investedRows.find((row) => row.personId === "tanner");
-assert.deepEqual([readEmpty.downstreamStatus, dosMinistryMultiplicationLabel(readEmpty), dosMinistryMultiplicationCell(readEmpty)], ["not_recorded", "Not recorded", "0"], "Only a person whose own records were read has a known zero.");
+assert.deepEqual([readEmpty.downstreamStatus, dosMinistryMultiplicationLabel(readEmpty), dosMinistryMultiplicationCell(readEmpty)], ["not_recorded", "No discipleship connections added", "0"], "A person whose own records were read and name no one.");
 const resolved = build("30d", undefined, { downstream, downstreamReadPersonIds: ["tanner"], linkedPersonIds: ["tanner"] }).investedRows.find((row) => row.personId === "tanner");
 assert.equal(resolved.downstreamStatus, "resolved");
 assert.deepEqual(resolved.downstream, [{ name: "Micah", personId: "tanner-ws-micah" }], "The ended relationship is not counted.");
@@ -367,7 +369,7 @@ assert.equal(rowOf("quiet"), undefined, "No relationship and no activity means n
 assert.equal(rowOf("tanner-dup"), undefined);
 const dirkNoActivity = narrow.rows.find((row) => row.personId === "dirk");
 assert.deepEqual([dirkNoActivity.completeness, dirkNoActivity.meetingCount, dirkNoActivity.loggedMinutes], ["none", 0, 0], "A relationship with no activity is on the table, never a task.");
-assert.deepEqual(dosMinistryReportFilterOptions.map((option) => [option.value, option.label]), [["all", "All"], ["i_am_discipling", "Discipling"], ["walking_with", "Walking with"], ["discipling_me", "Discipling me"], ["none", "New"]]);
+assert.deepEqual(dosMinistryReportFilterOptions.map((option) => [option.value, option.label]), [["all", "All"], ["i_am_discipling", "Discipling"], ["walking_with", "Walking with"], ["discipling_me", "Discipling me"], ["none", "New"], ["multiplying", "Multiplying"]]);
 const filtered = (filter) => ids(report.rows.filter((row) => dosMinistryRowMatchesFilter(row, filter)));
 assert.deepEqual(filtered("all"), ids(report.rows));
 assert.deepEqual(filtered("i_am_discipling"), ["tanner", "philip", "sam"]);
@@ -679,5 +681,61 @@ const reportsCard = catalog.slice(catalog.indexOf('label: "Reports",'), catalog.
 assert.ok(reportsCard.includes('section: "installed"') && reportsCard.includes('status: "Installed"'), "Reports is an installed app on both launchers.");
 assert.ok(!comingSoon.includes('label: "Reports"'), "Reports is never listed under Coming Soon.");
 assert.ok(/dosMobileMoreLauncherAppLabels = \[[^\]]*"Reports"/.test(client) && /dosDesktopMoreLauncherAppLabels = \[[^\]]*"Reports"/.test(client));
+
+// 19. USA-275: an In person meeting reads "In person" in both report views,
+// and a genuine Kitchen Table Gospel record keeps its identity.
+{
+  const inPerson = legacyMeeting("m-in-person", 4, ["tanner"], 150, { type: "kitchen_table" });
+  const gospel = legacyMeeting("m-ktg", 5, ["tanner"], 60, { conversationFlowKey: "kitchen_table_gospel", type: "kitchen_table" });
+  const labelled = build("30d", undefined, { meetings: [...meetings, inPerson, gospel] });
+  const tannerRow = labelled.rows.find((row) => row.personId === "tanner");
+  assert.equal(tannerRow.records.find((record) => record.id === "m-in-person").label, "In person", "Expanded table records and the person detail sheet read the same row records.");
+  assert.equal(labelled.meetings.find((meeting) => meeting.id === "m-in-person").label, "In person", "The metric meeting list agrees.");
+  assert.equal(tannerRow.records.find((record) => record.id === "m-ktg").label, "In person · Kitchen Table Gospel");
+  assert.ok(!JSON.stringify(labelled).includes("Kitchen table"), "No report surface says \"Kitchen table\" for a stored in-person value.");
+  assert.equal(dosMeetingContextLabel("kitchen_table"), "In person");
+  assert.equal(dosMeetingContextLabel("other"), "Other");
+  assert.equal(dosMeetingContextLabel("unknown-value"), "Meeting");
+  const adapted = dosMinistryReportInputFromAppData({ accountabilityCheckIns: [], accountabilitySchedules: [], disciplingMe: [], meetings: [{ ...gospel, conversationFlowKey: "kitchen_table_gospel" }], people: [] });
+  assert.equal(adapted.meetings[0].conversationFlowKey, "kitchen_table_gospel", "The app-data adapter carries the conversation flow to the report.");
+  const clientSource = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
+  const optionsBlock = clientSource.slice(clientSource.indexOf("const meetingTypeOptions:"), clientSource.indexOf("];", clientSource.indexOf("const meetingTypeOptions:")));
+  const optionPairs = Array.from(optionsBlock.matchAll(/label: "([^"]+)", value: "([^"]+)"/g)).map((match) => [match[2], match[1]]);
+  assert.ok(optionPairs.length >= 9);
+  optionPairs.forEach(([value, label]) => assert.equal(dosMeetingContextLabels[value], label, `Log Meeting's "${label}" and Reports agree on ${value}.`));
+  assert.ok(clientSource.includes("return dosMeetingContextLabel(value);"), "Meeting detail uses the shared mapping.");
+}
+
+// 20. USA-275: Multiplication from the one discipleship graph. Current, not
+// period-bound; multiplying people stay discoverable; downstream activity
+// never enters the missionary's own meeting, time or Fruit figures.
+{
+  const multiplication = {
+    naomi: { connected: false, disciples: [{ key: "name:c-noah", name: "Noah" }] },
+    tanner: { connected: true, disciples: [{ key: "account:u-aaron", name: "Aaron Johnson" }, { key: "person:caleb", name: "Caleb Stone" }, { key: "person:luke", name: "Luke Harmon" }] },
+  };
+  const withGraph = build("30d", undefined, { multiplication });
+  const withoutGraph = build("30d");
+  const tannerRow = withGraph.rows.find((row) => row.personId === "tanner");
+  assert.deepEqual([tannerRow.downstreamStatus, dosMinistryMultiplicationLabel(tannerRow), dosMinistryMultiplicationCell(tannerRow)], ["resolved", "3 people", "3"]);
+  assert.deepEqual(tannerRow.downstream.map((entry) => entry.name), ["Aaron Johnson", "Caleb Stone", "Luke Harmon"]);
+  const philipRow = withGraph.rows.find((row) => row.personId === "philip");
+  assert.deepEqual([philipRow.downstreamStatus, dosMinistryMultiplicationCell(philipRow)], ["not_connected", "0"], "Discipling with nothing added reads as none added.");
+
+  // Current relationships ignore the period: a 7-day range with no meeting still shows them.
+  const narrow = build("custom", { end: "2026-01-02", start: "2026-01-01" }, { multiplication });
+  const narrowTanner = narrow.rows.find((row) => row.personId === "tanner");
+  assert.ok(narrowTanner && narrowTanner.meetingCount === 0 && narrowTanner.downstream.length === 3, "Tanner stays discoverable with current multiplication and no meeting in the period.");
+
+  // A walking-with person who multiplies is discoverable and filterable.
+  const naomiRow = narrow.rows.find((row) => row.personId === "naomi");
+  assert.ok(naomiRow && naomiRow.downstreamStatus === "resolved", "Someone multiplying remains visible even with no activity in the period.");
+  assert.deepEqual(ids(narrow.rows.filter((row) => dosMinistryRowMatchesFilter(row, "multiplying"))).sort(), ["naomi", "tanner"]);
+
+  // Downstream never changes personal figures.
+  assert.deepEqual(withGraph.totals, withoutGraph.totals, "Multiplication adds nothing to meetings, time invested, received or Fruit totals.");
+  assert.deepEqual(withGraph.fruitRows, withoutGraph.fruitRows);
+  assert.equal(tannerRow.loggedMinutes, withoutGraph.rows.find((row) => row.personId === "tanner").loggedMinutes);
+}
 
 console.log("DOS ministry report (USA-251 / USA-268) regression passed.");

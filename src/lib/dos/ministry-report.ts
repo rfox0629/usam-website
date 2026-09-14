@@ -160,6 +160,9 @@ export type DosMinistryReportMeeting = {
      there, and a default never decides a direction. */
   tableRoleRecorded: boolean;
   type: string;
+  /* The conversation flow used, when any (USA-275): only
+     "kitchen_table_gospel" marks a genuine Kitchen Table Gospel record. */
+  conversationFlowKey?: string | null;
 };
 
 export type DosMinistryReportCheckIn = {
@@ -257,6 +260,14 @@ export type DosMinistryReportGathering = {
   status: "canceled" | "completed" | "scheduled";
 };
 
+export type DosMinistryMultiplicationInput = {
+  /* The person's own DOS account is connected and readable, so "none" was
+     read from their own records rather than only from what was added here. */
+  connected: boolean;
+  /* Direct disciples only, each a unique person. */
+  disciples: Array<{ key: string; name: string }>;
+};
+
 export type DosMinistryReportInput = {
   checkIns: DosMinistryReportCheckIn[];
   disciplingMe: DosMinistryReportDisciplingMeRelationship[];
@@ -271,6 +282,13 @@ export type DosMinistryReportInput = {
      a person's own records cannot be reached, so multiplication reads
      "Not connected". */
   linkedPersonIds?: string[];
+  /* USA-275: current direct disciples per Person, from the one discipleship
+     graph (src/lib/dos/discipleship-graph.ts) that also powers the People
+     Multiplication section and the Multiplying indicator. When present it
+     replaces `downstream` for the Multiplication column. It is CURRENT, never
+     filtered by the report period, and never adds to any meeting, time or
+     Fruit figure. */
+  multiplication?: Record<string, DosMinistryMultiplicationInput>;
   meetings: DosMinistryReportMeeting[];
   now: Date;
   people: DosMinistryReportPerson[];
@@ -342,11 +360,12 @@ export function dosMinistryMultiplicationLabel(row: Pick<DosMinistryReportRow, "
     case "resolved":
       return `${row.downstream.length} ${row.downstream.length === 1 ? "person" : "people"}`;
     case "not_recorded":
-      return "Not recorded";
+    case "not_connected":
+      /* USA-275: the empty state names what is known -- nothing was added --
+         and never implies that no ministry is happening. */
+      return "No discipleship connections added";
     case "not_resolved":
       return "Not resolved yet";
-    case "not_connected":
-      return "Not connected";
     default:
       return "Not applicable";
   }
@@ -359,6 +378,7 @@ export function dosMinistryMultiplicationCell(row: Pick<DosMinistryReportRow, "d
     case "resolved":
       return String(row.downstream.length);
     case "not_recorded":
+    case "not_connected":
       return "0";
     default:
       return "—";
@@ -416,7 +436,7 @@ export type DosMinistryPersonRow = Omit<DosMinistryReportRow, "bucket" | "nextAc
 
 /* Filters follow the relationship itself (USA-268). A relationship never
    decides whether time counts, so there is no "not set" bucket to filter. */
-export type DosMinistryReportFilter = "all" | "i_am_discipling" | "walking_with" | "discipling_me" | "none";
+export type DosMinistryReportFilter = "all" | "i_am_discipling" | "walking_with" | "discipling_me" | "none" | "multiplying";
 
 export const dosMinistryReportFilterOptions: ReadonlyArray<{ label: string; value: DosMinistryReportFilter }> = [
   { label: "All", value: "all" },
@@ -424,10 +444,12 @@ export const dosMinistryReportFilterOptions: ReadonlyArray<{ label: string; valu
   { label: "Walking with", value: "walking_with" },
   { label: "Discipling me", value: "discipling_me" },
   { label: "New", value: "none" },
+  /* USA-275: current multiplication, independent of the period. */
+  { label: "Multiplying", value: "multiplying" },
 ];
 
-export function dosMinistryRowMatchesFilter(row: Pick<DosMinistryPersonRow, "direction">, filter: DosMinistryReportFilter) {
-  return filter === "all" || row.direction === filter;
+export function dosMinistryRowMatchesFilter(row: Pick<DosMinistryPersonRow, "direction" | "downstream">, filter: DosMinistryReportFilter) {
+  return filter === "all" || (filter === "multiplying" ? row.downstream.length > 0 : row.direction === filter);
 }
 
 export type DosMinistryReportSortKey = "person" | "relationship" | "meetings" | "time" | "last_activity" | "fruit";
@@ -874,27 +896,38 @@ function meetingRoleLabel(role: string) {
   }
 }
 
+/* USA-275: the one label for a meeting's stored `table_type`, shared by
+   Reports and the Log Meeting options. `kitchen_table` is the column's
+   original value for a face-to-face meeting; since USA-168 the form offers it
+   as "In person", so it must never read "Kitchen table" here. Kitchen Table
+   Gospel is a conversation flow (`conversation_flow_key`), not a medium, and
+   is labelled from that key — see `dosMinistryMeetingLabel`. */
+export const dosMeetingContextLabels: Readonly<Record<string, string>> = {
+  coffee: "Coffee",
+  discipleship: "Discipleship",
+  group: "Group",
+  kitchen_table: "In person",
+  other: "Other",
+  phone: "Phone",
+  prayer: "Prayer",
+  text: "Text",
+  zoom: "Video",
+};
+
+export function dosMeetingContextLabel(type: string | null | undefined) {
+  return (type && dosMeetingContextLabels[type]) || "Meeting";
+}
+
+export const dosKitchenTableGospelFlowKey = "kitchen_table_gospel";
+
+export function dosMinistryMeetingLabel(meeting: Pick<DosMinistryReportMeeting, "conversationFlowKey" | "type">) {
+  return meeting.conversationFlowKey === dosKitchenTableGospelFlowKey
+    ? `${dosMeetingContextLabel(meeting.type)} · Kitchen Table Gospel`
+    : dosMeetingContextLabel(meeting.type);
+}
+
 function meetingTypeLabel(type: string) {
-  switch (type) {
-    case "kitchen_table":
-      return "Kitchen table";
-    case "phone":
-      return "Phone";
-    case "zoom":
-      return "Video";
-    case "text":
-      return "Text";
-    case "coffee":
-      return "Coffee";
-    case "discipleship":
-      return "Discipleship";
-    case "prayer":
-      return "Prayer";
-    case "group":
-      return "Group";
-    default:
-      return "Meeting";
-  }
+  return dosMeetingContextLabel(type);
 }
 
 function plural(count: number, singular: string, pluralForm = `${singular}s`) {
@@ -987,7 +1020,7 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
         bucketReason: classification.reason,
         date: dosMinistryReportDateKey(meeting.date) ?? period.end,
         id: meeting.id,
-        label: meeting.source === "discipleship" ? "Discipleship meeting" : meetingTypeLabel(meeting.type),
+        label: meeting.source === "discipleship" ? "Discipleship meeting" : dosMinistryMeetingLabel(meeting),
         minutes: dosLoggedMeetingMinutes(meeting),
         open: { id: meeting.id, kind: meeting.source === "discipleship" ? "discipleship_meeting" : "meeting" },
         people: activeLinkedIds(meeting).map((personId) => ({ id: personId, name: peopleById.get(personId)?.name ?? "" })),
@@ -1039,7 +1072,7 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
         kind: "meeting",
         label: meeting.source === "discipleship"
           ? "Discipleship meeting · Being discipled"
-          : [meetingTypeLabel(meeting.type), meeting.tableRoleRecorded ? meetingRoleLabel(meeting.tableRole) : null, others ? `with ${plural(others, "other")}` : null].filter(Boolean).join(" · "),
+          : [dosMinistryMeetingLabel(meeting), meeting.tableRoleRecorded ? meetingRoleLabel(meeting.tableRole) : null, others ? `with ${plural(others, "other")}` : null].filter(Boolean).join(" · "),
         minutes: dosLoggedMeetingMinutes(meeting),
         open: { id: meeting.id, kind: meeting.source === "discipleship" ? "discipleship_meeting" : "meeting" },
         role: meeting.tableRoleRecorded ? meeting.tableRole : "",
@@ -1085,18 +1118,25 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
         ? "No meeting or check-in logged in this range."
         : "Every contributing record has a logged duration.";
     const direction = directionByPersonId.get(person.id) ?? { ...dosMinistryDirectionForPerson(person, input.disciplingMe), personName: person.name };
-    const downstream = resolvedDownstream
-      .filter((link) => link.disciplerPersonId === person.id)
-      .map((link) => ({ name: link.discipleDisplayName, personId: link.disciplePersonId }));
-    const downstreamStatus: DosMinistryDownstreamStatus = direction.direction !== "i_am_discipling"
-      ? "not_applicable"
-      : downstream.length
-        ? "resolved"
-        : downstreamReadPersonIds.has(person.id)
-          ? "not_recorded"
-          : linkedPersonIds.has(person.id)
-            ? "not_resolved"
-            : "not_connected";
+    const graphMultiplication = input.multiplication ? input.multiplication[person.id] ?? { connected: false, disciples: [] } : null;
+    const downstream = graphMultiplication
+      ? graphMultiplication.disciples.map((disciple) => ({ name: disciple.name, personId: disciple.key }))
+      : resolvedDownstream
+        .filter((link) => link.disciplerPersonId === person.id)
+        .map((link) => ({ name: link.discipleDisplayName, personId: link.disciplePersonId }));
+    /* A person with current disciples is resolved whatever the missionary's
+       own relationship with them, so multiplying people stay discoverable. */
+    const downstreamStatus: DosMinistryDownstreamStatus = downstream.length
+      ? "resolved"
+      : direction.direction !== "i_am_discipling"
+        ? "not_applicable"
+        : graphMultiplication
+          ? graphMultiplication.connected ? "not_recorded" : "not_connected"
+          : downstreamReadPersonIds.has(person.id)
+            ? "not_recorded"
+            : linkedPersonIds.has(person.id)
+              ? "not_resolved"
+              : "not_connected";
 
     return {
       checkInCount: checkInRecords.length,
@@ -1187,7 +1227,7 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
             : null,
       };
     })
-    .filter((row) => row.meetingCount > 0 || row.checkInCount > 0 || row.gatheringsAttended > 0 || row.direction !== "none");
+    .filter((row) => row.meetingCount > 0 || row.checkInCount > 0 || row.gatheringsAttended > 0 || row.direction !== "none" || row.downstream.length > 0);
 
   const investedMeetings = meetings.filter((meeting) => meeting.bucket === "invested");
   const receivedMeetings = meetings.filter((meeting) => meeting.bucket === "received");
@@ -1315,7 +1355,7 @@ function buildFruitRows(input: DosMinistryReportInput, period: DosMinistryReport
         personName: named?.name ?? viaMeeting?.name ?? "Not linked",
         personSource: named ? "record" : viaMeeting ? "meeting" : "none",
         relatedLabel: meeting
-          ? `${meeting.source === "discipleship" ? "Discipleship" : meetingTypeLabel(meeting.type)} meeting${meetingDate ? ` · ${formatDosMinistryDate(meetingDate, input.now)}` : ""}`
+          ? `${meeting.source === "discipleship" ? "Discipleship" : dosMinistryMeetingLabel(meeting)} meeting${meetingDate ? ` · ${formatDosMinistryDate(meetingDate, input.now)}` : ""}`
           : entry.source === "journey_progress" && entry.resourceTitle
             ? entry.resourceTitle
             : "Not linked",
@@ -1631,6 +1671,7 @@ export function dosMinistryReportInputFromAppData({
   gatherings,
   linkedPersonIds,
   meetings,
+  multiplication,
   people,
 }: {
   accountabilityCheckIns: DosAppAccountabilityCheckIn[];
@@ -1643,6 +1684,7 @@ export function dosMinistryReportInputFromAppData({
   fruit?: DosMinistryFruitEntry[];
   gatherings?: DosMinistryReportGathering[];
   linkedPersonIds?: string[];
+  multiplication?: Record<string, DosMinistryMultiplicationInput>;
   meetings: DosAppMeeting[];
   people: DosAppPerson[];
 }): Omit<DosMinistryReportInput, "now" | "period" | "range"> {
@@ -1664,8 +1706,10 @@ export function dosMinistryReportInputFromAppData({
       status: relationship.status,
     })),
     downstream: downstream ?? [],
+    multiplication,
     meetings: [
       ...meetings.map((meeting): DosMinistryReportMeeting => ({
+        conversationFlowKey: meeting.conversationFlowKey,
         date: meeting.date,
         fieldPersonIds: meeting.fieldPersonIds,
         id: meeting.id,
