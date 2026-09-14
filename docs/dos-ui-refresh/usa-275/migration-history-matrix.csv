@@ -164,5 +164,5 @@ production_version,name,local_file_on_main,relation,content_vs_ledger,rollback_f
 ,dos_person_feedback_import_rollback,20260910150000_dos_person_feedback_import_rollback.sql,local_only,,yes,drop constraint; drop index,,,MUST MOVE out of supabase/migrations (executes as a migration; destructive)
 ,dos_group_gathering_covered_journey,20260911160000_dos_group_gathering_covered_journey.sql,local_only,,,,3,0,pending; founder authorization not yet given
 ,dos_group_gathering_covered_journey_rollback,20260911160000_dos_group_gathering_covered_journey_rollback.sql,local_only,,yes,drop column,3,0,MUST MOVE out of supabase/migrations (executes as a migration; destructive)
-,usa_275_discipleship_connections,20260913180000_usa_275_discipleship_connections.sql,local_only,,,drop trigger,17,0,"USA-275: pending, founder-approved"
-,usa_275_discipleship_connections_rollback,20260913180000_usa_275_discipleship_connections_rollback.sql,local_only,,yes,drop function; drop table; drop trigger,17,0,MUST MOVE out of supabase/migrations (executes as a migration; destructive)
+20260914183331,usa_275_discipleship_connections,20260914183331_usa_275_discipleship_connections.sql,same_version,IDENTICAL,,drop trigger,17,17,APPLIED 2026-09-14 via apply_migration; file renamed to production version
+,usa_275_discipleship_connections_rollback,supabase/rollbacks/20260914183331_usa_275_discipleship_connections_rollback.sql,moved_out_of_migrations,,yes,drop function; drop table; drop trigger,17,,MOVED to supabase/rollbacks (manual-only; cannot run as a forward migration)
