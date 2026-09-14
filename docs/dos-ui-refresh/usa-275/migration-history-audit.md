@@ -2,7 +2,12 @@
 
 **Date:** 2026-09-14 · **Project:** `usam-website` (`dbupuphezeqkiolprrlg`) · **Main:** `782036d` (PR #146)
 
-**Outcome: stopped before any production mutation.** No migration was applied. No `migration repair`, push, reset or SQL write was run, and no data was changed. Everything below comes from read-only catalog queries and git. The per-version evidence is in [`migration-history-matrix.csv`](./migration-history-matrix.csv).
+**Outcome.**
+- **Audit (§1–§4).** The audit stopped before any production mutation. §1–§4 describe the state before the apply and come from read-only catalog queries and git.
+- **Follow-up (§5).** After Ryan confirmed *Deploy to production* was off, **only** USA-275 was applied, as version `20260914183331`, on 2026-09-14.
+- **Not done.** No `migration repair`, push, reset or other migration was run, and no existing data was changed.
+
+The per-version evidence is in [`migration-history-matrix.csv`](./migration-history-matrix.csv). Its USA-275 rows reflect the apply.
 
 ## 1. What the failing check is
 
@@ -91,10 +96,57 @@ The alternative, `supabase migration repair --status applied`, is only defensibl
 - Option (a): re-enable Deploy to production and let the integration apply exactly one pending migration.
 - Option (b): if R1–R3 are not wanted now, use the established path (`apply_migration`). Then rename the local file to the recorded version, as `5218e71` did. The integration check stays red, as it has been since July.
 
-Rollback for R1: revert the PR. Rollback for R3: `migration repair --status reverted <version>` for exactly the repaired versions; ledger only, no SQL. Rollback for USA-275: `20260913180000_usa_275_discipleship_connections_rollback.sql`.
+Rollback for R1: revert the PR. Rollback for R3: `migration repair --status reverted <version>` for exactly the repaired versions; ledger only, no SQL. Rollback for USA-275: `supabase/rollbacks/20260914183331_usa_275_discipleship_connections_rollback.sql` (moved there 2026-09-14; see §5).
 
-## 5. Not done, by design
+## 5. Focused USA-275 application (2026-09-14, founder-approved path R4b)
 
-- The USA-275 migration was not applied, so the Multiplication **+ Add** action is still hidden in production. Signed-in verification was not performed.
-- No history row was added, removed or altered.
+**Preconditions**
+- Ryan confirmed the integration's *Deploy to production* is **off**.
+- Immediately before applying, a re-check showed nothing `dos_discipleship*` existed and the ledger still held 96 versions, latest `20260910151053`.
+- Dependencies were all present, and the file was byte-identical to `782036d` (md5 `40b86bb5576bf788361d24d3775f3bae`).
+
+**Applied once** with Supabase MCP `apply_migration`:
+
+| Field | Value |
+|---|---|
+| Recorded version | `20260914183331` |
+| Recorded name | `usa_275_discipleship_connections` |
+| Created by | `ryan@usamissionaries.org` |
+| Statements | 1 |
+| Recorded SQL | whitespace-stripped md5 `37db79c76d85513052c69a4753f63e3b`, equal to the local file |
+
+The ledger now holds 97 versions. No other migration was applied, repaired or marked.
+
+**Verified after applying**
+- **Objects.** All 17 objects exist: 3 tables, 11 named indexes plus 3 primary keys, trigger `dos_discipleship_connections_scope_guard`, and functions `private_dos.dos_discipleship_connection_scope_guard` and `public.dos_discipleship_readable_workspaces`. Each new table holds 0 rows.
+- **Table access.** RLS is enabled on all three tables, with no policies and no forced RLS. The table ACL is `postgres` + `service_role` only.
+- **Behavioural role test** (single `DO` block, rolled back):
+  - anon and authenticated are denied `SELECT` and `INSERT` on all three tables, and denied `EXECUTE` on the traversal function;
+  - service_role can read and execute;
+  - a service_role insert with fabricated IDs is rejected by the scope guard (`23514 mentor person is not in workspace`).
+- **API check.** An anon REST request to each table and to the RPC returns `401 42501`. Before the apply, the app's probes got 404.
+- **Functions.** The traversal function is `SECURITY INVOKER`, `STABLE`, `search_path=""`, executable only by service_role. The trigger function is `SECURITY DEFINER`, `search_path=""`, with no EXECUTE for any client role; triggers do not need it.
+- **Structure.** Foreign keys match the file: 5 on connections, 7 on account connections, 6 on identity matches, with the declared `ON DELETE` actions. The 5 + 4 + 3 check constraints and the partial unique indexes are exactly as written.
+- **Existing data unchanged.** `missionary_field_people` 126, `missionary_households` 5, `dos_identity_links` 44, `fruit_events` 41, `missionary_tables` 74, `dos_circle_placements` 26. The only movement is a `max(updated_at)` change on `missionary_field_people` / `missionary_tables` at 18:27 UTC. That was a DOS page load, which touches the viewer Person; it happened before the 18:33:31 apply.
+- **Logs.** Postgres logs show only the apply and the deliberate verification exception. Vercel shows no runtime errors in the two hours around the apply.
+
+**Advisors, compared with the same-day baseline**
+
+| Advisor | Before | After | Change |
+|---|---|---|---|
+| Security | `rls_enabled_no_policy` 19 INFO, 1 WARN | 22 INFO, 1 WARN | +3 |
+| Performance | 258 findings | 275 findings | +17 |
+
+- **Security, +3.** One `rls_enabled_no_policy` INFO for each new table. This is intended: the tables are service-role only, the same posture as `dos_person_merge_log`. No new WARN.
+- **Performance, +8 `unused_index` INFO.** New indexes on empty tables. Expected.
+- **Performance, +9 `unindexed_foreign_keys` INFO.** Audit columns referencing `auth.users` (`created_by_user_id`, `updated_by_user_id`, `invited_by_user_id`, `revoked_by_user_id`, `decided_by_user_id`, `undone_by_user_id`), plus `disciple_workspace_id`, `identity_link_id` and `matched_workspace_id`. These tables are empty and written only by the service role, so there is no present impact. Covering indexes would need a **new** migration, which this focused change is not authorised to apply. Recorded as a follow-up.
+
+**Repository.**
+- The migration is renamed to `supabase/migrations/20260914183331_usa_275_discipleship_connections.sql`. The SQL is byte-identical, so its header comment still names the old rollback path.
+- The rollback moved to `supabase/rollbacks/`, with a README. It can no longer run as a forward migration.
+- Other rollback files are unchanged, pending the broader reconciliation.
+
+**Still outstanding**
+- *Deploy to production* stays **off**. The local and production histories are still not reconciled (§2–§4), so turning it back on now would run unsafe migrations.
+- Signed-in production UI verification (+ Add visible on Tanner Kent, open, cancel) needs Ryan's browser session.
 - Aaron Johnson was not added. No person, connection or activity was created.
