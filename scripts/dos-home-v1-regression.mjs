@@ -98,7 +98,20 @@ for (const [label, region] of [["Home", dashboard], ["Accountability", accountab
   assert(!warningColour.test(region), `${label} must not use yellow, amber, orange, or red.`);
 }
 
-// 9. No mentor language on Home or Reports.
+/* 9. Home's first render is clock-free. Home is the screen the server renders
+   and the browser hydrates, so anything it computes from the wall clock during
+   render is computed twice, at two different instants, and React discards the
+   tree when the two disagree (hydration error #418). The instant comes from
+   the server render instead, as a prop. */
+assert(client.includes("renderedAt }: { data: DosAppData; renderedAt: string }"), "The app takes the server render's instant as a prop.");
+assert(!client.includes("const reportNow = useMemo(() => new Date(), []);"), "The report window must not read the wall clock during render.");
+assert(client.includes("const rendered = new Date(renderedAt);"), "reportNow is derived from the server render's instant.");
+assert(client.includes("const reportToday = useMemo(() => reportNow.toISOString().slice(0, 10), [reportNow]);"), "The accountability day key comes from the same instant.");
+assert(dashboard.includes("today={today}"), "Home hands the day key to the accountability card.");
+assert(client.includes("today={reportToday}"), "The app hands the server render's day key to Home.");
+assert(!accountabilityCard.includes("todayCommitmentDateKey()"), "The accountability card is told which day it is, rather than reading the clock mid-render.");
+
+// 10. No mentor language on Home or Reports.
 assert(!/mentor/i.test(dashboard.replace(/dashboardMentor|MentorMeeting|mentorRelationships/g, "")), "Home copy uses discipleship language.");
 
 console.log("DOS Home V1 (USA-257) regression passed.");

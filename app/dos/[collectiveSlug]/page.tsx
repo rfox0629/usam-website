@@ -390,6 +390,7 @@ export default async function DosWorkspaceAppPage({
             userEmail: authorization.email,
           },
         }}
+        renderedAt={new Date().toISOString()}
       />
     </DosAppRouteFrame>
   );

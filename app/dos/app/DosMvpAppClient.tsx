@@ -13032,9 +13032,9 @@ function ResourceAssignmentCard({
   );
 }
 
-function accountabilityDueRows(schedules: DosAppAccountabilitySchedule[], people: DosAppPerson[], resourceAssignments: DosAppResourceAssignment[] = []) {
+function accountabilityDueRows(schedules: DosAppAccountabilitySchedule[], people: DosAppPerson[], resourceAssignments: DosAppResourceAssignment[] = [], todayKey?: string) {
   const personById = new Map(people.map((person) => [person.id, person]));
-  const today = todayCommitmentDateKey();
+  const today = todayKey ?? todayCommitmentDateKey();
   const todayValue = dateSortValue(today);
   const sevenDayValue = todayValue + 7 * 24 * 60 * 60 * 1000;
 
@@ -13059,13 +13059,17 @@ function AccountabilityDashboardCard({
   people,
   resourceAssignments,
   schedules,
+  today,
 }: {
   onOpenPerson: (personId: string) => void;
   people: DosAppPerson[];
   resourceAssignments: DosAppResourceAssignment[];
   schedules: DosAppAccountabilitySchedule[];
+  /* The day Due Today, Overdue and Next 7 Days are counted against, fixed at
+     the server render so the counts hydrate identically (see reportNow). */
+  today: string;
 }) {
-  const rows = accountabilityDueRows(schedules, people, resourceAssignments);
+  const rows = accountabilityDueRows(schedules, people, resourceAssignments, today);
   const dueToday = rows.filter((row) => row.bucket === "Due Today").length;
   const overdue = rows.filter((row) => row.bucket === "Overdue").length;
   const dueSoon = rows.filter((row) => row.bucket === "Next 7 Days").length;
@@ -15416,6 +15420,7 @@ function DesktopHomeDashboard({
   people,
   resourceAssignments,
   timeInvestments,
+  today,
   upcomingItems,
 }: {
   accountabilitySchedules: DosAppAccountabilitySchedule[];
@@ -15443,6 +15448,8 @@ function DesktopHomeDashboard({
      Time invested in the missionary (being discipled) is reported, never
      ranked here. */
   timeInvestments: DosMinistryReportRow[];
+  /* The server render's day key, for the same reason reportNow exists. */
+  today: string;
   upcomingItems: UpcomingTimelineItem[];
 }) {
   const personById = new Map(people.map((person) => [person.id, person]));
@@ -15622,6 +15629,7 @@ function DesktopHomeDashboard({
           people={people}
           resourceAssignments={resourceAssignments}
           schedules={accountabilitySchedules}
+          today={today}
         />
 
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTableCalendar}>View Calendar</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Upcoming">
@@ -38012,7 +38020,7 @@ function MeetingDetailOverlay({
   );
 }
 
-export function DosMvpAppClient({ data }: { data: DosAppData }) {
+export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; renderedAt: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const appShellRef = useRef<HTMLDivElement | null>(null);
@@ -38805,7 +38813,23 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
     multiplication: ministryMultiplication,
     people,
   }), [data.accountabilityCheckIns, data.accountabilitySchedules, data.fruit, data.fruitEvents, data.guidedResourceProgress, data.identityLinkedPersonIds, data.meetings, data.myRecord.mentorMeetings, data.myRecord.mentorRelationships, data.participantReviews, data.participantTestimonies, groups, ministryMultiplication, people]);
-  const reportNow = useMemo(() => new Date(), []);
+  /* The report window's "now" is the instant the server rendered this page,
+     handed down as a prop, not a wall-clock read during render. `new Date()`
+     here was evaluated twice -- once on the server and again on the client
+     during hydration -- so whenever the two clocks disagreed about which
+     meetings fall inside the rolling 30 days, the server HTML and the first
+     client render disagreed too and React discarded the tree (hydration
+     error #418). A server-supplied instant makes the two renders identical
+     by construction. */
+  const reportNow = useMemo(() => {
+    const rendered = new Date(renderedAt);
+
+    return Number.isNaN(rendered.getTime()) ? new Date() : rendered;
+  }, [renderedAt]);
+  /* The same instant as the YYYY-MM-DD key the accountability buckets compare
+     against -- todayCommitmentDateKey() reads the wall clock, and so differed
+     between the server render and hydration. */
+  const reportToday = useMemo(() => reportNow.toISOString().slice(0, 10), [reportNow]);
   const homeMinistryReport = useMemo(
     () => buildDosMinistryReport({ ...ministryReportInput, now: reportNow, range: "30d" }),
     [ministryReportInput, reportNow],
@@ -45232,6 +45256,7 @@ export function DosMvpAppClient({ data }: { data: DosAppData }) {
                 people={people}
                 resourceAssignments={data.resourceAssignments}
                 timeInvestments={homeMinistryReport.investedRows}
+                today={reportToday}
                 upcomingItems={upcomingTimelineItems}
               />
               </>
