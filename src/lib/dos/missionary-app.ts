@@ -51,6 +51,11 @@ import {
   type DosResourceAssignmentSharingLevel,
   type DosResourceAssignmentStatus,
 } from "@/src/lib/dos/resource-assignments";
+import {
+  dosResourceSharePath,
+  isDosResourceShareStatus,
+  type DosResourceShareStatus,
+} from "@/src/lib/dos/resource-sharing";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
@@ -701,6 +706,26 @@ export type DosAppResourceAssignment = {
   workspaceId: string;
 };
 
+export type DosAppResourceShareAssignment = {
+  completedAt: string | null;
+  createdAt: string | null;
+  expiresAt: string;
+  id: string;
+  /* The public link the sender copies or shares. It is the token path, not a
+     delivery receipt: DOS never claims a resource was "Sent". */
+  shareUrl: string;
+  participants: Array<{ name: string; personId: string | null; role: string }>;
+  primaryPersonId: string;
+  requestedByName: string | null;
+  resourceSlug: string;
+  resultId: string | null;
+  secondaryPersonId: string | null;
+  startedAt: string | null;
+  status: DosResourceShareStatus;
+  updatedAt: string | null;
+  workspaceId: string;
+};
+
 export type DosAppGuidedResourceProgress = {
   actionStep: string | null;
   assignmentId: string | null;
@@ -1023,6 +1048,8 @@ export type DosAppData = {
   myRecord: DosAppUserRecord;
   reminders: DosAppRelationshipReminder[];
   resourceAssignments: DosAppResourceAssignment[];
+  /* USA-278: sent Library resources (Marriage Assessment today). */
+  resourceShareAssignments: DosAppResourceShareAssignment[];
   /* USA-246: live bookings from scheduling links (last 90 days onward) plus any flagged for Person review. */
   tableInvitationBookings: DosTableInvitationBooking[];
   tableInvitations: DosTableInvitation[];
@@ -1615,6 +1642,31 @@ type ResourceAssignmentRow = {
   source_group_id: string | null;
   start_date: string;
   status: string | null;
+  updated_at: string | null;
+  workspace_id: string;
+};
+
+/* USA-278: a sent Library resource. One row is one couple assessment: two
+   identifiable participants, one revocable token, and separately attributed
+   answers. Journey assignments keep their own table and are untouched. */
+type ResourceShareAssignmentRow = {
+  completed_at: string | null;
+  created_at: string | null;
+  expires_at: string;
+  id: string;
+  primary_participant_name: string;
+  primary_participant_role: string;
+  primary_person_id: string;
+  requested_by_name: string | null;
+  resource_slug: string;
+  result_id: string | null;
+  revoked_at: string | null;
+  secondary_participant_name: string;
+  secondary_participant_role: string;
+  secondary_person_id: string | null;
+  started_at: string | null;
+  status: string | null;
+  token: string;
   updated_at: string | null;
   workspace_id: string;
 };
@@ -4074,6 +4126,18 @@ async function loadGuidedResourceProgressForWorkspace(supabase: SupabaseAdminCli
     : result;
 }
 
+async function loadResourceShareAssignmentsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const result = await supabase
+    .from("dos_resource_share_assignments")
+    .select("id, workspace_id, resource_slug, primary_person_id, secondary_person_id, primary_participant_name, secondary_participant_name, primary_participant_role, secondary_participant_role, requested_by_name, status, token, expires_at, started_at, completed_at, revoked_at, result_id, created_at, updated_at")
+    .eq("workspace_id", workspaceId)
+    .order("created_at", { ascending: false });
+
+  return result.error && isMissingWorkflowTable(result.error, "dos_resource_share_assignments")
+    ? { data: [] as ResourceShareAssignmentRow[], error: null }
+    : result;
+}
+
 async function loadExternalCalendarEventsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
   const start = new Date();
   start.setDate(start.getDate() - 370);
@@ -4534,7 +4598,7 @@ export async function loadDosAppData(
     console.warn("Unable to seed Ryan DOS groups.", groupsSeedResult.error.message);
   }
 
-  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, featureFlagsResult, commitmentsResult, accountabilitySchedulesResult, accountabilityCheckInsResult, resourceAssignmentsResult, guidedResourceProgressResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, tableInvitationBookingsResult, organization, usamApplication] = await Promise.all([
+  const [peopleResult, meetingsResult, connectionLogsResult, fruitResult, assessmentResultsResult, reviewLinksResult, meetingReviewsResult, prayerLogsResult, prayerPartnersResult, prayerRequestsResult, groupsResult, calendarConnectionResult, calendarEventLinksResult, calendarWorkspaceSyncStateResult, remindersResult, featureFlagsResult, commitmentsResult, accountabilitySchedulesResult, accountabilityCheckInsResult, resourceAssignmentsResult, resourceShareAssignmentsResult, guidedResourceProgressResult, externalCalendarEventsResult, reviewsFruitResult, householdMembersResult, myRecordResult, tableInvitationsResult, tableInvitationBookingsResult, organization, usamApplication] = await Promise.all([
     loadPeopleForWorkspace(supabase, workspace.id),
     loadMeetingsForWorkspace(supabase, workspace.id, connectedRead ? null : viewer),
     loadConnectionLogsForWorkspace(supabase, workspace.id),
@@ -4555,6 +4619,7 @@ export async function loadDosAppData(
     loadAccountabilitySchedulesForWorkspace(supabase, workspace.id),
     loadAccountabilityCheckInsForWorkspace(supabase, workspace.id),
     loadResourceAssignmentsForWorkspace(supabase, workspace.id),
+    loadResourceShareAssignmentsForWorkspace(supabase, workspace.id),
     loadGuidedResourceProgressForWorkspace(supabase, workspace.id),
     loadExternalCalendarEventsForWorkspace(supabase, workspace.id),
     loadReviewsFruitFoundationForWorkspace(supabase, workspace.id),
@@ -4566,7 +4631,7 @@ export async function loadDosAppData(
     loadUsamApplicationForWorkspace(supabase, workspace),
   ]);
 
-  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || groupsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || featureFlagsResult.error || commitmentsResult.error || accountabilitySchedulesResult.error || accountabilityCheckInsResult.error || resourceAssignmentsResult.error || guidedResourceProgressResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error || myRecordResult.error || tableInvitationsResult.error) {
+  if (peopleResult.error || meetingsResult.error || connectionLogsResult.error || fruitResult.error || assessmentResultsResult.error || reviewLinksResult.error || meetingReviewsResult.error || prayerLogsResult.error || prayerPartnersResult.error || prayerRequestsResult.error || groupsResult.error || calendarConnectionResult.error || calendarEventLinksResult.error || calendarWorkspaceSyncStateResult.error || remindersResult.error || featureFlagsResult.error || commitmentsResult.error || accountabilitySchedulesResult.error || accountabilityCheckInsResult.error || resourceAssignmentsResult.error || resourceShareAssignmentsResult.error || guidedResourceProgressResult.error || externalCalendarEventsResult.error || reviewsFruitResult.error || myRecordResult.error || tableInvitationsResult.error) {
     return {
       message: peopleResult.error?.message
         ?? meetingsResult.error?.message
@@ -5438,6 +5503,30 @@ export async function loadDosAppData(
     progressUpdateId: link.progress_update_id,
     workspaceId: link.workspace_id,
   }));
+  /* USA-278: sent Library resources. The share URL is rebuilt from the token
+     here so the People record and the Library both offer Copy link without a
+     second round trip. Nothing about the recipient's answers travels with it
+     -- draft responses stay server-side on the assignment. */
+  const resourceShareAssignments: DosAppResourceShareAssignment[] = ((resourceShareAssignmentsResult.data ?? []) as ResourceShareAssignmentRow[]).map((assignment) => ({
+    completedAt: assignment.completed_at,
+    createdAt: assignment.created_at,
+    expiresAt: assignment.expires_at,
+    id: assignment.id,
+    participants: [
+      { name: assignment.primary_participant_name, personId: assignment.primary_person_id, role: assignment.primary_participant_role },
+      { name: assignment.secondary_participant_name, personId: assignment.secondary_person_id, role: assignment.secondary_participant_role },
+    ],
+    primaryPersonId: assignment.primary_person_id,
+    requestedByName: assignment.requested_by_name,
+    resourceSlug: assignment.resource_slug,
+    resultId: assignment.result_id,
+    secondaryPersonId: assignment.secondary_person_id,
+    shareUrl: dosResourceSharePath(assignment.token),
+    startedAt: assignment.started_at,
+    status: isDosResourceShareStatus(assignment.status) ? assignment.status : "link_ready",
+    updatedAt: assignment.updated_at,
+    workspaceId: assignment.workspace_id,
+  }));
   const resourceAssignments: DosAppResourceAssignment[] = resourceAssignmentRows.map((assignment) => ({
     assignmentContext: isDosResourceAssignmentContext(assignment.assignment_context ?? "") ? assignment.assignment_context as DosResourceAssignmentContext : "person",
     assignedByUserId: assignment.assigned_by_user_id,
@@ -5561,6 +5650,7 @@ export async function loadDosAppData(
       myRecord,
       reminders,
       resourceAssignments,
+      resourceShareAssignments,
       tableInvitationBookings,
       tableInvitations,
       usamApplication,

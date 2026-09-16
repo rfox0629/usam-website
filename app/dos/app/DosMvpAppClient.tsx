@@ -53,10 +53,10 @@ import {
 import { DosDetailSection, DosDetailSheet, DosWorkflowPage, MobileBottomSheet, Sheet, useEditableSurface } from "@/src/components/dos/overlays/DosSurfaces";
 import { backdropMayDismiss, leaveWithoutSavingCopy, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
-import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption } from "@/src/components/dos/ui";
+import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption, type StatusTone } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
-import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupAttendance, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
+import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupAttendance, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppResourceShareAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { MinistryTimeInvestmentReport } from "@/src/components/dos/reports/MinistryTimeInvestmentReport";
 import { exitAfterSaveNeedsConfirmation } from "@/src/lib/dos/unsaved-work";
 import { dosMyRecordDisciplerPersonIds, dosMyRecordLastMeeting, dosMyRecordMeetingDisciplerIds, dosMyRecordMeetingStartAt, dosMyRecordNextScheduledMeeting } from "@/src/lib/dos/my-record-meetings";
@@ -192,6 +192,16 @@ import {
   type DosResourceAssignmentSharingLevel,
   type DosResourceAssignmentStatus,
 } from "@/src/lib/dos/resource-assignments";
+import {
+  cleanShareParticipantName,
+  dosResourceActionLabels,
+  dosResourceShareStatusLabel,
+  isDosResourceShareEnabled,
+  resourceShareParticipantRoles,
+  shareParticipantSummary,
+  type DosResourceShareStatus,
+} from "@/src/lib/dos/resource-sharing";
+import { AssessmentCategoryBreakdown } from "@/src/components/dos/assessments/AssessmentPrimitives";
 
 const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
 const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-0 md:py-0";
@@ -34425,9 +34435,54 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
   );
 }
 
+/* USA-278: the resource's two actions, in the header where the primary action
+   belongs. Sending establishes who the assessment is for; previewing is the
+   leader reading it for themselves. */
+function AssessmentResourceActions({
+  onSend,
+  resource,
+}: {
+  onSend?: (resource: DosResource) => void;
+  resource: DosResource;
+}) {
+  const previewHref = resource.slug === "marriage-assessment"
+    ? `${resource.path}?from=dos-library&mode=preview`
+    : resource.path;
+  const actions = dosResourceActionLabels(resource);
+  const canSend = actions.canSend && Boolean(onSend);
+
+  return (
+    <div className="grid gap-2">
+      <div className="flex flex-wrap gap-2">
+        {canSend ? (
+          <button
+            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white transition-colors hover:bg-[#1D4ED8]"
+            onClick={() => onSend?.(resource)}
+            type="button"
+          >
+            {actions.sendLabel}
+          </button>
+        ) : null}
+        {previewHref ? (
+          <a
+            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+            href={previewHref}
+          >
+            {actions.previewLabel}
+          </a>
+        ) : null}
+      </div>
+      {canSend ? (
+        <p className="text-[11px] font-semibold leading-5 text-[#64748B]">
+          Sending creates a link for the couple. Preview is for you — it saves nothing and assigns nobody.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function AssessmentResourceContent({ resource }: { resource: DosResource }) {
   const assessment = resource.content?.assessment ?? null;
-  const assessmentHref = resource.slug === "marriage-assessment" ? `${resource.path}?from=dos-library` : resource.path;
 
   return (
     <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
@@ -34435,6 +34490,17 @@ function AssessmentResourceContent({ resource }: { resource: DosResource }) {
       {resource.content?.assessmentScale ? <p className="mt-3 text-sm font-semibold leading-6 text-[#0F172A]">{resource.content.assessmentScale}</p> : null}
       {assessment ? (
         <div className="mt-4 grid gap-2">
+          {/* Who it is for and how it works, before the questions. */}
+          <div className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
+            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Who it is for</p>
+            <p className="mt-1 text-sm leading-6 text-[#475569]">
+              {assessment.participants.join(" and ")} — two people in one relationship, answering together.
+            </p>
+            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>How it works</p>
+            <p className="mt-1 text-sm leading-6 text-[#475569]">
+              You send one link. They answer {assessment.questions.length} questions on a 0-10 scale, each answer labelled with whose it is, and the completed result comes back to their People record.
+            </p>
+          </div>
           <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
             {assessment.questions.length} questions · {assessment.participants.join(" / ")}
           </p>
@@ -34446,11 +34512,6 @@ function AssessmentResourceContent({ resource }: { resource: DosResource }) {
             ))}
           </div>
         </div>
-      ) : null}
-      {assessmentHref ? (
-        <a className="mt-4 inline-flex min-h-10 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white" href={assessmentHref}>
-          Start Assessment
-        </a>
       ) : null}
     </section>
   );
@@ -34551,6 +34612,529 @@ function RemnantLibraryResourceContent() {
   );
 }
 
+/* ── USA-278: sending a Library resource ────────────────────────────────────
+   One pattern, used by the Library resource page and by the Person record.
+   The Marriage Assessment is the first resource on it: one couple, two
+   identifiable participants, one revocable link.
+
+   Three rules hold everywhere below. A link is "Link ready", never "Sent" --
+   DOS delivers nothing. A spouse is never inferred from a surname and never
+   silently created as a contact. A first name is enough to name a
+   participant. */
+
+function dosResourceShareStatusTone(status: DosResourceShareStatus): StatusTone {
+  if (status === "completed") {
+    return "green";
+  }
+
+  if (status === "revoked" || status === "expired") {
+    return "grey";
+  }
+
+  return status === "in_progress" ? "amber" : "blue";
+}
+
+/* Every share assignment this person is part of, whichever side of the couple
+   they are. Both spouses reach the same assignment, so nothing is duplicated
+   and no second submission is possible. */
+function dosResourceSharesForPerson(assignments: readonly DosAppResourceShareAssignment[], personId: string) {
+  return assignments.filter((assignment) => (
+    assignment.primaryPersonId === personId || assignment.secondaryPersonId === personId
+  ));
+}
+
+/* The spouse this person's own record names, matched to a People record that
+   exists. Two explicit signals only: the exact name entered in the household
+   fields, or a reciprocal record that names this person back. A shared
+   surname is not a link and never will be. */
+function dosLinkedSpouseForPerson(person: DosAppPerson, people: readonly DosAppPerson[]) {
+  const personName = cleanShareParticipantName(person.name).toLowerCase();
+  const spouseName = cleanShareParticipantName(person.spouseName).toLowerCase();
+  const byEnteredName = spouseName
+    ? people.find((candidate) => candidate.id !== person.id && cleanShareParticipantName(candidate.name).toLowerCase() === spouseName)
+    : undefined;
+
+  if (byEnteredName) {
+    return byEnteredName;
+  }
+
+  return people.find((candidate) => (
+    candidate.id !== person.id
+    && Boolean(personName)
+    && cleanShareParticipantName(candidate.spouseName).toLowerCase() === personName
+  )) ?? null;
+}
+
+/* The pill already carries the status, so this line carries only the date it
+   refers to and the one word needed to say which date that is. */
+function dosResourceShareDateLine(assignment: DosAppResourceShareAssignment) {
+  if (assignment.status === "completed" && assignment.completedAt) {
+    return formatDate(assignment.completedAt);
+  }
+
+  if (assignment.status === "in_progress") {
+    return `Started ${formatDate(assignment.startedAt ?? assignment.createdAt ?? "")}`;
+  }
+
+  if (assignment.status === "revoked" || assignment.status === "expired") {
+    return formatDate(assignment.updatedAt ?? assignment.createdAt ?? "");
+  }
+
+  return `Created ${formatDate(assignment.createdAt ?? "")}`;
+}
+
+/* Copy link and, where the browser offers it, the native share sheet. No new
+   email or SMS service is introduced for this: the sender delivers the link
+   the way they already talk to this couple. */
+function ResourceShareLinkActions({
+  participantLine,
+  resourceTitle,
+  url,
+}: {
+  participantLine: string;
+  resourceTitle: string;
+  url: string;
+}) {
+  const [copyState, setCopyState] = useState<"copied" | "error" | "idle">("idle");
+  const [canNativeShare, setCanNativeShare] = useState(false);
+  const absoluteUrl = url.startsWith("http") ? url : `${typeof window === "undefined" ? "" : window.location.origin}${url}`;
+
+  useEffect(() => {
+    setCanNativeShare(typeof navigator !== "undefined" && typeof navigator.share === "function");
+  }, []);
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(absoluteUrl);
+      setCopyState("copied");
+    } catch {
+      setCopyState("error");
+    }
+  }
+
+  async function shareLink() {
+    try {
+      await navigator.share({
+        text: `${resourceTitle} for ${participantLine}`,
+        title: resourceTitle,
+        url: absoluteUrl,
+      });
+    } catch {
+      /* Dismissing the OS share sheet is not an error worth reporting. */
+    }
+  }
+
+  return (
+    <div className="grid gap-2">
+      <div className="min-w-0 rounded-dos-1 border border-dos-line bg-dos-surface2 px-3 py-2">
+        <p className="break-all text-dos-meta text-dos-secondary">{absoluteUrl}</p>
+      </div>
+      <div className="grid gap-2 min-[380px]:grid-cols-2">
+        <Button fullWidth onClick={copyLink} variant="primary">
+          {copyState === "copied" ? "Link copied" : "Copy link"}
+        </Button>
+        {canNativeShare ? (
+          <Button fullWidth icon="send" onClick={shareLink} variant="secondary">Share…</Button>
+        ) : (
+          <Button fullWidth onClick={() => window.open(absoluteUrl, "_blank", "noopener,noreferrer")} variant="secondary">Open link</Button>
+        )}
+      </div>
+      {copyState === "error" ? (
+        <p className="text-dos-meta text-dos-amber">Copying is blocked in this browser. Select the link above and copy it.</p>
+      ) : null}
+    </div>
+  );
+}
+
+type SendResourceResult = {
+  participants: Array<{ name: string; role: string }>;
+  reused: boolean;
+  url: string;
+};
+
+/* The compact send flow. Pick the person, confirm who is participating, then
+   create the assignment and its link. Opened from the Library with nobody
+   selected, or from a Person with that person already selected. */
+function SendResourceSheet({
+  onClose,
+  onSend,
+  people,
+  preselectedPersonId,
+  resource,
+}: {
+  onClose: () => void;
+  onSend: (input: { personId: string; resourceSlug: string; spouseName: string; spousePersonId: string | null }) => Promise<SendResourceResult | { error: string }>;
+  people: DosAppPerson[];
+  preselectedPersonId?: string | null;
+  resource: DosResource;
+}) {
+  const [personId, setPersonId] = useState(preselectedPersonId ?? "");
+  const [query, setQuery] = useState("");
+  const [spouseMode, setSpouseMode] = useState<"contact" | "linked" | "name">("linked");
+  const [spousePersonId, setSpousePersonId] = useState("");
+  const [spouseQuery, setSpouseQuery] = useState("");
+  const [spouseName, setSpouseName] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [result, setResult] = useState<SendResourceResult | null>(null);
+
+  const person = people.find((candidate) => candidate.id === personId) ?? null;
+  const linkedSpouse = person ? dosLinkedSpouseForPerson(person, people) : null;
+  const namedSpouse = cleanShareParticipantName(person?.spouseName);
+  const selectedSpouse = people.find((candidate) => candidate.id === spousePersonId) ?? null;
+  const [primaryRole, secondaryRole] = resourceShareParticipantRoles(resource);
+  const filteredPeople = query.trim()
+    ? people.filter((candidate) => candidate.name.toLowerCase().includes(query.trim().toLowerCase()))
+    : [];
+  const filteredSpouseOptions = spouseQuery.trim()
+    ? people.filter((candidate) => candidate.id !== personId && candidate.name.toLowerCase().includes(spouseQuery.trim().toLowerCase()))
+    : [];
+
+  /* When the person changes, the spouse question starts over from what their
+     record actually says -- never from the previous person's answer. */
+  useEffect(() => {
+    setSpousePersonId("");
+    setSpouseQuery("");
+    setSpouseName("");
+    setSpouseMode(person && dosLinkedSpouseForPerson(person, people) ? "linked" : namedSpouse ? "name" : "name");
+    setErrorMessage("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personId]);
+
+  const resolvedSpouse = spouseMode === "linked" && linkedSpouse
+    ? { name: linkedSpouse.name, personId: linkedSpouse.id }
+    : spouseMode === "contact" && selectedSpouse
+      ? { name: selectedSpouse.name, personId: selectedSpouse.id }
+      : { name: cleanShareParticipantName(spouseName) || namedSpouse, personId: null };
+  const participantLine = person
+    ? shareParticipantSummary([
+      { name: person.name, personId: person.id, role: primaryRole },
+      { name: resolvedSpouse.name, personId: resolvedSpouse.personId, role: secondaryRole },
+    ])
+    : "";
+
+  async function submit() {
+    if (!person) {
+      setErrorMessage("Choose who this is for.");
+      return;
+    }
+
+    if (!resolvedSpouse.name) {
+      setErrorMessage(`Add ${person.name.split(" ")[0]}'s spouse. A first name is enough.`);
+      return;
+    }
+
+    setIsSubmitting(true);
+    setErrorMessage("");
+
+    const response = await onSend({
+      personId: person.id,
+      resourceSlug: resource.slug,
+      spouseName: resolvedSpouse.name,
+      spousePersonId: resolvedSpouse.personId,
+    });
+
+    setIsSubmitting(false);
+
+    if ("error" in response) {
+      setErrorMessage(response.error);
+      return;
+    }
+
+    setResult(response);
+  }
+
+  if (result) {
+    return (
+      <Sheet onClose={onClose} showEyebrow={false} title="Link ready">
+        <div className="grid gap-4">
+          <DosFormSection icon="library" title={resource.title}>
+            <p className="text-dos-body text-dos-primary">
+              {/* Deliberately not "Sent". A link exists; delivering it is the
+                  sender's to do. */}
+              {result.reused ? "This couple already has an open link. Here it is again." : "The assessment is ready for"} {result.reused ? "" : result.participants.map((participant) => participant.name).join(" and ")}
+              {result.reused ? "" : "."}
+            </p>
+            <p className="mt-1 text-dos-meta text-dos-secondary">
+              Nothing has been sent yet. Share the link however you normally reach them.
+            </p>
+            <div className="mt-3">
+              <ResourceShareLinkActions
+                participantLine={result.participants.map((participant) => participant.name).join(" and ")}
+                resourceTitle={resource.title}
+                url={result.url}
+              />
+            </div>
+          </DosFormSection>
+          <Button fullWidth onClick={onClose} variant="secondary">Done</Button>
+        </div>
+      </Sheet>
+    );
+  }
+
+  return (
+    <Sheet kind="editable" onClose={onClose} showEyebrow={false} title={dosResourceActionLabels(resource).sendLabel}>
+      <div className="grid min-w-0 gap-4 overflow-x-hidden">
+        <DosFormSection icon="people" title="Who is this for?" variant="label">
+          {person ? (
+            <div className="flex items-center gap-3">
+              <Avatar name={person.name} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-[16px] font-bold leading-[1.2] text-dos-primary">{person.name}</p>
+                <p className="mt-0.5 text-dos-meta text-dos-secondary">{primaryRole}</p>
+              </div>
+              <button
+                className="min-h-9 shrink-0 text-[13px] font-semibold text-dos-blue transition-colors hover:text-[#1B3EA0]"
+                onClick={() => { setPersonId(""); setQuery(""); }}
+                type="button"
+              >
+                Change
+              </button>
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]">
+                  <Icon name="search" size={14} />
+                </span>
+                <input
+                  aria-label="Search people"
+                  className="min-h-11 w-full rounded-full border border-[#D6E4F7] bg-white pl-9 pr-4 text-sm text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search your field"
+                  type="search"
+                  value={query}
+                />
+              </div>
+              {filteredPeople.length ? (
+                <div className="grid gap-1 pr-1">
+                  {filteredPeople.slice(0, 8).map((candidate, index) => (
+                    <button
+                      className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
+                      key={candidate.id}
+                      onClick={() => { setPersonId(candidate.id); setQuery(""); }}
+                      type="button"
+                    >
+                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index)}`}>
+                        {initials(candidate.name)}
+                      </span>
+                      <span className="min-w-0 flex-1 truncate font-medium">{candidate.name}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : query.trim() ? (
+                /* No quick-add here on purpose: sending an assessment is not
+                   the moment to create a contact record. */
+                <p className="text-dos-meta text-dos-secondary">Nobody by that name yet. Add them in People first.</p>
+              ) : null}
+            </div>
+          )}
+        </DosFormSection>
+
+        {person ? (
+          <DosFormSection icon="people" title="Who is participating?" variant="label">
+            <p className="text-dos-body text-dos-primary">
+              {person.name} answers as <span className="font-semibold">{primaryRole}</span>. Who answers as {secondaryRole}?
+            </p>
+
+            {linkedSpouse ? (
+              <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-dos-1 border border-dos-line bg-white px-3 py-2.5">
+                <input
+                  checked={spouseMode === "linked"}
+                  className="h-4 w-4 accent-[#2251E8]"
+                  name="dos-share-spouse-mode"
+                  onChange={() => setSpouseMode("linked")}
+                  type="radio"
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold text-dos-primary">{linkedSpouse.name}</span>
+                  <span className="block text-dos-meta text-dos-secondary">Linked on {person.name.split(" ")[0]}&rsquo;s household</span>
+                </span>
+              </label>
+            ) : null}
+
+            <label className="mt-2 flex cursor-pointer items-center gap-3 rounded-dos-1 border border-dos-line bg-white px-3 py-2.5">
+              <input
+                checked={spouseMode === "name"}
+                className="h-4 w-4 accent-[#2251E8]"
+                name="dos-share-spouse-mode"
+                onChange={() => setSpouseMode("name")}
+                type="radio"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold text-dos-primary">Enter their name</span>
+                <span className="block text-dos-meta text-dos-secondary">A first name is enough. No contact record is created.</span>
+              </span>
+            </label>
+            {spouseMode === "name" ? (
+              <div className="mt-2">
+                <DosFormField label={`${secondaryRole}'s name`}>
+                  <input
+                    aria-label={`${secondaryRole}'s name`}
+                    className={FieldInputClass(false)}
+                    onChange={(event) => setSpouseName(event.target.value)}
+                    placeholder="First name is enough"
+                    type="text"
+                    value={spouseName || namedSpouse}
+                  />
+                </DosFormField>
+              </div>
+            ) : null}
+
+            <label className="mt-2 flex cursor-pointer items-center gap-3 rounded-dos-1 border border-dos-line bg-white px-3 py-2.5">
+              <input
+                checked={spouseMode === "contact"}
+                className="h-4 w-4 accent-[#2251E8]"
+                name="dos-share-spouse-mode"
+                onChange={() => setSpouseMode("contact")}
+                type="radio"
+              />
+              <span className="min-w-0 flex-1">
+                <span className="block text-[15px] font-semibold text-dos-primary">Choose an existing contact</span>
+                <span className="block text-dos-meta text-dos-secondary">Use this when they already have their own People record.</span>
+              </span>
+            </label>
+            {spouseMode === "contact" ? (
+              <div className="mt-2 grid gap-2">
+                {selectedSpouse ? (
+                  <div className="flex items-center gap-3 rounded-dos-1 border border-dos-line bg-white px-3 py-2.5">
+                    <Avatar name={selectedSpouse.name} size="sm" />
+                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-dos-primary">{selectedSpouse.name}</span>
+                    <button
+                      className="min-h-9 shrink-0 text-[13px] font-semibold text-dos-blue"
+                      onClick={() => { setSpousePersonId(""); setSpouseQuery(""); }}
+                      type="button"
+                    >
+                      Change
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <input
+                      aria-label="Search contacts"
+                      className="min-h-11 w-full rounded-full border border-[#D6E4F7] bg-white px-4 text-sm text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
+                      onChange={(event) => setSpouseQuery(event.target.value)}
+                      placeholder="Search your field"
+                      type="search"
+                      value={spouseQuery}
+                    />
+                    {filteredSpouseOptions.slice(0, 6).map((candidate, index) => (
+                      <button
+                        className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
+                        key={candidate.id}
+                        onClick={() => { setSpousePersonId(candidate.id); setSpouseQuery(""); }}
+                        type="button"
+                      >
+                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index)}`}>
+                          {initials(candidate.name)}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate font-medium">{candidate.name}</span>
+                      </button>
+                    ))}
+                  </>
+                )}
+              </div>
+            ) : null}
+          </DosFormSection>
+        ) : null}
+
+        {person && resolvedSpouse.name ? (
+          <div className="rounded-dos-1 border border-dos-line bg-dos-surface2 px-3.5 py-3">
+            <p className="text-dos-eyebrow uppercase text-dos-eyebrow">Confirm recipients</p>
+            <p className="mt-1 text-[15px] font-semibold text-dos-primary">{participantLine}</p>
+            <p className="mt-1.5 text-dos-meta text-dos-secondary">
+              They complete this together on one link, with each answer labelled. Both sets of answers come back to you.
+            </p>
+          </div>
+        ) : null}
+
+        <FormMessage message={errorMessage} />
+        <div className="grid gap-2">
+          <Button disabled={isSubmitting || !person} fullWidth onClick={submit} variant="primary">
+            {isSubmitting ? "Creating link…" : "Create link"}
+          </Button>
+          <Button disabled={isSubmitting} fullWidth onClick={onClose} variant="secondary">Cancel</Button>
+        </div>
+      </div>
+    </Sheet>
+  );
+}
+
+/* A completed couple assessment, read from the People record. Each spouse's
+   own answers stay attributed; the figures are the ones already stored, not
+   recomputed here, and no diagnostic label is invented. */
+function ResourceShareResultSheet({
+  onClose,
+  result,
+}: {
+  onClose: () => void;
+  result: DosAppAssessmentResult;
+}) {
+  const answers = result.answers as {
+    participantNames?: Record<string, string>;
+    participants?: string[];
+    questions?: Array<{ group?: string; id: string; prompt: string; scores?: Record<string, number | null> }>;
+  };
+  const participants = Array.isArray(answers?.participants) ? answers.participants : [];
+  const participantNames = answers?.participantNames ?? {};
+  const questions = Array.isArray(answers?.questions) ? answers.questions : [];
+  const participantLabels = participants.map((role) => participantNames[role] ? `${participantNames[role]} (${role})` : role);
+
+  return (
+    <Sheet onClose={onClose} showEyebrow={false} size="wide" title={result.assessmentTitle}>
+      <div className="grid gap-4">
+        <div className="rounded-dos-1 border border-dos-line bg-white px-3.5 py-3">
+          <p className="text-dos-eyebrow uppercase text-dos-eyebrow">Result</p>
+          <p className="mt-1 text-dos-display text-dos-primary">{result.overallScore}<span className="text-dos-heading text-dos-disabled">/{result.maxScore}</span></p>
+          <p className="mt-1 text-dos-meta text-dos-secondary">
+            {result.percentage}% · {result.completedAt ? formatDate(result.completedAt) : "Date not recorded"}
+            {participantLabels.length ? ` · ${participantLabels.join(" · ")}` : ""}
+          </p>
+        </div>
+
+        {result.categoryScores.length ? (
+          <AssessmentCategoryBreakdown
+            categories={result.categoryScores.map((category) => ({
+              husbandScore: category.husbandScore ?? 0,
+              maxScore: category.maxScore,
+              name: category.name,
+              percentage: category.percentage,
+              score: category.score,
+              wifeScore: category.wifeScore ?? 0,
+            }))}
+            participantLabels={participants.length >= 2
+              ? [participantNames[participants[0]] || participants[0], participantNames[participants[1]] || participants[1]]
+              : undefined}
+          />
+        ) : null}
+
+        {questions.length ? (
+          <section className="rounded-dos-1 border border-dos-line bg-white p-3.5">
+            <h3 className="text-dos-label text-dos-primary">Answers</h3>
+            <div className="mt-2 divide-y divide-dos-rule">
+              {questions.map((question) => (
+                <div className="py-2.5" key={question.id}>
+                  <p className="text-[14.5px] leading-[1.45] text-dos-body">{question.prompt}</p>
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
+                    {participants.map((role) => (
+                      <span className="text-dos-meta text-dos-secondary" key={role}>
+                        <span className="font-semibold text-dos-primary">{participantNames[role] || role}</span>{" "}
+                        {typeof question.scores?.[role] === "number" ? question.scores?.[role] : "—"}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        <Button fullWidth onClick={onClose} variant="secondary">Close</Button>
+      </div>
+    </Sheet>
+  );
+}
+
 function LibraryCatalogResourcePage({
   assignments,
   errorMessage,
@@ -34561,6 +35145,7 @@ function LibraryCatalogResourcePage({
   onOpenScripture,
   onReviewNotes,
   onSaveProgress,
+  onSendResource,
   onStartNextResource,
   personId,
   resource,
@@ -34583,6 +35168,7 @@ function LibraryCatalogResourcePage({
     resourceSlug: string;
     sessionId: string;
   }) => Promise<void>;
+  onSendResource?: (resource: DosResource) => void;
   onStartNextResource: () => void;
   personId?: string | null;
   resource: DosResource;
@@ -34621,7 +35207,11 @@ function LibraryCatalogResourcePage({
 
   const { IconComponent } = catalogResourceIcon(resource.icon);
   const pdfHref = resource.downloadPath ?? (resource.path.endsWith(".pdf") ? resource.path : null);
-  const action = pdfHref && resource.type !== "assessment" ? (
+  /* USA-278: an assessment leads with Send and Preview. Everything else keeps
+     the action it already had. */
+  const action = resource.type === "assessment" ? (
+    <AssessmentResourceActions onSend={onSendResource} resource={resource} />
+  ) : pdfHref ? (
     <a className="inline-flex h-9 items-center justify-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100" download href={pdfHref}>
       <FileText className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.8} />
       Download PDF
@@ -35264,6 +35854,10 @@ function PersonDetailOverlay({
   discipleshipRelationships,
   reminders,
   resourceAssignments,
+  resourceShareAssignments,
+  onOpenShareResult,
+  onSendResource,
+  workspacePeople,
   onBack,
   returnLabel = null,
   onAddCommitmentSubject,
@@ -35339,6 +35933,13 @@ function PersonDetailOverlay({
   discipleshipRelationships: DosAppUserMentorRelationship[];
   reminders: DosAppRelationshipReminder[];
   resourceAssignments: DosAppResourceAssignment[];
+  /* USA-278: sent Library resources this person is part of, on either side of
+     the couple. Both spouses read the same assignment; there is never a
+     second copy to keep in step. */
+  resourceShareAssignments: DosAppResourceShareAssignment[];
+  onOpenShareResult: (resultId: string) => void;
+  onSendResource: (personId: string) => void;
+  workspacePeople: DosAppPerson[];
   onBack: () => void;
   /* USA-268: "Reports" when the record was opened from Reports. */
   returnLabel?: string | null;
@@ -35545,6 +36146,12 @@ function PersonDetailOverlay({
     ? personDiscipleshipMeetings[0]
     : null;
   const nextMeeting = personScheduledMeetings[0] ?? null;
+  /* USA-278: sent resources, newest first. Revoked links stay visible so a
+     leader can see that a link was turned off rather than wondering where it
+     went. */
+  const personResourceShares = [...resourceShareAssignments].sort((first, second) => (
+    (parseDisplayDate(second.createdAt)?.getTime() ?? 0) - (parseDisplayDate(first.createdAt)?.getTime() ?? 0)
+  ));
   const activeResourceAssignments = resourceAssignments.filter((assignment) => assignment.status !== "completed");
   const completedResourceAssignments = resourceAssignments.filter((assignment) => assignment.status === "completed");
   /* USA-247. The circle shown on a Person is the one a human confirmed. The
@@ -35685,8 +36292,12 @@ function PersonDetailOverlay({
       wantsFollowUp: reviewRequestedFollowUp(review),
     };
   })();
+  /* A result that came from a sent link is already represented by its share
+     entry below, which also opens the result. Listing it twice would make one
+     completion look like two. */
+  const sharedResultIds = new Set(personResourceShares.map((share) => share.resultId).filter(Boolean) as string[]);
   const personHistoryEntries: PersonHistoryEntry[] = [
-    ...personAssessmentResults.map((result) => ({
+    ...personAssessmentResults.filter((result) => !sharedResultIds.has(result.id)).map((result) => ({
       date: result.completedAt,
       description: `${result.overallScore}/${result.maxScore} (${result.percentage}%)`,
       id: `history-assessment-${result.id}`,
@@ -35755,6 +36366,23 @@ function PersonDetailOverlay({
       id: `history-journey-complete-${assignment.id}`,
       kind: "journey" as const,
       title: `Completed ${resourceAssignmentTitle(assignment)}`,
+    })),
+    /* USA-278: assignment and completion reach the Timeline. Draft answers
+       never do -- a half-finished assessment is not a record of anything. */
+    ...personResourceShares.map((share) => ({
+      date: share.createdAt,
+      description: shareParticipantSummary(share.participants),
+      id: `history-resource-share-${share.id}`,
+      kind: "assessment" as const,
+      title: `Sent ${getDosResourceBySlug(share.resourceSlug)?.title ?? "Library resource"}`,
+    })),
+    ...personResourceShares.filter((share) => share.status === "completed").map((share) => ({
+      date: share.completedAt,
+      description: shareParticipantSummary(share.participants),
+      id: `history-resource-share-complete-${share.id}`,
+      kind: "assessment" as const,
+      onClick: share.resultId ? () => onOpenShareResult(share.resultId as string) : undefined,
+      title: `Completed ${getDosResourceBySlug(share.resourceSlug)?.title ?? "Library resource"}`,
     })),
     ...answeredPersonPrayerRequests.map((request) => ({
       date: request.answeredAt ?? request.updatedAt ?? request.createdAt,
@@ -35936,6 +36564,9 @@ function PersonDetailOverlay({
     { group: "walk", icon: "prayer", label: "Add prayer request", onClick: onAddPrayerRequest },
     { group: "walk", icon: "arrow", label: "Add reminder", onClick: onAddReminder },
     { group: "walk", icon: "library", label: "Assign journey", onClick: () => onAssignResource(person.id) },
+    /* USA-278: sending a resource is its own act. It opens the same flow the
+       Library opens, with this person already chosen. */
+    { group: "walk", icon: "send", label: "Send resource", onClick: () => onSendResource(person.id) },
     /* Observed Fruit is deliberately absent: Fruit should carry provenance
        from an actual logged interaction, so its path is Log Meeting ->
        Observed Fruit. Legacy and backend-created Fruit records are untouched;
@@ -36417,6 +37048,51 @@ function PersonDetailOverlay({
                       )}
                     </div>
                     {renderViewAll("accountability", accountabilityTopics.length)}
+                  </section>
+
+                  {/* USA-278: RESOURCES. What has been sent to this person
+                      from the Library and where it got to. "+ Add" opens the
+                      same send flow the Library opens, with this person
+                      already chosen. A row never says "Sent": DOS creates a
+                      link, the leader delivers it. */}
+                  <section aria-label="Resources" className="border-b border-dos-rule py-3 last:border-b-0">
+                    <Eyebrow
+                      action={<button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={() => onSendResource(person.id)} type="button">+ Add</button>}
+                    >
+                      Resources
+                    </Eyebrow>
+                    {personResourceShares.length ? (
+                      <div className="divide-y divide-dos-rule">
+                        {personResourceShares.map((share) => {
+                          const shareResource = getDosResourceBySlug(share.resourceSlug);
+                          const shareResult = share.resultId
+                            ? assessmentResults.find((result) => result.id === share.resultId) ?? null
+                            : null;
+
+                          return (
+                            <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={share.id}>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{shareResource?.title ?? "Library resource"}</p>
+                                <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">
+                                  {shareParticipantSummary(share.participants)}
+                                </p>
+                                <p className="mt-1 flex items-center gap-2 text-[12.5px] text-dos-eyebrow">
+                                  <StatusPill tone={dosResourceShareStatusTone(share.status)}>{dosResourceShareStatusLabel(share.status)}</StatusPill>
+                                  <span>{dosResourceShareDateLine(share)}</span>
+                                </p>
+                              </div>
+                              {share.status === "completed" && shareResult ? (
+                                <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
+                              ) : share.status === "revoked" || share.status === "expired" ? null : (
+                                <PDButton onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}${share.shareUrl}`)}>Copy link</PDButton>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="text-[14.5px] leading-[1.5] text-dos-body">Nothing sent from the Library yet.</p>
+                    )}
                   </section>
 
                   {/* Groups are a membership fact, not active work. */}
@@ -38240,6 +38916,12 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   const [isUpcomingSheetOpen, setIsUpcomingSheetOpen] = useState(false);
   const [isPrayerResourceLibraryOpen, setIsPrayerResourceLibraryOpen] = useState(false);
   const [isResourcePickerOpen, setIsResourcePickerOpen] = useState(false);
+  /* USA-278: the send-a-resource flow, opened from the Library with nobody
+     chosen or from a Person with that person already chosen. One flow, one
+     sheet; the Library and the People record differ only in what is
+     preselected. */
+  const [sendResourceTarget, setSendResourceTarget] = useState<{ personId: string | null; slug: string } | null>(null);
+  const [shareResultId, setShareResultId] = useState<string | null>(null);
   const [resourcePickerMessage, setResourcePickerMessage] = useState("");
   const [selectedPrayerResourceSlug, setSelectedPrayerResourceSlug] = useState<string | null>(null);
   const [prayerResourceCategory, setPrayerResourceCategory] = useState<DosPrayerResourceCategory>("Identity & Freedom");
@@ -41432,6 +42114,53 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 
   function closeAssignTargetPicker() {
     setAssignTargetPicker(null);
+  }
+
+  /* Sending is not assigning a Journey: it does not need the commitments
+     feature, it does not create a commitment, and it never touches
+     dos_resource_assignments. */
+  function openSendResource(resource: DosResource, personId?: string | null) {
+    if (!isDosResourceShareEnabled(resource)) {
+      setErrorMessage("This resource cannot be sent yet.");
+      return;
+    }
+
+    setErrorMessage("");
+    setSendResourceTarget({ personId: personId ?? null, slug: resource.slug });
+  }
+
+  function openSendResourceForPerson(personId: string) {
+    const marriageAssessment = getDosResourceBySlug("marriage-assessment");
+
+    if (marriageAssessment) {
+      openSendResource(marriageAssessment, personId);
+    }
+  }
+
+  async function createResourceShare(input: { personId: string; resourceSlug: string; spouseName: string; spousePersonId: string | null }) {
+    try {
+      const response = await fetch("/api/dos/app/resource-share-assignments", {
+        body: JSON.stringify({ ...input, workspaceId: data.workspace.id }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as {
+        error?: string;
+        participants?: Array<{ name: string; role: string }>;
+        reused?: boolean;
+        url?: string;
+      };
+
+      if (!response.ok || !result.url) {
+        return { error: result.error ?? "Unable to create the link." };
+      }
+
+      router.refresh();
+
+      return { participants: result.participants ?? [], reused: Boolean(result.reused), url: result.url };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Unable to create the link." };
+    }
   }
 
   function openGroupJourneyAssign(group: DosAppGroup, resource?: DosResource | null) {
@@ -46044,6 +46773,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                         onOpenScripture={openScriptureQuickView}
                         onReviewNotes={() => openMyRecordTab("learning")}
                         onSaveProgress={saveGuidedResourceProgress}
+                        onSendResource={openSendResource}
                         onStartNextResource={closeLibraryResourceView}
                         personId={myRecordPerson?.id ?? null}
                         resource={selectedLibraryResource}
@@ -46467,6 +47197,10 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
               reminders={data.reminders}
               personNames={personNamesById}
               resourceAssignments={selectedPersonResourceAssignments}
+              resourceShareAssignments={dosResourceSharesForPerson(data.resourceShareAssignments, selectedPerson.id)}
+              onOpenShareResult={setShareResultId}
+              onSendResource={openSendResourceForPerson}
+              workspacePeople={data.people}
             onBack={() => (reportsReturn ? backToReports() : setSelectedPersonId(null))}
             returnLabel={reportsReturn ? "Reports" : null}
             onAddCommitmentSubject={openCommitmentSubject}
@@ -46825,6 +47559,23 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
           <FruitFormPreviewSheet
             formKey={selectedFruitFormPreviewKey}
             onClose={() => setSelectedFruitFormPreviewKey(null)}
+          />
+        ) : null}
+
+        {sendResourceTarget && getDosResourceBySlug(sendResourceTarget.slug) ? (
+          <SendResourceSheet
+            onClose={() => setSendResourceTarget(null)}
+            onSend={createResourceShare}
+            people={data.people}
+            preselectedPersonId={sendResourceTarget.personId}
+            resource={getDosResourceBySlug(sendResourceTarget.slug) as DosResource}
+          />
+        ) : null}
+
+        {shareResultId && data.assessmentResults.some((result) => result.id === shareResultId) ? (
+          <ResourceShareResultSheet
+            onClose={() => setShareResultId(null)}
+            result={data.assessmentResults.find((result) => result.id === shareResultId) as DosAppAssessmentResult}
           />
         ) : null}
 

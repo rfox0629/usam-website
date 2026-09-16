@@ -478,6 +478,7 @@ function buildDirkPerspectiveData(ryan: DosAppData): DosAppData {
     prayerRequests: [],
     reminders: [],
     resourceAssignments: [],
+    resourceShareAssignments: [],
     tableInvitationBookings: [],
     tableInvitations: [],
     workspace: { ...ryan.workspace, displayName: "Bond Family", greetingName: "Dirk", id: demoDirkWorkspaceId, userEmail: "dirk@example.com", userFullName: "Dirk Bond", userPersonId: null, userPhone: null },
@@ -704,6 +705,7 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       id: "demo-person-samuel-gaffney",
       lastActivityAt: daysAgoIso(21),
       name: "Samuel Gaffney",
+      spouseName: "Patty Gaffney",
       notes: "",
       phone: "",
       relationshipContext: "other",
@@ -727,6 +729,7 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       id: "demo-person-patty-gaffney",
       lastActivityAt: daysAgoIso(21),
       name: "Patty Gaffney",
+      spouseName: "Samuel Gaffney",
       notes: "",
       phone: "",
       relationshipContext: "other",
@@ -1721,6 +1724,52 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       personId: "demo-person-george-jenko",
       secondaryPersonId: null,
       source: "self",
+      workspaceId: demoWorkspaceId,
+    },
+  ];
+  /* USA-278: sent Library resources. One couple with both People records
+     linked and a link that is only ready; one couple where the spouse is a
+     name on the assignment and the assessment is finished. Neither creates a
+     contact, and neither is described as "Sent". */
+  const resourceShareAssignments: DosAppData["resourceShareAssignments"] = [
+    {
+      completedAt: null,
+      createdAt: daysAgoIso(3),
+      expiresAt: daysAgoIso(-87),
+      id: "demo-share-marriage-gaffney",
+      participants: [
+        { name: "Samuel Gaffney", personId: "demo-person-samuel-gaffney", role: "Husband" },
+        { name: "Patty Gaffney", personId: "demo-person-patty-gaffney", role: "Wife" },
+      ],
+      primaryPersonId: "demo-person-samuel-gaffney",
+      requestedByName: "Fox Family",
+      resourceSlug: "marriage-assessment",
+      resultId: null,
+      secondaryPersonId: "demo-person-patty-gaffney",
+      shareUrl: "/dos/resource/demo-share-token-gaffney",
+      startedAt: null,
+      status: "link_ready",
+      updatedAt: daysAgoIso(3),
+      workspaceId: demoWorkspaceId,
+    },
+    {
+      completedAt: "2026-05-26T19:00:00-05:00",
+      createdAt: "2026-05-20T09:00:00-05:00",
+      expiresAt: "2026-08-18T09:00:00-05:00",
+      id: "demo-share-marriage-george",
+      participants: [
+        { name: "George Jenko", personId: "demo-person-george-jenko", role: "Husband" },
+        { name: "Mara", personId: null, role: "Wife" },
+      ],
+      primaryPersonId: "demo-person-george-jenko",
+      requestedByName: "Fox Family",
+      resourceSlug: "marriage-assessment",
+      resultId: "demo-assessment-george-marriage",
+      secondaryPersonId: null,
+      shareUrl: "/dos/resource/demo-share-token-george",
+      startedAt: "2026-05-26T18:20:00-05:00",
+      status: "completed",
+      updatedAt: "2026-05-26T19:00:00-05:00",
       workspaceId: demoWorkspaceId,
     },
   ];
@@ -2977,6 +3026,7 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
         workspaceId: demoWorkspaceId,
       },
     ],
+    resourceShareAssignments,
     tableInvitationBookings: options.links === "active" ? buildDemoTableInvitationBookings() : [],
     tableInvitations: options.links === "active" ? buildDemoTableInvitations() : [],
     usamApplication: {
