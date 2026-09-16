@@ -296,7 +296,14 @@ assert(!myRecordWorkspaceSource.includes("<TabHero"), "My Record should not use 
 assert(client.includes("function MyRecordMeetingCards"), "USA-272: Overview leads with the Last / Upcoming meeting pair.");
 const meetingCardsSource = client.slice(client.indexOf("function MyRecordMeetingCards"), client.indexOf("function MyRecordOverviewPanel"));
 assert(meetingCardsSource.includes(">Last meeting<") && meetingCardsSource.includes(">Upcoming meeting<"), "USA-272: the pair is Last meeting and Upcoming meeting.");
-assert(meetingCardsSource.includes("myRecordNextFollowUp(record)") && !meetingCardsSource.includes("new Date("), "USA-272: the upcoming meeting is a real saved follow-up date, never generated.");
+/* USA-272 follow-up: the upcoming meeting is a real SCHEDULED meeting from
+   the source the Meetings calendar reads, scoped to the people discipling
+   the account holder. It used to be a follow-up date noted on a past
+   discipleship log, which no calendar meeting ever set. Behaviour is
+   proven in dos-my-record-mentor-meeting-regression.mjs; this holds the
+   wiring. */
+assert(meetingCardsSource.includes("dosMyRecordNextScheduledMeeting(meetings, disciplerPersonIds)") && !meetingCardsSource.includes("new Date("), "USA-272: the upcoming meeting is a real scheduled meeting, never generated.");
+assert(!client.includes("myRecordNextFollowUp"), "USA-272 follow-up: the follow-up-date reading of the upcoming meeting is gone, not left beside the new one.");
 const overviewPanelSource = client.slice(client.indexOf("function MyRecordOverviewPanel"), client.indexOf("type MyRecordTimelineFilter"));
 assert(overviewPanelSource.indexOf("<MyRecordMeetingCards") < overviewPanelSource.indexOf("<MyRecordSurface>"), "USA-272: the meeting pair comes before the sectioned surface.");
 ["Time with God", "Current commitments", "Personal prayer"].forEach((label) => {
