@@ -20,10 +20,11 @@
  *   - a group meeting credits its full duration to every linked person as
  *     relationship-contact time; person rows are therefore never summed and
  *     presented as unique missionary elapsed time (see `totals`)
- *   - duration is what was logged: a start and an end, or entered minutes.
+ *   - duration is what was logged: entered minutes, or a start and an end.
  *     Anything else contributes nothing and marks the row Partial. There is
- *     no estimate. Historical start times are a synthetic noon (USA-246), so
- *     this is a "logged duration", never clock-in / clock-out precision.
+ *     no estimate. A meeting records its length separately from its start
+ *     time, and a start time may be unknown, so this is a "logged duration",
+ *     never clock-in / clock-out precision.
  *   - a missing record never proves that no ministry happened, and the word
  *     "inactive" does not appear
  *   - nothing circle-based; multiplication only from a downstream person's
@@ -660,9 +661,9 @@ export function formatDosMinistryPeriod(period: Pick<DosMinistryReportPeriod, "e
 
 /* Logged duration only. Entered minutes when the record stores them;
    otherwise a start and end that are both present. Anything else contributes
-   nothing. Production start times are a synthetic local noon on every logged
-   meeting (USA-246 audit), so this is the duration that was entered, never a
-   clock-in / clock-out interval. */
+   nothing. A meeting's length is recorded independently of its start time --
+   a start time can be unknown and often is -- so this is the duration that
+   was entered, never a clock-in / clock-out interval. */
 export function dosLoggedMeetingMinutes(meeting: Pick<DosMinistryReportMeeting, "durationMinutes" | "scheduledEndAt" | "scheduledStartAt">) {
   if (typeof meeting.durationMinutes === "number") {
     return Number.isFinite(meeting.durationMinutes) && meeting.durationMinutes > 0 ? Math.round(meeting.durationMinutes) : null;
@@ -1711,6 +1712,11 @@ export function dosMinistryReportInputFromAppData({
       ...meetings.map((meeting): DosMinistryReportMeeting => ({
         conversationFlowKey: meeting.conversationFlowKey,
         date: meeting.date,
+        /* Read from the meeting's own recorded length first. A meeting whose
+           start time is unknown still has a duration, and it must count for
+           exactly the minutes it counted for when that start was a synthetic
+           noon -- separating the two never moves a report total. */
+        durationMinutes: meeting.durationMinutes,
         fieldPersonIds: meeting.fieldPersonIds,
         id: meeting.id,
         meetingStatus: meeting.meetingStatus,

@@ -44,8 +44,8 @@ assert(
 );
 
 assert(
-  appClient.includes("durationDefault={durationMinutesFromDateRange(selectedMeeting.scheduledStartAt, selectedMeeting.scheduledEndAt"),
-  "Logged Edit Table must seed duration from the saved start/end timestamps.",
+  appClient.includes("durationDefault={selectedMeeting.durationMinutes ?? durationMinutesFromDateRange(selectedMeeting.scheduledStartAt, selectedMeeting.scheduledEndAt"),
+  "Logged Edit Table must seed duration from the recorded duration, falling back to the saved start/end timestamps.",
 );
 
 assert(

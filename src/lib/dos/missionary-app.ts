@@ -19,7 +19,7 @@ import { dosExperienceReviewTypes } from "@/src/lib/dos/review-types";
 import { googleCalendarReconnectMessage, isGoogleCalendarConfigured, type GoogleCalendarConnectionHealthStatus } from "@/src/lib/dos/google-calendar";
 import { ensureDosViewerPerson, syncHouseholdTeamMembersAsPeople } from "@/src/lib/dos/household-member-people";
 import { resolveDosIdentityForWorkspace } from "@/src/lib/dos/identity";
-import { dosMeetingEventDate, dosMeetingEventSortValue } from "@/src/lib/dos/meeting-lifecycle";
+import { dosMeetingDurationMinutes, dosMeetingEventDate, dosMeetingEventSortValue } from "@/src/lib/dos/meeting-lifecycle";
 import { ensureRyanDosWorkspaceGroups } from "@/src/lib/dos/group-seeds";
 import { loadUsamApplicationForWorkspace, type DosUsamOrganizationApplication } from "@/src/lib/dos/usam-application";
 import { loadTableInvitationBookingsForWorkspace, loadTableInvitationsForWorkspace, type DosTableInvitationBooking } from "@/src/lib/dos/table-invitation-data";
@@ -266,6 +266,10 @@ export type DosAppMeeting = {
   plannedStartAt: string | null;
   plannedEndAt: string | null;
   plannedDurationMinutes: number | null;
+  /* What was recorded for how long it ran. Independent of `scheduledStartAt`,
+     so a meeting whose start time nobody knows still reports its length and
+     still counts for the same minutes in the Master Ministry Report. */
+  durationMinutes: number | null;
   loggedAt: string | null;
   supportingAttendees: DosAppMinistryEventPerson[];
   planningReflection: {
@@ -1188,6 +1192,11 @@ type MeetingRow = {
   planned_duration_minutes?: number | null;
   planned_timezone?: string | null;
   logged_at?: string | null;
+  /* How long the meeting ran, recorded on its own. Before this column, length
+     was only derivable from the start/end pair, which forced Log Meeting to
+     invent a start time for every meeting. Null on a row written before it
+     existed; the pair is still read as the fallback. */
+  duration_minutes?: number | null;
   table_role?: string | null;
   table_date: string | null;
   table_type: string | null;
@@ -1985,7 +1994,7 @@ type FruitEventRow = {
   visibility: string | null;
 };
 
-const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_role, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, growth_what_god_taught, growth_scriptures, growth_action_step, growth_mentor_assignment, growth_follow_up_needed, planning_decisions, planning_action_items, planning_follow_up, meeting_status, scheduled_start_at, scheduled_end_at, planned_start_at, planned_end_at, planned_duration_minutes, planned_timezone, logged_at, timezone, google_sync_enabled, created_at, updated_at";
+const meetingSelect = "id, ministry_event_id, recorded_by_display_name, recorded_by_user_id, table_type, table_role, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, growth_what_god_taught, growth_scriptures, growth_action_step, growth_mentor_assignment, growth_follow_up_needed, planning_decisions, planning_action_items, planning_follow_up, meeting_status, scheduled_start_at, scheduled_end_at, planned_start_at, planned_end_at, planned_duration_minutes, planned_timezone, logged_at, duration_minutes, timezone, google_sync_enabled, created_at, updated_at";
 const meetingSchedulingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, meeting_status, scheduled_start_at, scheduled_end_at, timezone, google_sync_enabled, created_at, updated_at";
 const legacyMeetingSelect = "id, table_type, table_date, notes, participant_names, field_person_ids, conversation_flow_key, conversation_responses, recommended_resources, created_at, updated_at";
 
@@ -5167,6 +5176,11 @@ export async function loadDosAppData(
         plannedStartAt: meeting.planned_start_at ?? null,
         plannedEndAt: meeting.planned_end_at ?? null,
         plannedDurationMinutes: typeof meeting.planned_duration_minutes === "number" ? meeting.planned_duration_minutes : null,
+        durationMinutes: dosMeetingDurationMinutes({
+          durationMinutes: meeting.duration_minutes,
+          scheduledEndAt: meeting.scheduled_end_at,
+          scheduledStartAt: meeting.scheduled_start_at,
+        }),
         loggedAt: meeting.logged_at ?? null,
         supportingAttendees: eventPeople.filter((eventPerson) => eventPerson.role === "supporting_attendee"),
         planningReflection: {
@@ -5218,6 +5232,8 @@ export async function loadDosAppData(
       plannedStartAt: null,
       plannedEndAt: null,
       plannedDurationMinutes: null,
+      /* A connection log records a day and what happened, never a length. */
+      durationMinutes: null,
       loggedAt: null,
       source: "connection" as const,
       supportingAttendees: [],

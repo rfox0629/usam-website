@@ -175,7 +175,7 @@ import {
   buildDemoGroupMemberAccessToken,
   type DemoGroupMemberAccessPayload,
 } from "@/src/lib/groups/demo-member-access";
-import { dateKeyFromParts, dateSortValue, displayDateKey, displayDateParts, displayDayStart, displayTimeZoneForValue, dosDisplayTimeZone, isUpcomingDate, parseDisplayCalendarDateParts, parseDisplayDate, startOfDisplayDay } from "@/src/lib/dos/display-dates";
+import { dateKeyFromParts, dateSortValue, displayDateKey, displayDateParts, displayDayStart, displayTimeZoneForValue, dosDisplayTimeZone, hasDisplayClockTime, isUpcomingDate, parseDisplayCalendarDateParts, parseDisplayDate, startOfDisplayDay, zonedClockTime, zonedDateTimeIso } from "@/src/lib/dos/display-dates";
 import { VoiceTextarea } from "@/src/components/dos/VoiceTextarea";
 import type { LeaderPreviewInput } from "@/src/lib/groups/member-preview";
 import { MemberGroupHomePreview } from "./MemberGroupHomePreview";
@@ -1679,8 +1679,20 @@ const meetingsViewOptions: ReadonlyArray<PillRailOption<MeetingsView>> = [
   { label: "Links", value: "links" },
 ];
 
-function formatTime(value: string | null) {
-  const date = parseDisplayDate(value);
+/* A clock time, or nothing.
+ *
+ * A calendar date ("2026-09-16") is a DAY. `parseDisplayDate` anchors one at
+ * noon UTC so it stays the day it says it is wherever it is read -- but noon
+ * UTC formatted as a TIME in the display zone is 7:00 AM (6:00 AM outside
+ * daylight saving). That is where the "started at 7 a.m." on every logged
+ * meeting came from: the screens asked a day what time it was, and an anchor
+ * answered. A day has no clock time, and this says so. */
+function formatTime(value: string | null | undefined) {
+  if (!hasDisplayClockTime(value)) {
+    return "";
+  }
+
+  const date = parseDisplayDate(value ?? null);
 
   if (!date) {
     return "";
@@ -1724,15 +1736,17 @@ function plannedVersusActualLine(meeting: DosAppMeeting) {
 /* A bare clock time, used where the date is already established by its
    surroundings (for example "Scheduled for 6:00 PM"). */
 function formatMeetingClockTime(value: string | null | undefined) {
-  const date = value ? new Date(value) : null;
-
-  return date && !Number.isNaN(date.getTime())
-    ? new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(date)
-    : "the scheduled time";
+  /* In the DOS display zone, like every other time on every other screen.
+     Reading it in the browser's zone made the same meeting say two different
+     things to two people looking at the same record. */
+  return formatTime(value ?? null) || "the scheduled time";
 }
 
 function formatMeetingTimeRange(meeting: DosAppMeeting) {
-  const start = formatTime(meeting.scheduledStartAt ?? meeting.date);
+  /* The day comes from the start when there is one and from `date` otherwise;
+     the TIME comes only from the start. Passing `date` to `formatTime` is what
+     printed 7:00 AM on every meeting that had no start time. */
+  const start = formatTime(meeting.scheduledStartAt);
   const end = formatTime(meeting.scheduledEndAt);
 
   return [formatDate(meeting.scheduledStartAt ?? meeting.date), start && end ? `${start} - ${end}` : start].filter(Boolean).join(" · ");
@@ -2584,10 +2598,15 @@ function calendarSelectedDayLabel(value: string) {
   return isTodayDate(value) ? `Today · ${label}` : label;
 }
 
-function localDateTimeIso(dateValue: string, timeValue: string) {
-  const date = new Date(`${dateValue}T${timeValue || "00:00"}:00`);
-
-  return Number.isNaN(date.getTime()) ? null : date.toISOString();
+/* A day plus a clock time, as an instant.
+ *
+ * Read in the DOS display zone, never in the browser's: the screens read every
+ * time back in the display zone, so saving in the browser's zone meant a
+ * meeting entered at noon in Phoenix came back as 2:00 PM for everybody. It is
+ * null when either half is missing, because an unknown start time is null --
+ * this function no longer has a stand-in to hand back. */
+function displayZoneDateTimeIso(dateValue: string | null | undefined, timeValue: string | null | undefined) {
+  return zonedDateTimeIso(dateValue, timeValue, dosDisplayTimeZone);
 }
 
 function dateInputValueFromDateTime(value: string | null | undefined, fallback = todayDateValue()) {
@@ -2597,17 +2616,7 @@ function dateInputValueFromDateTime(value: string | null | undefined, fallback =
 }
 
 function timeInputValueFromDateTime(value: string | null | undefined, fallback = "18:00") {
-  if (!value || !value.includes("T")) {
-    return fallback;
-  }
-
-  const date = parseDisplayDate(value);
-
-  if (!date) {
-    return fallback;
-  }
-
-  return displayTimeInputValue(date) || fallback;
+  return zonedClockTime(value, dosDisplayTimeZone) ?? fallback;
 }
 
 function durationMinutesFromDateRange(startValue: string | null | undefined, endValue: string | null | undefined, fallbackMinutes = 60) {
@@ -4881,15 +4890,24 @@ function parseTimeInput(raw: string) {
 }
 
 function DosTimeInput({
+  allowUnknown = false,
   ariaLabel,
+  hint,
   invalidMessage = null,
   label,
   name,
   onChange,
+  placeholder = "6:00 PM",
   required = false,
   value,
 }: {
+  /* Some times are genuinely not known -- a meeting logged a week later, from
+     memory. An empty value then means "not recorded", is offered as a visible
+     Clear, and is posted as an empty string so the save writes null rather
+     than a stand-in. */
+  allowUnknown?: boolean;
   ariaLabel?: string;
+  hint?: string | null;
   /* A validation message owned by the form (for example "End time must be after
      the start time"). Shown beneath the field and applied as the input's
      validity, so the browser blocks submission and focuses it. */
@@ -4897,8 +4915,9 @@ function DosTimeInput({
   label: string;
   name: string;
   onChange: (value: string) => void;
+  placeholder?: string;
   required?: boolean;
-  /* Always "HH:MM". This control is controlled. */
+  /* Always "HH:MM", or "" when the time is unknown. This control is controlled. */
   value: string;
 }) {
   const [displayValue, setDisplayValue] = useState(() => formatTimeInputDisplay(value));
@@ -4946,6 +4965,13 @@ function DosTimeInput({
     }
 
     if (!displayValue.trim()) {
+      /* Clearing the field is an answer where a time may be unknown, and only
+         a reset to the previous value where it may not. */
+      if (allowUnknown) {
+        commit("");
+        return true;
+      }
+
       setDisplayValue(formatTimeInputDisplay(value));
       return true;
     }
@@ -5024,7 +5050,7 @@ function DosTimeInput({
               setIsPickerOpen(false);
             }
           }}
-          placeholder="6:00 PM"
+          placeholder={placeholder}
           ref={inputRef}
           required={required}
           role="combobox"
@@ -5043,6 +5069,18 @@ function DosTimeInput({
       </div>
       {invalidMessage ? (
         <p className="mt-1.5 text-[12.5px] font-semibold leading-[1.4] text-[#B42318]" id={messageId} role="alert">{invalidMessage}</p>
+      ) : null}
+      {allowUnknown && value ? (
+        <button
+          className="mt-1.5 text-[12.5px] font-semibold text-dos-secondary underline decoration-dotted underline-offset-2 transition-colors hover:text-dos-primary"
+          onClick={() => { commit(""); setIsPickerOpen(false); }}
+          type="button"
+        >
+          Clear time
+        </button>
+      ) : null}
+      {hint && !invalidMessage ? (
+        <p className="mt-1.5 text-[12.5px] leading-[1.45] text-dos-secondary">{hint}</p>
       ) : null}
       {isPickerOpen ? (
         /* Inline and in normal flow, exactly like the date picker, so it
@@ -16633,7 +16671,9 @@ function MeetingsTimeline({
           <Eyebrow count={`${group.meetings.length} logged`}>{group.label}</Eyebrow>
           {group.meetings.map((meeting) => {
             const duration = formatLoggedTime(tableDurationMinutes(meeting));
-            const time = formatTime(meeting.date);
+            /* The START, not the day. This read `meeting.date` -- a calendar
+               date -- so every logged meeting in the list said "7:00 AM". */
+            const time = formatTime(meeting.scheduledStartAt);
             const meta = [meetingActivityTitle(meeting), duration === "—" ? null : duration].filter(Boolean).join(" · ");
 
             return (
@@ -18719,6 +18759,13 @@ function meetingInteractionWeight(meeting: DosAppMeeting) {
 }
 
 function meetingMinutesEstimate(meeting: DosAppMeeting) {
+  /* What was recorded for how long it ran, which no longer depends on a start
+     time being known. Falls through to the start/end pair for a row written
+     before duration had a column of its own. */
+  if (typeof meeting.durationMinutes === "number" && meeting.durationMinutes > 0) {
+    return Math.round(meeting.durationMinutes);
+  }
+
   if (meeting.scheduledStartAt && meeting.scheduledEndAt) {
     const start = new Date(meeting.scheduledStartAt).getTime();
     const end = new Date(meeting.scheduledEndAt).getTime();
@@ -19262,10 +19309,14 @@ function calendarItemTimeLabel(item: MeetingCalendarItem) {
   }
 
   if (item.meeting) {
-    const start = formatTime(item.meeting.scheduledStartAt ?? item.date);
+    const start = formatTime(item.meeting.scheduledStartAt);
     const end = formatTime(item.meeting.scheduledEndAt);
 
-    return start && end ? `${start} - ${end}` : start || "Any time";
+    if (start && end) {
+      return `${start} - ${end}`;
+    }
+
+    return start || (item.meeting.meetingStatus === "logged" ? "Time not recorded" : "Any time");
   }
 
   if (item.externalEvent) {
@@ -20349,7 +20400,7 @@ function MeetingCalendarView({
                     type="button"
                   >
                     <span className="block break-words text-[11px] font-semibold leading-[13px] [overflow-wrap:anywhere] sm:text-xs sm:leading-4">{item.title}</span>
-                    <span className="mt-px hidden truncate text-[10px] font-medium leading-3 text-white/90 sm:block">{formatTime(item.date) || calendarItemSourceLabel(item)}</span>
+                    <span className="mt-px hidden truncate text-[10px] font-medium leading-3 text-white/90 sm:block">{formatTime(item.meeting ? item.meeting.scheduledStartAt : item.date) || calendarItemSourceLabel(item)}</span>
                   </button>
                 );
               })}
@@ -21623,6 +21674,60 @@ function ScheduledTableTimingFields({
   );
 }
 
+/* Log Meeting's timing: the day it happened and the time it started.
+ *
+ * Start time is a real field here, not a correction hidden behind a
+ * disclosure. Before it existed, Log Meeting posted a local noon for every
+ * meeting, and any screen that had only the date to work with printed 7:00 AM
+ * -- so the record said a time nobody had entered and nobody could correct.
+ *
+ * It is optional on purpose. A meeting written up days later often has no
+ * remembered start, and "not recorded" is a truthful answer that the record
+ * can hold; the duration is entered separately and is unaffected, so leaving
+ * the time unknown costs nothing. Date and Start sit in one row at every
+ * width, the same pairing Schedule Meeting uses for Start and End. */
+function LoggedTableTimingFields({
+  dateDefault,
+  plannedStartAt,
+  startTimeDefault,
+}: {
+  dateDefault?: string;
+  /* The time the meeting was scheduled for, when it was scheduled at all.
+     Shown as context beneath the field; the field itself already opens on it,
+     so completing a scheduled meeting keeps its time by doing nothing. */
+  plannedStartAt?: string | null;
+  startTimeDefault?: string | null;
+}) {
+  const [startTime, setStartTime] = useState(startTimeDefault ?? "");
+
+  return (
+    <>
+      <div className="grid grid-cols-2 gap-3">
+        <DosDateInput
+          defaultValue={dateDefault}
+          label="Date"
+          labelVariant="sentence"
+          name="table_date"
+          required
+        />
+        <DosTimeInput
+          allowUnknown
+          label="Start time"
+          name="start_time"
+          onChange={setStartTime}
+          placeholder="Not recorded"
+          value={startTime}
+        />
+      </div>
+      <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
+        {plannedStartAt
+          ? `Scheduled for ${formatMeetingClockTime(plannedStartAt)}. Change it only if the meeting actually started at a different time; the scheduled time is kept either way.`
+          : "Optional. Leave it blank if you do not remember when you started; the meeting will show its date and no time."}
+      </p>
+    </>
+  );
+}
+
 function ObservedFruitMultiSelect({
   onToggle,
   selectedOutcomeTags,
@@ -21923,11 +22028,16 @@ function MeetingFormContent({
   const scheduledDateDefault = dateInputValueFromDateTime(scheduledStartAtDefault ?? dateDefault, dateDefault);
   const scheduledTimeDefault = timeInputValueFromDateTime(scheduledStartAtDefault, "18:00");
   const scheduledDurationDefault = durationMinutesFromDateRange(scheduledStartAtDefault, scheduledEndAtDefault);
+  /* What Start time opens on: the start already recorded, else the time the
+     meeting was scheduled for -- which is how completing a scheduled meeting
+     preserves that time -- else nothing, because a new log has no start until
+     somebody enters one. Never a placeholder. */
+  const loggedStartTimeDefault = timeInputValueFromDateTime(scheduledStartAtDefault ?? plannedStartAtDefault, "");
   const showRoleReflectionFields = includeReflectionFields || selectedTableRole !== "ministering";
 
   return (
     <form className="space-y-5" onSubmit={onSubmit}>
-      <DosFormSection icon="calendar" title={showScheduledTiming ? "Date & Time" : "Date"} variant="label">
+      <DosFormSection icon="calendar" title="Date & Time" variant="label">
         {showScheduledTiming ? (
           <ScheduledTableTimingFields
             dateDefault={scheduledDateDefault}
@@ -21938,11 +22048,11 @@ function MeetingFormContent({
             timeName="scheduled_time"
           />
         ) : (
-          /* A date is a short value; a full-bleed pill made it read as the
-             most important field on the form. Size it to its content. */
-          <div className="max-w-[15rem]">
-            <DosDateInput ariaLabel="Date" defaultValue={dateDefault} name="table_date" required />
-          </div>
+          <LoggedTableTimingFields
+            dateDefault={dateDefault}
+            plannedStartAt={plannedStartAtDefault}
+            startTimeDefault={loggedStartTimeDefault}
+          />
         )}
       </DosFormSection>
       <DosFormSection icon="people" title="Who was there?" variant="label">
@@ -21989,28 +22099,11 @@ function MeetingFormContent({
       </DisclosureSection>
       {showDurationField && durationSelector ? (
         <DosFormSection hint="15-minute steps" icon="meetings" title="Duration" variant="label">
+          {/* How long it ran, always separate from when it started. A meeting
+              records its length whether or not its start time is known
+              (USA-246 put the correction behind an "Adjust time" disclosure;
+              it is a plain Start time field in Date & Time now). */}
           {durationSelector}
-          {/* USA-246: most meetings happen when they were planned, so the
-              actual start is prefilled and stays out of the way. It is here for
-              the meeting that started late or ran on a different day, and it
-              never appears on a meeting that had no plan. */}
-          {plannedStartAtDefault ? (
-            <DisclosureSection description="Only if it started at a different time." title="Adjust time">
-              <DosFormField label="Actual start time" labelVariant="sentence">
-                <div className="mt-1.5">
-                  <input
-                    className={FieldTimeInputClass(false)}
-                    defaultValue={timeInputValueFromDateTime(plannedStartAtDefault, "")}
-                    name="actual_start_time"
-                    type="time"
-                  />
-                </div>
-              </DosFormField>
-              <p className="text-[12.5px] leading-[1.45] text-dos-secondary">
-                Scheduled for {formatMeetingClockTime(plannedStartAtDefault)}. Changing this records what actually happened; the scheduled time is kept.
-              </p>
-            </DisclosureSection>
-          ) : null}
         </DosFormSection>
       ) : null}
       <DosFormSection icon="meetings" title={showScheduledTiming ? "What are you scheduling?" : "How did you connect?"} variant="label">
@@ -35395,13 +35488,12 @@ function upcomingDayLabel(value: string | null | undefined, includeTime = false)
       : dayDelta < 7
         ? parsed.toLocaleDateString("en-US", { weekday: "long" })
         : formatDate(normalized);
-  const hasTime = Boolean(normalized && normalized.includes("T"));
+  /* `formatTime` is empty for a day, so a value with no clock time falls
+     through to the day label rather than printing the parse anchor. It also
+     reads in the DOS display zone, like every other time on the Person page. */
+  const timeLabel = includeTime ? formatTime(normalized) : "";
 
-  if (!includeTime || !hasTime) {
-    return dayLabel;
-  }
-
-  return `${dayLabel} · ${parsed.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}`;
+  return timeLabel ? `${dayLabel} · ${timeLabel}` : dayLabel;
 }
 
 function followUpDuePhrase(value: string | null | undefined) {
@@ -38405,7 +38497,12 @@ function MeetingDetailOverlay({
   // date carry underneath rather than repeating the same phrase twice.
   const meetingTopic = normalizeText(meeting.title);
   const meetingHeadline = meetingTopic || meetingPeopleLine;
-  const meetingSubline = [meetingTopic ? meetingPeopleLine : "", formatDate(meeting.date)]
+  /* The detail names the start time when one is recorded, and says so plainly
+     when none is. Silence used to be indistinguishable from a real time,
+     because every screen printed the anchor a date-only meeting was parsed at
+     -- 7:00 AM in the display zone. */
+  const meetingStartLabel = formatTime(meeting.scheduledStartAt);
+  const meetingSubline = [meetingTopic ? meetingPeopleLine : "", [formatDate(meeting.date), meetingStartLabel].filter(Boolean).join(" · ")]
     .filter(Boolean)
     .join(" · ");
 
@@ -38458,6 +38555,7 @@ function MeetingDetailOverlay({
             const facts = [
               meetingTypeLabel(meeting.type),
               meetingMinutes ? formatLoggedTime(meetingMinutes) : null,
+              meetingStartLabel || isScheduledMeeting ? null : "Start time not recorded",
             ].filter((fact): fact is string => Boolean(fact));
 
             return (facts.length || conversationBadgeLabel || temperature || observedFruit.length) ? (
@@ -44309,7 +44407,14 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     const meetingNotes = String(formData.get("notes") ?? "");
     const tableDate = String(formData.get("table_date") ?? todayDateValue());
     const durationMinutes = formDurationMinutes(formData.get("meeting_duration_minutes"));
-    const loggedStartAt = localDateTimeIso(tableDate, "12:00");
+    /* The time the meeting started, as entered. Blank means nobody recorded
+       one, and that is saved as unknown: Log Meeting used to stamp a local
+       noon here instead, which is why 68 of the 72 logged meetings in
+       production sit at exactly 12:00 local and none of those times was ever
+       typed by anyone. The duration is posted on its own, so leaving the
+       start unknown costs the record nothing. */
+    const startTimeInput = String(formData.get("start_time") ?? "").trim();
+    const loggedStartAt = displayZoneDateTimeIso(tableDate, startTimeInput);
     const loggedEndAt = loggedStartAt ? new Date(new Date(loggedStartAt).getTime() + durationMinutes * 60_000).toISOString() : null;
     const tableRole = normalizeTableRole(formData.get("table_role") ?? selectedTableRole);
     const shouldUseLeaderReflection = tableRoleIncludesMinistering(tableRole);
@@ -44391,6 +44496,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
               conversationResponses: conversationFlowKey !== "none" ? conversationResponses : {},
               fieldPersonIds: selectedMeetingPersonIds,
               ...meetingRolePayload(formData),
+              durationMinutes,
               idempotencyKey: operationId,
               notes: meetingNotes,
               scheduledEndAt: loggedEndAt,
@@ -44398,7 +44504,10 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
               strictChildren: true,
               tableDate,
               tableType: selectedMeetingContext,
-              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+              /* The zone the clock time above is expressed in. It is the DOS
+                 display zone, not the browser's, so the record reads the same
+                 to everyone who opens it. */
+              timezone: dosDisplayTimeZone,
             }),
             /* One record per request, never a joined string, so each can be
                answered, updated and reported on by itself. */
@@ -44563,15 +44672,16 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     const formData = new FormData(event.currentTarget);
     const scheduledDate = String(formData.get("scheduled_date") ?? todayDateValue());
     const scheduledTime = String(formData.get("scheduled_time") ?? "");
-    const scheduledStartAt = localDateTimeIso(scheduledDate, scheduledTime);
+    const scheduledStartAt = displayZoneDateTimeIso(scheduledDate, scheduledTime);
 
     if (!scheduledStartAt) {
       setErrorMessage("Choose a valid meeting date and time.");
       return;
     }
 
-    const scheduledEndAt = new Date(new Date(scheduledStartAt).getTime() + formDurationMinutes(formData.get("duration_minutes")) * 60_000).toISOString();
-    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+    const durationMinutes = formDurationMinutes(formData.get("duration_minutes"));
+    const scheduledEndAt = new Date(new Date(scheduledStartAt).getTime() + durationMinutes * 60_000).toISOString();
+    const timezone = dosDisplayTimeZone;
 
     void (async () => {
       const result = await submitJson("/api/dos/app/meetings", {
@@ -44580,12 +44690,14 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
         conversationResponses: {},
         fieldPersonIds: selectedMeetingPersonIds,
         ...meetingRolePayload(formData),
+        durationMinutes,
         googleSyncEnabled: formData.get("google_sync_enabled") === "on",
         meetingStatus: "scheduled",
         notes: String(formData.get("notes") ?? ""),
         /* USA-246: what this meeting is scheduled for, snapshotted now so
            logging can record what actually happened without erasing it. */
         plannedDate: scheduledDate,
+        plannedDurationMinutes: durationMinutes,
         plannedEndAt: scheduledEndAt,
         plannedStartAt: scheduledStartAt,
         plannedTimezone: timezone,
@@ -44634,14 +44746,14 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     const latestReflection = latestLeaderReflectionForMeeting(data.leaderReflections, selectedMeeting.id);
     const tableDate = String(formData.get(isScheduledMeeting && !isLoggingScheduledMeeting ? "scheduled_date" : "table_date") ?? selectedMeeting.date ?? todayDateValue());
     const durationMinutes = formDurationMinutes(formData.get("meeting_duration_minutes"));
-    /* USA-246: the actual start. Logging used to stamp every meeting at local
-       noon, which destroyed both the time it was scheduled for and the time it
-       happened. It now defaults to the planned start and can be corrected under
-       "Adjust time"; only a meeting that never had a plan falls back to noon,
-       which is the placeholder that shipped before. */
-    const actualTimeInput = String(formData.get("actual_start_time") ?? "").trim();
-    const plannedClockTime = timeInputValueFromDateTime(selectedMeeting.plannedStartAt ?? selectedMeeting.scheduledStartAt, "");
-    const loggedStartAt = localDateTimeIso(tableDate, actualTimeInput || plannedClockTime || "12:00");
+    /* The actual start, as the Start time field holds it. The field opens on
+       the time the meeting was scheduled for, so completing a scheduled
+       meeting keeps that time unless somebody deliberately changes it; the
+       planned snapshot is never sent, so the plan itself stays untouched
+       (USA-246). Cleared means nobody recorded a start, and that is saved as
+       unknown rather than as the local noon this used to fall back to. */
+    const startTimeInput = String(formData.get("start_time") ?? "").trim();
+    const loggedStartAt = displayZoneDateTimeIso(tableDate, startTimeInput);
     const loggedEndAt = loggedStartAt ? new Date(new Date(loggedStartAt).getTime() + durationMinutes * 60_000).toISOString() : null;
     const tableRole = normalizeTableRole(formData.get("table_role") ?? selectedTableRole);
     const shouldUseLeaderReflection = tableRoleIncludesMinistering(tableRole);
@@ -44679,12 +44791,14 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
       fieldPersonIds: selectedMeetingPersonIds,
       ...meetingRolePayload(formData, selectedMeeting),
       googleSyncEnabled: isScheduledMeeting && !isLoggingScheduledMeeting && selectedMeeting.googleSyncEnabled,
+      durationMinutes,
       id: selectedMeeting.id,
       meetingStatus: isLoggingScheduledMeeting ? "logged" : selectedMeeting.meetingStatus,
       notes: meetingNotes,
       tableDate,
       tableType: selectedMeetingContext,
-      timezone: isScheduledMeeting ? Intl.DateTimeFormat().resolvedOptions().timeZone || selectedMeeting.timezone : selectedMeeting.timezone,
+      /* The zone every clock time on this record is read in. */
+      timezone: dosDisplayTimeZone,
     };
 
     if (isLoggingScheduledMeeting) {
@@ -44697,15 +44811,25 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
       payload.logOperationKey = loggingOperationKeyRef.current;
     } else if (isScheduledMeeting) {
       const scheduledTime = String(formData.get("scheduled_time") ?? "");
-      const scheduledStartAt = localDateTimeIso(tableDate, scheduledTime);
+      const scheduledStartAt = displayZoneDateTimeIso(tableDate, scheduledTime);
 
       if (!scheduledStartAt) {
         setErrorMessage("Choose a valid meeting date and time.");
         return;
       }
 
+      const scheduledDurationMinutes = formDurationMinutes(formData.get("duration_minutes"));
+      const scheduledEndAt = new Date(new Date(scheduledStartAt).getTime() + scheduledDurationMinutes * 60_000).toISOString();
+
+      payload.durationMinutes = scheduledDurationMinutes;
       payload.scheduledStartAt = scheduledStartAt;
-      payload.scheduledEndAt = new Date(new Date(scheduledStartAt).getTime() + formDurationMinutes(formData.get("duration_minutes")) * 60_000).toISOString();
+      payload.scheduledEndAt = scheduledEndAt;
+      /* Rescheduling moves the plan too: this IS the new plan. */
+      payload.plannedDate = tableDate;
+      payload.plannedDurationMinutes = scheduledDurationMinutes;
+      payload.plannedStartAt = scheduledStartAt;
+      payload.plannedEndAt = scheduledEndAt;
+      payload.plannedTimezone = dosDisplayTimeZone;
     } else {
       payload.scheduledStartAt = loggedStartAt;
       payload.scheduledEndAt = loggedEndAt;
@@ -48271,7 +48395,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
               buttonText={isLoggingSelectedScheduledMeeting ? "Log meeting" : "Save meeting"}
               conversationResponses={conversationResponses}
               dateDefault={isLoggingSelectedScheduledMeeting ? logDateDefault : selectedMeeting.date ?? todayDateValue()}
-              durationDefault={durationMinutesFromDateRange(selectedMeeting.scheduledStartAt, selectedMeeting.scheduledEndAt, selectedMeeting.meetingStatus === "scheduled" ? 60 : 30)}
+              durationDefault={selectedMeeting.durationMinutes ?? durationMinutesFromDateRange(selectedMeeting.scheduledStartAt, selectedMeeting.scheduledEndAt, selectedMeeting.meetingStatus === "scheduled" ? 60 : 30)}
               errorMessage={errorMessage}
               followUpDateDefault={followUpReminderDefault?.reminderDate}
               followUpNoteDefault={followUpReminderDefault?.title}
@@ -48305,7 +48429,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
               recommendedResources={draftRecommendedResources}
               reflectionDefault={reflectionDefault}
               scheduledEndAtDefault={selectedMeeting.scheduledEndAt}
-              plannedStartAtDefault={selectedMeeting.meetingStatus === "scheduled" ? selectedMeeting.plannedStartAt ?? selectedMeeting.scheduledStartAt : null}
+              plannedStartAtDefault={selectedMeeting.plannedStartAt ?? (selectedMeeting.meetingStatus === "scheduled" ? selectedMeeting.scheduledStartAt : null)}
               scheduledStartAtDefault={selectedMeeting.scheduledStartAt}
               selectedConversationFlow={selectedConversationFlow}
               selectedMeetingContext={selectedMeetingContext}

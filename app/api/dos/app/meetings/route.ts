@@ -20,6 +20,7 @@ import { isUsamWorkspaceById } from "@/src/lib/dos/usam-workspace";
 type MeetingPayload = {
   conversationFlowKey?: unknown;
   conversationResponses?: unknown;
+  durationMinutes?: unknown;
   fieldPersonIds?: unknown;
   growthActionStep?: unknown;
   growthFollowUpNeeded?: unknown;
@@ -194,9 +195,16 @@ function asSupportingAttendees(payload: MeetingPayload): SupportingAttendee[] {
 }
 
 function asDateString(value: unknown) {
+  return asNullableDateString(value) ?? new Date().toISOString().slice(0, 10);
+}
+
+/* A calendar date, or nothing. `asDateString` substitutes today, which is
+   right for `table_date` (a meeting always happened on some day) and wrong
+   everywhere a missing value has to stay missing. */
+function asNullableDateString(value: unknown) {
   const nextValue = asString(value);
 
-  return /^\d{4}-\d{2}-\d{2}$/.test(nextValue) ? nextValue : new Date().toISOString().slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(nextValue) ? nextValue : null;
 }
 
 function asIsoString(value: unknown) {
@@ -209,6 +217,16 @@ function asIsoString(value: unknown) {
   const date = new Date(nextValue);
 
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+/* Minutes a meeting ran for. Recorded on its own so that a meeting can carry
+   a length without carrying a start time: before this column existed, duration
+   was only derivable from the start/end pair, which is why an unknown start
+   had to be faked as local noon. Absent or non-positive stays null. */
+function asDurationMinutes(value: unknown) {
+  const minutes = Number(value);
+
+  return Number.isFinite(minutes) && minutes > 0 ? Math.round(minutes) : null;
 }
 
 function activityDateValue(value: string | null | undefined) {
@@ -350,7 +368,11 @@ async function alreadyLoggedWithKey(
 function plannedSnapshotFields(payload: MeetingPayload) {
   const plannedStartAt = asIsoString(payload.plannedStartAt);
   const plannedEndAt = asIsoString(payload.plannedEndAt);
-  const plannedDate = asDateString(payload.plannedDate);
+  /* Not `asDateString`: that substitutes today, which made the "no plan was
+     sent" test below unreachable. Every update then carried a planned
+     snapshot of {today, null, null, null}, so logging a scheduled meeting
+     wiped the very snapshot USA-246 added to protect it. */
+  const plannedDate = asNullableDateString(payload.plannedDate);
   const plannedTimezone = asString(payload.plannedTimezone) || null;
   const rawDuration = Number(payload.plannedDurationMinutes);
   const derivedDuration = plannedStartAt && plannedEndAt
@@ -380,10 +402,15 @@ function meetingRecordCandidates(record: Record<string, unknown>) {
      not been migrated yet, so code deployed ahead of the schema degrades to the
      previous behaviour instead of failing the write. */
   const plannedKeys = ["planned_start_at", "planned_end_at", "planned_date", "planned_duration_minutes", "planned_timezone", "lifecycle_id", "logged_at", "log_operation_key"];
+  /* Dropped on its own as well as with the planned columns, so a database that
+     has USA-246 but not the duration column still accepts the write. */
+  const durationKeys = ["duration_minutes"];
   const { workspace_id: _workspaceId, ...legacyRecord } = record;
   const dropKeySets = [
     [],
+    durationKeys,
     plannedKeys,
+    [...durationKeys, ...plannedKeys],
     tableRoleColumnKeys,
     [...plannedKeys, ...tableRoleColumnKeys],
     schedulingKeys,
@@ -393,6 +420,7 @@ function meetingRecordCandidates(record: Record<string, unknown>) {
     [...tableRoleColumnKeys, ...recorderKeys],
     [...tableRoleColumnKeys, ...schedulingKeys, ...recorderKeys],
     [...plannedKeys, ...tableRoleColumnKeys, ...schedulingKeys, ...recorderKeys],
+    [...durationKeys, ...plannedKeys, ...tableRoleColumnKeys, ...schedulingKeys, ...recorderKeys],
   ];
   const omitKeys = (candidate: Record<string, unknown>, keys: string[]) => (
     keys.length
@@ -590,7 +618,11 @@ async function resolveRecorder(
 
 async function syncMinistryEvent(input: MinistryEventSyncInput) {
   const eventRecord = {
-    event_at: input.scheduledStartAt ?? `${input.tableDate}T12:00:00.000Z`,
+    /* A meeting whose start time nobody recorded has no instant. It used to
+       borrow noon UTC, which reads as 7am in the DOS display time zone; the
+       column is nullable, so unknown is stored as unknown and the date below
+       remains the thing every reader can rely on. */
+    event_at: input.scheduledStartAt,
     event_date: input.tableDate,
     event_type: eventTypeFromTableType(input.tableType),
     notes: input.notes,
@@ -1318,10 +1350,16 @@ export async function POST(request: Request) {
   const timezone = asString(payload.timezone) || null;
   const googleSyncEnabled = payload.googleSyncEnabled === true;
   const notes = asString(payload.notes) || null;
+  /* How long it ran, kept apart from when it started. The caller sends it
+     explicitly; the start/end pair is the fallback for a caller that predates
+     the field, so a meeting with an unknown start still records its length. */
+  const durationMinutes = asDurationMinutes(payload.durationMinutes)
+    ?? (scheduledStartAt && scheduledEndAt ? Math.max(1, Math.round((Date.parse(scheduledEndAt) - Date.parse(scheduledStartAt)) / 60_000)) : null);
   const requiresSchedulingColumns = meetingStatus === "scheduled" || Boolean(scheduledStartAt || scheduledEndAt || timezone || googleSyncEnabled);
   const meetingInsert: Record<string, unknown> = {
     conversation_flow_key: conversationFlowKey,
     conversation_responses: conversationResponses,
+    duration_minutes: durationMinutes,
     field_person_ids: validPersonIds,
     google_sync_enabled: googleSyncEnabled,
     household_id: workspaceId,
@@ -1628,10 +1666,13 @@ export async function PATCH(request: Request) {
   const timezone = asString(payload.timezone) || null;
   const googleSyncEnabled = payload.googleSyncEnabled === true;
   const notes = asString(payload.notes) || null;
+  const durationMinutes = asDurationMinutes(payload.durationMinutes)
+    ?? (scheduledStartAt && scheduledEndAt ? Math.max(1, Math.round((Date.parse(scheduledEndAt) - Date.parse(scheduledStartAt)) / 60_000)) : null);
   const requiresSchedulingColumns = meetingStatus === "scheduled" || Boolean(scheduledStartAt || scheduledEndAt || timezone || googleSyncEnabled);
   const meetingUpdate: Record<string, unknown> = {
     conversation_flow_key: conversationFlowKey,
     conversation_responses: conversationResponses,
+    duration_minutes: durationMinutes,
     field_person_ids: validPersonIds,
     google_sync_enabled: googleSyncEnabled,
     meeting_status: meetingStatus,

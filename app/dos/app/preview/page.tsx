@@ -60,8 +60,8 @@ function daysAgoIso(days: number, hour = 9, minute = 0) {
   date.setHours(hour, minute, 0, 0);
   return date.toISOString();
 }
-type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "tableRoleRecorded" | "timezone" | "plannedStartAt" | "plannedEndAt" | "plannedDurationMinutes" | "loggedAt">
-  & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "tableRoleRecorded" | "timezone" | "plannedStartAt" | "plannedEndAt" | "plannedDurationMinutes" | "loggedAt">>;
+type DemoMeetingInput = Omit<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "tableRoleRecorded" | "timezone" | "plannedStartAt" | "plannedEndAt" | "plannedDurationMinutes" | "durationMinutes" | "loggedAt">
+  & Partial<Pick<DosAppMeeting, "googleSyncEnabled" | "googleSyncStatus" | "growthReflection" | "meetingStatus" | "ministryEventId" | "ministryTeam" | "participants" | "planningReflection" | "recorder" | "reviewLinks" | "scheduledEndAt" | "scheduledStartAt" | "supportingAttendees" | "tableRole" | "tableRoleRecorded" | "timezone" | "plannedStartAt" | "plannedEndAt" | "plannedDurationMinutes" | "durationMinutes" | "loggedAt">>;
 const emptyGrowthReflection: DosAppMeeting["growthReflection"] = {
   actionStep: null,
   followUpNeeded: false,
@@ -129,6 +129,7 @@ function buildDemoMeeting(meeting: DemoMeetingInput): DosAppMeeting {
     plannedStartAt: null,
     plannedEndAt: null,
     plannedDurationMinutes: null,
+    durationMinutes: null,
     loggedAt: null,
     supportingAttendees: [],
     /* Production shape: no stored role. A fixture meeting that sets tableRole
