@@ -63,9 +63,17 @@ rollback beside it). Nothing existing is altered: `dos_resource_assignments`
 - Tokens are 24 random bytes in base64url, expire after 90 days, and are
   revocable. Possession of a token grants the assigned assessment and nothing
   else — no contact records, no notes, no other assignments.
-- A partial unique index keeps one open assignment per person per resource;
-  completed, expired and revoked rows never block a fresh assessment, so repeat
-  assessments stay distinct records.
+- Two partial unique indexes keep one open assignment per couple per resource:
+  one on the anchor person, and one on an order-independent couple key
+  (`least`/`greatest` of the two person ids) so sending to the wife when the
+  husband already has an open link is refused as the same assessment rather
+  than a second one. Completed, expired and revoked rows never block a fresh
+  assessment, so repeat assessments stay distinct records.
+- The application reuses an open link before it ever inserts: any open
+  assignment for this resource that already involves either named person is
+  handed back. One open assignment per person per resource suits a marriage;
+  a resource where one person pairs with several people (Friendship) needs its
+  own rule before it is made sendable — see the follow-up list.
 - Every create, link and revoke proves workspace access and then proves each
   person id in the body belongs to that workspace.
 
@@ -89,10 +97,13 @@ The catalog holds 36 resources: 2 teachings, 11 guides, 2 assessments, 18 prayer
 Recommended order for the rest, each a separate change:
 
 1. **Friendship Assessment** (`friendship-assessment`) — identical shape to
-   marriage: two participants, 15 questions, 0–10, one couple/pair assignment. It
+   marriage: two participants, 15 questions, 0–10, one pair assignment. It
    reuses this pattern almost unchanged; the work is participant roles ("Friend
    1 / Friend 2"), its own result reading, and moving it off `/guide/...` onto a
-   DOS resource page. Smallest next step, highest reuse.
+   DOS resource page. **It also needs a different "one open assignment" rule**:
+   a person has one spouse but many friends, so the per-person indexes and the
+   reuse lookup must become per-pair for this resource before it is made
+   sendable. Smallest next step, highest reuse.
 2. **Prayer resources** (18) — a read-and-pray resource, not a questionnaire.
    Needs *Share resource* / *Open resource*, a recipient page that renders the
    prayer text with no answers to collect, and an "opened" state instead of
@@ -110,6 +121,27 @@ Recommended order for the rest, each a separate change:
    them through the share flow would be a rewrite, not a reuse.
 
 ## Verification
+
+**Isolated database.** Supabase branching needs the Pro plan, which this
+organization does not have, so the migration was verified against a throwaway
+local PostgreSQL 16 cluster with stand-ins for the surrounding USAM schema and
+the real `set_dos_updated_at` / `is_dos_admin` / `can_access_dos_workspace`
+functions lifted from the repo migrations. Confirmed there: the migration
+applies cleanly and re-applies as a no-op; every check constraint rejects what
+it should (unknown status, blank participant name, one person as both
+participants, a short token, `completed` without a timestamp); token uniqueness
+holds; the `updated_at` trigger fires; `anon` is denied outright, an
+authenticated caller with no workspace access sees nothing and cannot insert, a
+DOS viewer can read but not write, an editor can do both, and `service_role`
+reads; revoked and expired rows free the couple's slot while a completed one
+leaves past results untouched; linking a spouse's contact later keeps the
+entered name and the saved responses, and deleting that contact nulls only the
+link; and the rollback drops the new table while
+`dos_assessment_results` and `missionary_field_people` survive.
+
+That run is also what caught the mirrored-duplicate gap now closed by the
+couple-key index: before it, the database alone allowed a second open link for
+the same couple when the send started from the other spouse.
 
 - `npm run typecheck`, `npm run build`, `npm run test:dos` (69 suites).
 - `npm run test:dos-resource-sharing` — contract checks over the migration, the

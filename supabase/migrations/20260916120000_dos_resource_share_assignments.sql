@@ -43,6 +43,11 @@ create table if not exists public.dos_resource_share_assignments (
   result_id uuid references public.dos_assessment_results(id) on delete set null,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  -- The couple, written so the pair reads the same whichever spouse the
+  -- leader started from. least()/greatest() ignore nulls, so a spouse who is
+  -- only a name collapses to the anchor person and still gets one open link.
+  couple_person_low uuid generated always as (least(primary_person_id, secondary_person_id)) stored,
+  couple_person_high uuid generated always as (greatest(primary_person_id, secondary_person_id)) stored,
   constraint dos_resource_share_assignments_slug_check
     check (resource_slug ~ '^[a-z0-9][a-z0-9-]{1,120}$'),
   constraint dos_resource_share_assignments_status_check
@@ -70,6 +75,14 @@ create unique index if not exists dos_resource_share_assignments_token_key
 -- distinct records.
 create unique index if not exists dos_resource_share_assignments_open_unique
   on public.dos_resource_share_assignments(workspace_id, resource_slug, primary_person_id)
+  where status in ('link_ready', 'in_progress');
+
+-- The same guarantee, order-independent: sending to the wife when the husband
+-- already has an open link is the same couple, not a second assessment. The
+-- application reuses the open link before it ever inserts; this index is what
+-- holds when two sends race each other.
+create unique index if not exists dos_resource_share_assignments_open_couple_unique
+  on public.dos_resource_share_assignments(workspace_id, resource_slug, couple_person_low, couple_person_high)
   where status in ('link_ready', 'in_progress');
 
 create index if not exists dos_resource_share_assignments_workspace_idx
@@ -121,6 +134,9 @@ comment on column public.dos_resource_share_assignments.secondary_person_id is
 
 comment on column public.dos_resource_share_assignments.responses is
   'Draft joint answers keyed question id -> participant role -> 0-10 score, so the couple can resume. The completed result lives in public.dos_assessment_results.';
+
+comment on column public.dos_resource_share_assignments.couple_person_low is
+  'Half of the order-independent couple key. With dos_resource_share_assignments_open_couple_unique it keeps one open assignment per couple per resource, whichever spouse the send started from.';
 
 comment on column public.dos_resource_share_assignments.token is
   'Unguessable, revocable public link token. Possession grants only the assigned assessment experience -- never contact records, notes, or other assignments.';

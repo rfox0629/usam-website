@@ -133,10 +133,16 @@ export type CreateShareResult =
   | { error: string; ok: false; status: number };
 
 /* Creating a link is deliberately idempotent for a couple: re-running "Send
-   assessment" for the same two participants returns the link that already
-   exists instead of splitting their responses across two assignments. A
-   completed assessment is never reused -- that is how a repeat assessment
-   stays a distinct record. */
+   assessment" returns the link that already exists instead of splitting their
+   responses across two assignments. "The same couple" is whoever already has
+   an open link for this resource, whichever side of it they are on and
+   whether the spouse is a contact or just a name -- sending to the wife when
+   the husband already has one is the same assessment. A completed assessment
+   is never reused: that is how a repeat assessment stays a distinct record.
+
+   One open assignment per person per resource suits a marriage, where a
+   person has one spouse. A resource where someone pairs with several people
+   (Friendship) will need its own rule before it is made sendable. */
 /* An open link that ran out its 90 days is settled as `expired` before a new
    one is created. Without this the partial unique index would keep the dead
    link's slot and a couple could never be sent a fresh assessment. */
@@ -156,13 +162,11 @@ async function settleExpiredAssignments(workspaceId: string, resourceSlug: strin
 async function findOpenAssignmentForCouple({
   primaryPersonId,
   resourceSlug,
-  secondaryParticipantName,
   secondaryPersonId,
   workspaceId,
 }: {
   primaryPersonId: string;
   resourceSlug: string;
-  secondaryParticipantName: string;
   secondaryPersonId: string | null;
   workspaceId: string;
 }) {
@@ -182,21 +186,19 @@ async function findOpenAssignmentForCouple({
   }
 
   const rows = (result.data ?? []) as DosResourceShareRow[];
-  const normalizedSecondaryName = cleanShareParticipantName(secondaryParticipantName).toLowerCase();
+  const requestedPeople = new Set(personIds);
   const match = rows.find((row) => {
     if (isExpired(row)) {
       return false;
     }
 
-    const rowPeople = [row.primary_person_id, row.secondary_person_id].filter(Boolean) as string[];
-
-    if (secondaryPersonId) {
-      return rowPeople.includes(primaryPersonId) && rowPeople.includes(secondaryPersonId);
-    }
-
-    return rowPeople.includes(primaryPersonId)
-      && (!row.secondary_person_id)
-      && cleanShareParticipantName(row.secondary_participant_name).toLowerCase() === normalizedSecondaryName;
+    /* Either participant of an open row being one of the people named in this
+       request makes it the same assessment. That covers the mirror (sent from
+       the other spouse), a spouse promoted from a typed name to a contact, and
+       a plain re-send. */
+    return [row.primary_person_id, row.secondary_person_id]
+      .filter(Boolean)
+      .some((personId) => requestedPeople.has(personId as string));
   }) ?? null;
 
   return { data: match, error: null };
@@ -257,7 +259,6 @@ export async function createDosResourceShareAssignment(input: CreateShareInput):
   const existing = await findOpenAssignmentForCouple({
     primaryPersonId: input.primaryPersonId,
     resourceSlug: resource.slug,
-    secondaryParticipantName,
     secondaryPersonId: input.secondaryPersonId,
     workspaceId: input.workspaceId,
   });

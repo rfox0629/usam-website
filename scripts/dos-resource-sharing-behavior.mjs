@@ -405,6 +405,12 @@ const notSendable = await shareLinks.createDosResourceShareAssignment({
 });
 assert.equal(notSendable.ok, false, "a resource whose flow is not finished cannot be sent");
 
+/* The mirror and the typed-name paths reach the same assignment too, so a
+   couple can never end up with two open links however the send was started. */
+const mirrorNameOnly = await sendTo({ primaryPersonId: "22222222-2222-4222-8222-222222222222", secondaryParticipantName: "Samuel", secondaryPersonId: null });
+assert.equal(mirrorNameOnly.reused, true, "sending to the spouse with a typed name reuses the couple's open link");
+assert.equal(supabaseState.tables.dos_resource_share_assignments.length, 1);
+
 /* ---- A spouse who is only a name ---------------------------------------- */
 
 const georgeShare = await sendTo({ primaryPersonId: "33333333-3333-4333-8333-333333333333", secondaryParticipantName: "Mara", secondaryPersonId: null });

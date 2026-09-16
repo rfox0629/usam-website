@@ -173,6 +173,8 @@ for (const required of [
   "public.can_access_dos_workspace(workspace_id, array['admin', 'editor'])",
   "dos_resource_share_assignments_token_key",
   "where status in ('link_ready', 'in_progress')",
+  "dos_resource_share_assignments_open_couple_unique",
+  "couple_person_low uuid generated always as (least(primary_person_id, secondary_person_id)) stored",
   "check (status in ('link_ready', 'in_progress', 'completed', 'expired', 'revoked'))",
 ]) {
   assert.ok(migration.includes(required), `share migration missing: ${required}`);
@@ -204,6 +206,7 @@ for (const required of [
   "revokeDosResourceShareAssignment",
   "linkDosResourceShareSpouse",
   "settleExpiredAssignments",
+  "requestedPeople.has(personId as string)",
   "isAssessmentComplete",
   "summarizeAssessment",
   "source: \"sent_link\"",
