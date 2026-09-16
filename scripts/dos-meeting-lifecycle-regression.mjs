@@ -90,7 +90,11 @@ assert(
   "Person activity reconciliation must use actual logged meeting dates.",
 );
 assert(
-  loader.includes("import { dosMeetingEventDate, dosMeetingEventSortValue }") &&
+  /* The import line now also carries the duration resolver; what this guards
+     is that the loader reads event dates through the lifecycle helpers, not
+     the exact spelling of the import. */
+  /dosMeetingEventDate[\s\S]{0,120}from "@\/src\/lib\/dos\/meeting-lifecycle"/.test(loader) &&
+    loader.includes("dosMeetingEventSortValue") &&
     loader.includes("function sortMeetingRows") &&
     loader.includes("dosMeetingEventSortValue({") &&
     !loader.includes("latestActivityDate(meeting.table_date, meeting.updated_at, meeting.created_at)") &&

@@ -48,20 +48,34 @@ assert(
 );
 assert(loggingBlock.includes("payload.logOperationKey = loggingOperationKeyRef.current;"), "Logging must carry an idempotency key.");
 
-// 3. The synthetic noon stamp is no longer what a planned meeting records.
+// 3. The synthetic noon stamp is gone entirely.
+//
+// USA-246 replaced it with "planned start, unless corrected under Adjust
+// time", which still left a meeting that never had a plan stamped at noon --
+// and Log Meeting itself never asked for a start time at all. The start time
+// is now a plain field, and an unrecorded start is saved as unknown.
 assert(
-  client.includes('const actualTimeInput = String(formData.get("actual_start_time") ?? "").trim();')
-    && client.includes('localDateTimeIso(tableDate, actualTimeInput || plannedClockTime || "12:00")'),
-  "The actual start must come from the correction field, then the planned start, and only then the historical noon placeholder.",
+  client.includes('const startTimeInput = String(formData.get("start_time") ?? "").trim();')
+    && client.includes("const loggedStartAt = displayZoneDateTimeIso(tableDate, startTimeInput);"),
+  "The actual start must come from the Start time field, with no substitute value.",
 );
 assert(
-  client.includes('<DisclosureSection description="Only if it started at a different time." title="Adjust time">'),
-  "A compact Adjust time disclosure must exist for a start that differed from the plan.",
+  !/localDateTimeIso|"12:00"\)/.test(client),
+  "No save path may stamp a meeting at noon.",
 );
 assert(
-  client.includes("{plannedStartAtDefault ? (")
-    && client.includes('plannedStartAtDefault={selectedMeeting.meetingStatus === "scheduled" ? selectedMeeting.plannedStartAt ?? selectedMeeting.scheduledStartAt : null}'),
-  "Adjust time belongs only to a meeting that was actually scheduled.",
+  client.includes("function LoggedTableTimingFields(")
+    && client.includes('name="start_time"')
+    && client.includes("allowUnknown"),
+  "Log Meeting must carry a Start time field that allows an unknown time.",
+);
+assert(
+  client.includes('const loggedStartTimeDefault = timeInputValueFromDateTime(scheduledStartAtDefault ?? plannedStartAtDefault, "");'),
+  "Start time must open on the recorded start, then the planned start, so completing a scheduled meeting keeps its time.",
+);
+assert(
+  client.includes('plannedStartAtDefault={selectedMeeting.plannedStartAt ?? (selectedMeeting.meetingStatus === "scheduled" ? selectedMeeting.scheduledStartAt : null)}'),
+  "The plan stays available to the form after the status flips to logged.",
 );
 
 // 4. The server keeps the plan, stamps the log, and is idempotent.
