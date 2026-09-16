@@ -36,6 +36,7 @@ const memberAccess = read("src/lib/groups/member-access.ts");
 const groupHomeAccess = read("src/lib/groups/group-home-access.ts");
 const routeBuilder = read("src/lib/groups/route-builder.ts");
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+const dosDisplayDates = read("src/lib/dos/display-dates.ts");
 const architectureDoc = read("docs/dos-public-groups-member-portal-architecture.md");
 
 assertIncludes(publicGroupPage, "loadGroupMemberPortalData", "Canonical public group page must adapt for authenticated members.");
@@ -94,7 +95,13 @@ assertIncludes(publicGroupPage, "buildCommunitySchedule", "Public Group Home mus
 assertNotIncludes(publicGroupPage, "Time TBD", "Public Group Home must not contradict the rhythm with a competing TBD time.");
 assertNotIncludes(publicGroupPage, "nextGatheringTimeFor", "Public Group Home must not parse rhythm text into next-gathering time.");
 assertIncludes(memberHomeView, "groupDisplayTimeZone", "Member Group Home must format gatherings in the shared group timezone.");
-assertIncludes(appClient, "const dosDisplayTimeZone = groupDisplayTimeZone", "DOS leader views must use the shared group timezone.");
+/* The DOS display time zone moved into the shared display-date module with
+   the USA-272 follow-up, so the client and the logic outside it read one
+   clock. The requirement is unchanged: it is still the shared group time
+   zone, and the leader views still read it. */
+assertIncludes(dosDisplayDates, "export const dosDisplayTimeZone = groupDisplayTimeZone", "The DOS display time zone must be the shared group timezone.");
+assertIncludes(appClient, "dosDisplayTimeZone", "DOS leader views must use the shared group timezone.");
+assertIncludes(appClient, 'from "@/src/lib/dos/display-dates"', "DOS leader views must read the shared display-date module rather than a second copy of it.");
 
 for (const activity of ["running", "walking", "hiking", "cycling", "fitness"]) {
   assertIncludes(routeBuilder, activity, `Route placeholder eligibility must include ${activity}.`);

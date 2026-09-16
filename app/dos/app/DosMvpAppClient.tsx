@@ -59,6 +59,7 @@ import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupAttendance, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { MinistryTimeInvestmentReport } from "@/src/components/dos/reports/MinistryTimeInvestmentReport";
 import { exitAfterSaveNeedsConfirmation } from "@/src/lib/dos/unsaved-work";
+import { dosMyRecordDisciplerPersonIds, dosMyRecordLastMeeting, dosMyRecordMeetingDisciplerIds, dosMyRecordMeetingStartAt, dosMyRecordNextScheduledMeeting } from "@/src/lib/dos/my-record-meetings";
 import { buildDosMinistryReport, dosDiscipleshipMeetingPersonId, dosMeetingContextLabel, dosMinistryFruitEntriesFromAppData, dosMinistryGatheringsFromAppData, dosMinistryReportInputFromAppData, formatDosMinistryMinutes, type DosMinistryReportRow, type DosMinistryReportTotals } from "@/src/lib/dos/ministry-report";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions } from "@/src/lib/dos/review-form-config";
 import { dosTestimonyReviewFormDefinition } from "@/src/lib/dos/testimony-form-config";
@@ -174,7 +175,7 @@ import {
   buildDemoGroupMemberAccessToken,
   type DemoGroupMemberAccessPayload,
 } from "@/src/lib/groups/demo-member-access";
-import { groupDisplayTimeZone } from "@/src/lib/groups/timezone";
+import { dateKeyFromParts, dateSortValue, displayDateKey, displayDateParts, displayDayStart, displayTimeZoneForValue, dosDisplayTimeZone, isUpcomingDate, parseDisplayCalendarDateParts, parseDisplayDate, startOfDisplayDay } from "@/src/lib/dos/display-dates";
 import { VoiceTextarea } from "@/src/components/dos/VoiceTextarea";
 import type { LeaderPreviewInput } from "@/src/lib/groups/member-preview";
 import { MemberGroupHomePreview } from "./MemberGroupHomePreview";
@@ -1526,54 +1527,6 @@ type PeopleImportResult = {
   skippedCount: number;
 };
 
-const displayCalendarDatePattern = /^(\d{4})-(\d{2})-(\d{2})$/;
-
-function parseDisplayCalendarDateParts(value: string | null | undefined) {
-  const match = value?.trim().match(displayCalendarDatePattern);
-
-  if (!match) {
-    return null;
-  }
-
-  const year = Number(match[1]);
-  const month = Number(match[2]);
-  const day = Number(match[3]);
-  const timestamp = Date.UTC(year, month - 1, day);
-  const normalized = new Date(timestamp).toISOString().slice(0, 10);
-
-  return normalized === value?.trim()
-    ? { day, month, year }
-    : null;
-}
-
-function isDisplayCalendarDate(value: string | null | undefined) {
-  return Boolean(parseDisplayCalendarDateParts(value));
-}
-
-function parseDisplayDate(value: string | null) {
-  if (!value) {
-    return null;
-  }
-
-  const calendarParts = parseDisplayCalendarDateParts(value);
-  const date = calendarParts
-    ? new Date(Date.UTC(calendarParts.year, calendarParts.month - 1, calendarParts.day, 12, 0, 0, 0))
-    : new Date(value);
-
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function displayTimeZoneForValue(value: string | null | undefined) {
-  return isDisplayCalendarDate(value) ? "UTC" : dosDisplayTimeZone;
-}
-
-const dosDisplayTimeZone = groupDisplayTimeZone;
-const dosDisplayDatePartsFormatter = new Intl.DateTimeFormat("en-US", {
-  day: "2-digit",
-  month: "2-digit",
-  timeZone: dosDisplayTimeZone,
-  year: "numeric",
-});
 const dosDisplayTimePartsFormatter = new Intl.DateTimeFormat("en-US", {
   hour: "2-digit",
   hourCycle: "h23",
@@ -1581,33 +1534,6 @@ const dosDisplayTimePartsFormatter = new Intl.DateTimeFormat("en-US", {
   timeZone: dosDisplayTimeZone,
 });
 const shortMonthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-function displayDateParts(date: Date) {
-  const parts = dosDisplayDatePartsFormatter.formatToParts(date);
-  const year = Number(parts.find((part) => part.type === "year")?.value);
-  const month = Number(parts.find((part) => part.type === "month")?.value);
-  const day = Number(parts.find((part) => part.type === "day")?.value);
-
-  return Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day)
-    ? { day, month, year }
-    : null;
-}
-
-function dateKeyFromParts(year: number, month: number, day: number) {
-  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
-}
-
-function displayDateKey(date: Date) {
-  const parts = displayDateParts(date);
-
-  return parts ? dateKeyFromParts(parts.year, parts.month, parts.day) : "";
-}
-
-function displayDayStart(date: Date) {
-  const parts = displayDateParts(date);
-
-  return parts ? new Date(Date.UTC(parts.year, parts.month - 1, parts.day)) : null;
-}
 
 function displayTimeInputValue(date: Date) {
   const parts = dosDisplayTimePartsFormatter.formatToParts(date);
@@ -1820,29 +1746,6 @@ function formatDateTime(value: string | null | undefined) {
   return [formatDate(dateValue), time].filter(Boolean).join(" · ");
 }
 
-function startOfDisplayDay(value: string | null | undefined) {
-  const date = value ? parseDisplayDate(value) : null;
-
-  if (!date) {
-    return null;
-  }
-
-  return displayDayStart(date);
-}
-
-function isUpcomingDate(value: string | null | undefined) {
-  const date = startOfDisplayDay(value);
-
-  if (!date) {
-    return false;
-  }
-
-  const today = displayDayStart(new Date());
-  const todayStart = today?.getTime();
-
-  return typeof todayStart === "number" && date.getTime() >= todayStart;
-}
-
 function dayOffsetFromToday(value: string | null | undefined) {
   const date = startOfDisplayDay(value);
 
@@ -1910,10 +1813,6 @@ function isDateWithinRange(value: string | null | undefined, start: Date, end: D
   const date = value ? parseDisplayDate(value) : null;
 
   return Boolean(date && date.getTime() >= start.getTime() && date.getTime() <= end.getTime());
-}
-
-function dateSortValue(value: string | null | undefined) {
-  return parseDisplayDate(value ?? null)?.getTime() ?? 0;
 }
 
 function sortedGroupGatherings(group: DosAppGroup) {
@@ -31687,29 +31586,52 @@ function MyRecordViewAll({ count, onClick, shown }: { count: number; onClick: ()
   );
 }
 
-function myRecordMentorMeetingsByDateDesc(record: DosAppUserRecord) {
-  return [...record.mentorMeetings].sort((first, second) => myRecordDateValue(second.meetingDate) - myRecordDateValue(first.meetingDate));
+/* The people discipling the account holder, by Person id, resolved the way
+   the Master Ministry Report resolves direction: the Person's structured role
+   is canonical, an active My Record relationship is the fallback. People the
+   account holder disciples are not in this list, and no name is matched. */
+function myRecordDisciplerPersonIds(people: DosAppPerson[], record: DosAppUserRecord) {
+  return dosMyRecordDisciplerPersonIds(people, record.mentorRelationships);
 }
 
-/* The upcoming discipleship meeting is only a real saved follow-up date.
-   Nothing is generated: if no meeting carries a future follow-up, the card
-   says so and offers the one action that would create one. */
-function myRecordNextFollowUp(record: DosAppUserRecord) {
-  return [...record.mentorMeetings]
-    .filter((meeting) => meeting.followUpDate && isUpcomingDate(meeting.followUpDate))
-    .sort((first, second) => myRecordDateValue(first.followUpDate) - myRecordDateValue(second.followUpDate))[0] ?? null;
+/* Who to name on a card, from ids only: the Person's name, else the name
+   stored on the relationship that carries that Person id. */
+function myRecordDisciplerNames(personIds: string[], people: DosAppPerson[], record: DosAppUserRecord) {
+  return personIds
+    .map((personId) => people.find((person) => person.id === personId)?.name
+      ?? record.mentorRelationships.find((relationship) => relationship.fieldPersonId === personId)?.mentorName
+      ?? null)
+    .filter((name): name is string => Boolean(name))
+    .join(" · ");
 }
 
 /* LAST / UPCOMING as one matched pair -- the same question asked backwards
-   and forwards. Person's composition, reading My Record's own meetings with
-   the people discipling me. */
+   and forwards, and therefore read from the same places. Both are scoped to
+   the people discipling the account holder (`dosMyRecordDisciplerPersonIds`),
+   never to everyone met and never to the people the account holder disciples.
+
+   Upcoming reads the scheduled meetings the Meetings calendar reads, so a
+   meeting scheduled there appears here; it used to read `follow_up_date` on a
+   past discipleship log, which is why a real Sep 16 meeting showed as
+   "Nothing scheduled". Last keeps every personal discipleship log and adds a
+   logged calendar meeting only when that meeting is more recent, so the pair
+   cannot show a future meeting from one source and a stale past one from
+   another. Nothing here writes, generates or counts a meeting. */
 function MyRecordMeetingCards({
+  meetings,
   onLogMeeting,
   onOpenMeeting,
+  onOpenScheduledMeeting,
+  onScheduleMeeting,
+  people,
   record,
 }: {
+  meetings: DosAppMeeting[];
   onLogMeeting: () => void;
   onOpenMeeting: (meeting: DosAppUserMentorMeeting) => void;
+  onOpenScheduledMeeting: (meetingId: string) => void;
+  onScheduleMeeting: (personId: string | null) => void;
+  people: DosAppPerson[];
   record: DosAppUserRecord;
 }) {
   const eyebrowClass = "text-dos-eyebrow uppercase text-dos-eyebrowSection";
@@ -31717,20 +31639,46 @@ function MyRecordMeetingCards({
   const bodyClass = "mt-0.5 line-clamp-2 block text-[13.5px] font-semibold leading-[1.35] text-dos-body";
   const metaClass = "mt-1 block truncate text-dos-meta text-dos-secondary";
   const chevron = <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />;
-  const lastMeeting = myRecordMentorMeetingsByDateDesc(record)[0] ?? null;
-  const nextFollowUp = myRecordNextFollowUp(record);
+  const disciplerPersonIds = useMemo(() => myRecordDisciplerPersonIds(people, record), [people, record]);
+  const lastMeeting = useMemo(
+    () => dosMyRecordLastMeeting(record.mentorMeetings, meetings, disciplerPersonIds),
+    [disciplerPersonIds, meetings, record.mentorMeetings],
+  );
+  const nextMeeting = useMemo(
+    () => dosMyRecordNextScheduledMeeting(meetings, disciplerPersonIds),
+    [disciplerPersonIds, meetings],
+  );
+  const nextStartAt = nextMeeting ? dosMyRecordMeetingStartAt(nextMeeting) : null;
+  const nextNames = nextMeeting
+    ? myRecordDisciplerNames(dosMyRecordMeetingDisciplerIds(nextMeeting, disciplerPersonIds), people, record)
+    : "";
+  const nextTime = formatTime(nextStartAt);
+  const lastCalendarNames = lastMeeting?.kind === "calendar_meeting"
+    ? myRecordDisciplerNames(dosMyRecordMeetingDisciplerIds(lastMeeting.meeting, disciplerPersonIds), people, record)
+    : "";
+  const lastCalendarMinutes = lastMeeting?.kind === "calendar_meeting" ? tableDurationMinutes(lastMeeting.meeting) : 0;
 
   return (
     <div className="grid grid-cols-2 gap-2.5 pt-4">
-      {lastMeeting ? (
-        <Card onClick={() => onOpenMeeting(lastMeeting)}>
+      {lastMeeting?.kind === "discipleship_log" ? (
+        <Card onClick={() => onOpenMeeting(lastMeeting.log)}>
           <span className="flex items-start justify-between gap-2">
             <span className={eyebrowClass}>Last meeting</span>
             {chevron}
           </span>
-          <span className={leadClass}>{formatRelativeDate(lastMeeting.meetingDate)}</span>
-          <span className={bodyClass}>{lastMeeting.mentorName || "Discipleship meeting"}</span>
-          {lastMeeting.durationMinutes ? <span className={metaClass}>{formatRecordDuration(lastMeeting.durationMinutes)}</span> : null}
+          <span className={leadClass}>{formatRelativeDate(lastMeeting.log.meetingDate)}</span>
+          <span className={bodyClass}>{lastMeeting.log.mentorName || "Discipleship meeting"}</span>
+          {lastMeeting.log.durationMinutes ? <span className={metaClass}>{formatRecordDuration(lastMeeting.log.durationMinutes)}</span> : null}
+        </Card>
+      ) : lastMeeting?.kind === "calendar_meeting" ? (
+        <Card onClick={() => onOpenScheduledMeeting(lastMeeting.meeting.id)}>
+          <span className="flex items-start justify-between gap-2">
+            <span className={eyebrowClass}>Last meeting</span>
+            {chevron}
+          </span>
+          <span className={leadClass}>{formatRelativeDate(lastMeeting.meeting.date)}</span>
+          <span className={bodyClass}>{lastCalendarNames || meetingActivityTitle(lastMeeting.meeting)}</span>
+          {lastCalendarMinutes ? <span className={metaClass}>{formatRecordDuration(lastCalendarMinutes)}</span> : null}
         </Card>
       ) : (
         <Card>
@@ -31741,22 +31689,22 @@ function MyRecordMeetingCards({
           </span>
         </Card>
       )}
-      {nextFollowUp ? (
-        <Card onClick={() => onOpenMeeting(nextFollowUp)}>
+      {nextMeeting ? (
+        <Card onClick={() => onOpenScheduledMeeting(nextMeeting.id)}>
           <span className="flex items-start justify-between gap-2">
             <span className={eyebrowClass}>Upcoming meeting</span>
             {chevron}
           </span>
-          <span className={leadClass}>{formatShortDate(nextFollowUp.followUpDate) || upcomingDayLabel(nextFollowUp.followUpDate)}</span>
-          <span className={bodyClass}>{nextFollowUp.mentorName || "Discipleship meeting"}</span>
-          <span className={metaClass}>Follow-up</span>
+          <span className={leadClass}>{formatShortDate(nextStartAt) || upcomingDayLabel(nextStartAt)}</span>
+          <span className={bodyClass}>{nextNames || meetingActivityTitle(nextMeeting)}</span>
+          {nextTime ? <span className={metaClass}>{nextTime}</span> : null}
         </Card>
       ) : (
         <Card>
           <span className={eyebrowClass}>Upcoming meeting</span>
-          <span className="mt-1.5 block text-[13.5px] leading-[1.4] text-dos-body">Nothing scheduled.</span>
+          <span className="mt-1.5 block text-[13.5px] leading-[1.4] text-dos-body">No meeting scheduled with someone discipling you.</span>
           <span className="mt-2.5 block">
-            <PDButton onClick={onLogMeeting}>Log</PDButton>
+            <PDButton onClick={() => onScheduleMeeting(disciplerPersonIds.length === 1 ? disciplerPersonIds[0] : null)}>Schedule</PDButton>
           </span>
         </Card>
       )}
@@ -31773,6 +31721,7 @@ function MyRecordOverviewPanel({
   commitments,
   commitmentsEnabled,
   draftAssessments,
+  meetings,
   onEditResourceAssignment,
   onLogResourceCheckIn,
   onMarkResourceAssignmentComplete,
@@ -31780,14 +31729,18 @@ function MyRecordOverviewPanel({
   onOpenGuidedResource,
   onOpenMeeting,
   onOpenPersonRecord,
+  onOpenScheduledMeeting,
   onOpenSheet,
   onPauseResourceAssignment,
+  onScheduleMeeting,
+  people,
   record,
 }: {
   assignments: DosAppResourceAssignment[];
   commitments: DosAppPersonCommitment[];
   commitmentsEnabled: boolean;
   draftAssessments: MyRecordAssessmentLibraryItem[];
+  meetings: DosAppMeeting[];
   onEditResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
@@ -31795,8 +31748,11 @@ function MyRecordOverviewPanel({
   onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
   onOpenMeeting: (meeting: DosAppUserMentorMeeting) => void;
   onOpenPersonRecord: ((personId: string) => void) | null;
+  onOpenScheduledMeeting: (meetingId: string) => void;
   onOpenSheet: (sheet: MyRecordSheetState) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onScheduleMeeting: (personId: string | null) => void;
+  people: DosAppPerson[];
   record: DosAppUserRecord;
 }) {
   const encounters = useMemo(
@@ -31826,8 +31782,12 @@ function MyRecordOverviewPanel({
   return (
     <>
       <MyRecordMeetingCards
+        meetings={meetings}
         onLogMeeting={() => onOpenSheet({ kind: "mentor_meeting", mode: "new" })}
         onOpenMeeting={onOpenMeeting}
+        onOpenScheduledMeeting={onOpenScheduledMeeting}
+        onScheduleMeeting={onScheduleMeeting}
+        people={people}
         record={record}
       />
       <MyRecordSurface>
@@ -32263,9 +32223,11 @@ function MyRecordWorkspace({
   onMarkResourceAssignmentInProgress,
   onOpenGuidedResource,
   onOpenPersonRecord,
+  onOpenScheduledMeeting,
   onPauseResourceAssignment,
   onQuickTab,
   onSave,
+  onScheduleMeeting,
   onTabChange,
   people,
   profileName,
@@ -32290,9 +32252,16 @@ function MyRecordWorkspace({
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
   onOpenPersonRecord: ((personId: string) => void) | null;
+  /* USA-272 follow-up: the Meetings record itself, opened the way Person's
+     Next meeting card opens it. My Record does not keep a second copy. */
+  onOpenScheduledMeeting: (meetingId: string) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onQuickTab: (tab: MyRecordTab) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
+  /* The Schedule action on an empty Upcoming meeting card. The Person is
+     pre-filled only when exactly one person is discipling the account holder;
+     with several, the form asks rather than this code choosing. */
+  onScheduleMeeting: (personId: string | null) => void;
   onTabChange: (tab: MyRecordTab) => void;
   people: DosAppPerson[];
   profileName: string;
@@ -32589,6 +32558,7 @@ function MyRecordWorkspace({
                   commitments={commitments}
                   commitmentsEnabled={commitmentsEnabled}
                   draftAssessments={draftAssessments}
+                  meetings={meetings}
                   onEditResourceAssignment={onEditResourceAssignment}
                   onLogResourceCheckIn={onLogResourceCheckIn}
                   onMarkResourceAssignmentComplete={onMarkResourceAssignmentComplete}
@@ -32596,8 +32566,11 @@ function MyRecordWorkspace({
                   onOpenGuidedResource={onOpenGuidedResource}
                   onOpenMeeting={(meeting) => openMyRecordSheet({ kind: "mentor_meeting", meeting, mode: "view" })}
                   onOpenPersonRecord={onOpenPersonRecord}
+                  onOpenScheduledMeeting={onOpenScheduledMeeting}
                   onOpenSheet={openMyRecordSheet}
                   onPauseResourceAssignment={onPauseResourceAssignment}
+                  onScheduleMeeting={onScheduleMeeting}
+                  people={people}
                   record={record}
                 />
               ) : null}
@@ -46331,9 +46304,11 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
             onOpenGuidedResource={openJourneyForPerson}
             onOpenPersonRecord={myRecordPerson ? openPersonDetail : null}
+            onOpenScheduledMeeting={openMeetingDetail}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
             onQuickTab={setMyRecordTab}
             onSave={submitMyRecord}
+            onScheduleMeeting={(personId) => openScheduleMeeting(personId ?? undefined)}
             onTabChange={setMyRecordTab}
             people={people}
             profileName={profileName}

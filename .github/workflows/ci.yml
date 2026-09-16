@@ -92,6 +92,16 @@ jobs:
           name: my-record-browser-evidence
           path: test-results/usa-272/
 
+      - name: My Record upcoming mentor meeting browser checks (USA-272 follow-up)
+        run: node scripts/dos-my-record-mentor-meeting-browser.mjs
+
+      - name: Upload My Record mentor meeting browser evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: my-record-mentor-meeting-browser-evidence
+          path: test-results/usa-272-mentor-meeting/
+
       - name: Upload smoke artifacts
         if: failure()
         uses: actions/upload-artifact@v4
