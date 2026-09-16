@@ -50,6 +50,7 @@ const memberHomeView = read("app/groups/GroupHomeMemberView.tsx");
 const groupHomeAccess = read("src/lib/groups/group-home-access.ts");
 const routeBuilder = read("src/lib/groups/route-builder.ts");
 const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+const dosDisplayDates = read("src/lib/dos/display-dates.ts");
 const architectureDoc = read("docs/dos-public-groups-member-portal-architecture.md");
 
 const publicSurface = `${publicDirectory}\n${publicPage}\n${publicTemplate}\n${publicGroupLoader}`;
@@ -204,7 +205,11 @@ assertNotIncludes(memberHomeView, "Manage in DOS", "Member Group Home must not r
 assertIncludes(publicPage, "groupDisplayTimeZone", "Public Group Home must use the shared group display timezone.");
 assertIncludes(publicDirectory, "groupDisplayTimeZone", "Public directory must use the shared group display timezone.");
 assertIncludes(memberHomeView, "groupDisplayTimeZone", "Member Group Home must use the shared group display timezone.");
-assertIncludes(appClient, "const dosDisplayTimeZone = groupDisplayTimeZone", "DOS leader views must use the shared group display timezone.");
+/* The declaration moved into src/lib/dos/display-dates.ts with the USA-272
+   follow-up so the client and the logic outside it read one clock. Still
+   the shared group time zone, still read by the leader views. */
+assertIncludes(dosDisplayDates, "export const dosDisplayTimeZone = groupDisplayTimeZone", "The DOS display time zone must be the shared group display timezone.");
+assertIncludes(appClient, "dosDisplayTimeZone", "DOS leader views must use the shared group display timezone.");
 assertNotIncludes(publicPage, "nextGatheringTimeFor", "Public Group Home must not invent next-gathering times from rhythm text.");
 assertIncludes(appClient, "GroupRouteBuilderPlaceholder", "DOS leader gathering workflow must show the disabled route placeholder.");
 assertIncludes(appClient, "aria-disabled=\"true\"", "Leader route placeholder must expose disabled state.");
