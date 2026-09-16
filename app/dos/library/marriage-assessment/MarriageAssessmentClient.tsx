@@ -1,34 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, ChevronRight, Heart, Pencil, RefreshCw } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ChevronRight, Eye, Heart, Pencil, RefreshCw } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { DosAssessmentQuestion } from "@/src/lib/dos/resource-catalog";
+import {
+  assessmentHealthRange,
+  assessmentOverallScore,
+  assessmentPercentage,
+  buildAssessmentAnswerPayload,
+  buildAssessmentGroups,
+  countAssessmentAnswers,
+  getAssessmentAnswer,
+  scoreAssessmentCategory,
+  scoreAssessmentParticipant,
+  type AssessmentAnswerMap,
+} from "@/src/lib/dos/assessment-scoring";
+import {
+  AssessmentCategoryBreakdown,
+  AssessmentProgressBar,
+  AssessmentResultMeter,
+  AssessmentScorePicker,
+} from "@/src/components/dos/assessments/AssessmentPrimitives";
 
 type Participant = string;
-
-type AssessmentGroup = {
-  name: string;
-  questions: readonly DosAssessmentQuestion[];
-};
-
-type ParticipantScore = {
-  label: Participant;
-  maxScore: number;
-  score: number;
-};
-
-type CategoryScore = {
-  husbandScore: number;
-  maxScore: number;
-  name: string;
-  percentage: number;
-  score: number;
-  wifeScore: number;
-};
-
-type AnswerMap = Record<string, Record<Participant, number | undefined>>;
 
 type SaveContext = {
   personId: string;
@@ -42,249 +38,10 @@ type SaveState = {
   status: "error" | "idle" | "saved" | "saving";
 };
 
-type HealthRange = {
-  detail: string;
-  label: string;
-  minScore: number;
-  pillClassName: string;
-};
-
 const fallbackParticipants = ["Husband", "Wife"] as const;
-const scoreValues = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
-
-const healthRanges = [
-  {
-    detail: "Strength is visible. Keep tending what is working.",
-    label: "Strong",
-    minScore: 135,
-    pillClassName: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  },
-  {
-    detail: "Healthy patterns are present with a few places to revisit.",
-    label: "Healthy",
-    minScore: 120,
-    pillClassName: "border-sky-200 bg-sky-50 text-sky-700",
-  },
-  {
-    detail: "There is growth to name and steady next steps to take.",
-    label: "Growing",
-    minScore: 90,
-    pillClassName: "border-blue-200 bg-blue-50 text-blue-700",
-  },
-  {
-    detail: "Several areas need patient attention and support.",
-    label: "Strained",
-    minScore: 60,
-    pillClassName: "border-amber-200 bg-amber-50 text-amber-700",
-  },
-  {
-    detail: "Move slowly, seek care, and focus on repair.",
-    label: "Needs Care",
-    minScore: 0,
-    pillClassName: "border-rose-200 bg-rose-50 text-rose-700",
-  },
-] as const satisfies readonly HealthRange[];
-
-function buildGroups(questions: readonly DosAssessmentQuestion[]) {
-  return questions.reduce<AssessmentGroup[]>((groups, question) => {
-    const name = question.group ?? "Marriage Health";
-    const existingGroup = groups.find((group) => group.name === name);
-
-    if (existingGroup) {
-      existingGroup.questions = [...existingGroup.questions, question];
-      return groups;
-    }
-
-    return [...groups, { name, questions: [question] }];
-  }, []);
-}
-
-function getAnswer(answers: AnswerMap, questionId: string, participant: Participant) {
-  return answers[questionId]?.[participant];
-}
-
-function countAnswered(answers: AnswerMap, questions: readonly DosAssessmentQuestion[], participants: readonly Participant[]) {
-  return questions.reduce((total, question) => {
-    return total + participants.filter((participant) => typeof getAnswer(answers, question.id, participant) === "number").length;
-  }, 0);
-}
-
-function getRange(score: number) {
-  return healthRanges.find((range) => score >= range.minScore) ?? healthRanges[healthRanges.length - 1];
-}
-
-function percentage(score: number, maxScore: number) {
-  if (maxScore <= 0) {
-    return 0;
-  }
-
-  return Math.round((score / maxScore) * 100);
-}
-
-function scoreParticipant(answers: AnswerMap, questions: readonly DosAssessmentQuestion[], participant: Participant, maxScore: number): ParticipantScore {
-  const score = questions.reduce((total, question) => total + (getAnswer(answers, question.id, participant) ?? 0), 0);
-
-  return {
-    label: participant,
-    maxScore,
-    score,
-  };
-}
-
-function scoreCategory(answers: AnswerMap, group: AssessmentGroup, participants: readonly Participant[]): CategoryScore {
-  const maxScore = group.questions.length * 10;
-  const husbandScore = group.questions.reduce((total, question) => total + (getAnswer(answers, question.id, participants[0] ?? "Husband") ?? 0), 0);
-  const wifeScore = group.questions.reduce((total, question) => total + (getAnswer(answers, question.id, participants[1] ?? "Wife") ?? 0), 0);
-  const participantTotal = participants.reduce((total, participant) => {
-    return total + group.questions.reduce((groupTotal, question) => groupTotal + (getAnswer(answers, question.id, participant) ?? 0), 0);
-  }, 0);
-  const score = Math.round(participantTotal / Math.max(participants.length, 1));
-
-  return {
-    husbandScore,
-    maxScore,
-    name: group.name,
-    percentage: percentage(score, maxScore),
-    score,
-    wifeScore,
-  };
-}
 
 function scrollToTop() {
   window.scrollTo({ behavior: "smooth", top: 0 });
-}
-
-function buildAnswerPayload(
-  answers: AnswerMap,
-  questions: readonly DosAssessmentQuestion[],
-  participants: readonly Participant[],
-) {
-  return {
-    participants,
-    questions: questions.map((question) => ({
-      group: question.group ?? "Marriage Health",
-      id: question.id,
-      note: question.note ?? null,
-      participantPrompts: question.participantPrompts ?? {},
-      prompt: question.prompt,
-      scores: Object.fromEntries(participants.map((participant) => [participant, getAnswer(answers, question.id, participant) ?? null])),
-    })),
-  };
-}
-
-function ScorePicker({
-  onChange,
-  participant,
-  question,
-  value,
-}: {
-  onChange: (value: number) => void;
-  participant: Participant;
-  question: DosAssessmentQuestion;
-  value: number | undefined;
-}) {
-  const prompt = question.participantPrompts?.[participant] ?? question.prompt;
-  const groupName = `${question.id}-${participant}`;
-
-  return (
-    <fieldset className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] p-3">
-      <legend className="px-1 text-xs font-black text-[#0F172A]">{participant}</legend>
-      <p className="mt-1 text-xs font-semibold leading-5 text-[#475569]">{prompt}</p>
-      <div className="mt-3 grid grid-cols-6 gap-1.5 sm:grid-cols-11" role="radiogroup">
-        {scoreValues.map((score) => {
-          const active = value === score;
-
-          return (
-            <label
-              className={`flex min-h-9 cursor-pointer items-center justify-center rounded-xl border text-xs font-black transition-colors ${
-                active
-                  ? "border-[#2563EB] bg-[#2563EB] text-white shadow-[0_8px_18px_rgba(37,99,235,0.22)]"
-                  : "border-[#DCEBFF] bg-white text-[#475569] hover:border-[#BFDBFE] hover:bg-[#EBF2FF]"
-              }`}
-              key={score}
-            >
-              <input
-                checked={active}
-                className="sr-only"
-                name={groupName}
-                onChange={() => onChange(score)}
-                type="radio"
-                value={score}
-              />
-              {score}
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
-  );
-}
-
-function ProgressBar({ percentageValue }: { percentageValue: number }) {
-  return (
-    <div className="h-2 overflow-hidden rounded-full bg-[#DCEBFF]" aria-hidden="true">
-      <div className="h-full rounded-full bg-[#2563EB] transition-all duration-300" style={{ width: `${percentageValue}%` }} />
-    </div>
-  );
-}
-
-function ResultMeter({
-  label,
-  maxScore,
-  score,
-}: {
-  label: string;
-  maxScore: number;
-  score: number;
-}) {
-  const valuePercentage = percentage(score, maxScore);
-
-  return (
-    <article className="rounded-[20px] border border-[#EAF2FF] bg-white p-4">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-black text-[#0F172A]">{label}</p>
-        <p className="text-xs font-black text-[#1D4ED8]">
-          {score}/{maxScore}
-        </p>
-      </div>
-      <div className="mt-3">
-        <ProgressBar percentageValue={valuePercentage} />
-      </div>
-      <p className="mt-2 text-xs font-bold text-[#64748B]">{valuePercentage}%</p>
-    </article>
-  );
-}
-
-function CategoryBreakdown({ categories }: { categories: readonly CategoryScore[] }) {
-  return (
-    <section className="rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_18px_48px_rgba(37,99,235,0.06)]">
-      <h2 className="text-base font-black text-[#0F172A]">Category Breakdown</h2>
-      <div className="mt-4 grid gap-3">
-        {categories.map((category) => (
-          <article className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] p-3" key={category.name}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <h3 className="text-sm font-black text-[#0F172A]">{category.name}</h3>
-                <p className="mt-1 text-xs font-semibold text-[#64748B]">
-                  {category.score}/{category.maxScore} average
-                </p>
-              </div>
-              <span className="shrink-0 rounded-full bg-[#EBF2FF] px-2.5 py-1 text-[10px] font-black text-[#1D4ED8]">
-                {category.percentage}%
-              </span>
-            </div>
-            <div className="mt-3">
-              <ProgressBar percentageValue={category.percentage} />
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] font-bold text-[#64748B]">
-              <span>Husband {category.husbandScore}/{category.maxScore}</span>
-              <span>Wife {category.wifeScore}/{category.maxScore}</span>
-            </div>
-          </article>
-        ))}
-      </div>
-    </section>
-  );
 }
 
 export function MarriageAssessmentClient({
@@ -302,30 +59,34 @@ export function MarriageAssessmentClient({
 }) {
   const searchParams = useSearchParams();
   const backToLibrary = searchParams.get("from") === "dos-library";
+  /* USA-278: the Library's secondary action. A preview walks the real
+     questions and shows the real result screen, but it is not an assignment:
+     no link is created, no contact is touched, nothing is saved. */
+  const isPreview = searchParams.get("mode") === "preview" && !saveContext;
   const libraryHref = "/dos/app?view=library";
   const participants = providedParticipants.length ? providedParticipants : fallbackParticipants;
-  const groups = useMemo(() => buildGroups(questions), [questions]);
+  const groups = useMemo(() => buildAssessmentGroups(questions), [questions]);
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
-  const [answers, setAnswers] = useState<AnswerMap>({});
+  const [answers, setAnswers] = useState<AssessmentAnswerMap>({});
   const [showResults, setShowResults] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>({ resultId: null, status: "idle" });
 
   const activeGroup = groups[activeGroupIndex] ?? groups[0];
-  const answeredCount = countAnswered(answers, questions, participants);
+  const answeredCount = countAssessmentAnswers(answers, questions, participants);
   const requiredCount = questions.length * participants.length;
-  const currentGroupAnsweredCount = activeGroup ? countAnswered(answers, activeGroup.questions, participants) : 0;
+  const currentGroupAnsweredCount = activeGroup ? countAssessmentAnswers(answers, activeGroup.questions, participants) : 0;
   const currentGroupRequiredCount = activeGroup ? activeGroup.questions.length * participants.length : 0;
-  const completionPercentage = percentage(answeredCount, requiredCount);
+  const completionPercentage = assessmentPercentage(answeredCount, requiredCount);
   const canContinue = currentGroupAnsweredCount === currentGroupRequiredCount;
   const isLastGroup = activeGroupIndex === groups.length - 1;
 
-  const participantScores = participants.map((participant) => scoreParticipant(answers, questions, participant, maxScore));
+  const participantScores = participants.map((participant) => scoreAssessmentParticipant(answers, questions, participant, maxScore));
   // The uploaded/reference files available to this environment did not include official Marriage Assessment scoring rules.
   // Keep the fallback simple: each spouse has a 0-150 score, and the relationship total is their rounded average until source scoring is confirmed.
-  const totalScore = Math.round(participantScores.reduce((total, participant) => total + participant.score, 0) / Math.max(participantScores.length, 1));
-  const totalPercentage = percentage(totalScore, maxScore);
-  const range = getRange(totalScore);
-  const categoryScores = groups.map((group) => scoreCategory(answers, group, participants));
+  const totalScore = assessmentOverallScore(participantScores);
+  const totalPercentage = assessmentPercentage(totalScore, maxScore);
+  const range = assessmentHealthRange(totalScore);
+  const categoryScores = groups.map((group) => scoreAssessmentCategory(answers, group, participants));
 
   function updateAnswer(questionId: string, participant: Participant, score: number) {
     setAnswers((currentAnswers) => ({
@@ -352,7 +113,7 @@ export function MarriageAssessmentClient({
     try {
       const response = await fetch("/api/dos/app/assessment-results", {
         body: JSON.stringify({
-          answers: buildAnswerPayload(answers, questions, participants),
+          answers: buildAssessmentAnswerPayload(answers, questions, participants),
           assessmentTitle: "Marriage Assessment",
           assessmentType: "marriage-assessment",
           categoryScores,
@@ -452,18 +213,20 @@ export function MarriageAssessmentClient({
               </div>
             ) : (
               <div className="mt-4 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-3 text-sm font-bold leading-6 text-[#64748B]">
-                Standalone result. Not saved to a profile.
+                {isPreview
+                  ? "Preview only. Standalone result. Not saved to a profile."
+                  : "Standalone result. Not saved to a profile."}
               </div>
             )}
           </header>
 
           <section className="grid gap-3 md:grid-cols-2">
             {participantScores.map((participant) => (
-              <ResultMeter key={participant.label} label={participant.label} maxScore={participant.maxScore} score={participant.score} />
+              <AssessmentResultMeter key={participant.label} label={participant.label} maxScore={participant.maxScore} score={participant.score} />
             ))}
           </section>
 
-          <CategoryBreakdown categories={categoryScores} />
+          <AssessmentCategoryBreakdown categories={categoryScores} />
 
           <div className="grid gap-2 rounded-[24px] border border-[#DCEBFF] bg-white p-3 shadow-[0_18px_48px_rgba(37,99,235,0.06)] sm:grid-cols-2">
             <button
@@ -530,12 +293,23 @@ export function MarriageAssessmentClient({
             </div>
           </div>
           <p className="mt-4 text-sm font-semibold leading-6 text-[#475569]">{description}</p>
+          {/* USA-278: a preview is for the leader's own eyes. Saying so up
+              front is the difference between "I am looking at this" and "I
+              have started something for someone". */}
+          {isPreview ? (
+            <div className="mt-4 flex items-start gap-2.5 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3.5 py-3">
+              <Eye className="mt-0.5 h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
+              <p className="text-xs font-semibold leading-5 text-[#475569]">
+                Preview. Nothing is saved, nobody is assigned this, and no link is created. Use <span className="font-black text-[#1D4ED8]">Send assessment</span> in the Library when you are ready.
+              </p>
+            </div>
+          ) : null}
           <div className="mt-5">
             <div className="mb-2 flex items-center justify-between gap-3 text-xs font-black text-[#64748B]">
               <span>Progress</span>
               <span>{completionPercentage}%</span>
             </div>
-            <ProgressBar percentageValue={completionPercentage} />
+            <AssessmentProgressBar percentageValue={completionPercentage} />
           </div>
         </header>
 
@@ -567,12 +341,12 @@ export function MarriageAssessmentClient({
                   </div>
                   <div className="mt-3 grid gap-3">
                     {participants.map((participant) => (
-                      <ScorePicker
+                      <AssessmentScorePicker
                         key={`${question.id}-${participant}`}
                         onChange={(score) => updateAnswer(question.id, participant, score)}
                         participant={participant}
                         question={question}
-                        value={getAnswer(answers, question.id, participant)}
+                        value={getAssessmentAnswer(answers, question.id, participant)}
                       />
                     ))}
                   </div>
