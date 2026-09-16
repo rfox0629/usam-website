@@ -152,5 +152,21 @@ the same couple when the send started from the other spouse.
   submission, revocation and expiry.
 - Screenshots at 390×844 @2x and 1440×900 in `screenshots/usa-278/`.
 
+**Visual baselines.** `npm run test:dos:visual` compares byte-for-byte against
+baselines keyed by platform, and only `darwin-arm64` baselines exist; CI runs
+`npm run test:dos` and not the visual suite, so this is a local macOS gate.
+Baselines cannot be re-recorded from Linux — that is the whole reason they are
+platform-keyed — so instead every scene in the suite was rendered on `main` and
+on this branch and their visible text compared. Seventeen of the eighteen
+scenes are identical. One moved:
+
+    docs/dos-ui-refresh/visual-baseline/darwin-arm64/mobile--person-record.png
+      + RESOURCES
+      + Nothing sent from the Library yet.
+
+That is the new Activity section on a person with nothing sent yet, and it is
+the only baseline needing `npm run test:dos:visual -- --update` on a macOS
+checkout. Nothing else in the suite is affected.
+
 All verification used synthetic data. No real contact was altered and no
 assessment invitation was sent.
