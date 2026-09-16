@@ -24,6 +24,27 @@
 -- Re-running is a no-op: the insert skips rows already recorded, and the
 -- update only touches rows the insert has recorded.
 
+-- Step 0. Re-sync `duration_minutes` with the start/end pair.
+--
+-- Between the schema step and this one, the OLD code is still live and still
+-- writes `scheduled_start_at`/`scheduled_end_at` without knowing about
+-- `duration_minutes`. A meeting logged in that window has no duration
+-- recorded, and a meeting EDITED in that window has a stale one -- its length
+-- changed while the column kept the value the backfill gave it. Either way the
+-- start/end pair is the truth: the old code wrote `end = start + the duration
+-- the person entered`, so the span IS what they entered.
+--
+-- Clearing the start without doing this first would either destroy a duration
+-- (the null case) or freeze a wrong one (the stale case). It is idempotent and
+-- a no-op once the new code is the only writer, because the new code keeps the
+-- two in agreement by construction.
+update public.missionary_tables
+set duration_minutes = greatest(1, round(extract(epoch from (scheduled_end_at - scheduled_start_at)) / 60)::int)
+where scheduled_start_at is not null
+  and scheduled_end_at is not null
+  and scheduled_end_at > scheduled_start_at
+  and duration_minutes is distinct from greatest(1, round(extract(epoch from (scheduled_end_at - scheduled_start_at)) / 60)::int);
+
 insert into public.dos_meeting_start_time_repair (meeting_id, previous_scheduled_start_at, previous_scheduled_end_at, previous_timezone)
 select id, scheduled_start_at, scheduled_end_at, timezone
 from public.missionary_tables

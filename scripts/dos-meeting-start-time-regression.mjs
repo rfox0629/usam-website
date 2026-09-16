@@ -272,6 +272,21 @@ assert(
   "The schema step must not clear any timestamp; that is the separate repair step.",
 );
 
+// The repair must re-sync duration from the start/end pair first: while the
+// old code is still live it writes that pair without knowing about
+// `duration_minutes`, so a meeting logged in that window has none and one
+// edited in that window has a stale one. Clearing the start before fixing
+// that would destroy a duration or freeze a wrong one.
+assert(
+  repair.includes("set duration_minutes = greatest(1, round(extract(epoch from (scheduled_end_at - scheduled_start_at)) / 60)::int)")
+    && repair.includes("and duration_minutes is distinct from greatest(1, round(extract(epoch from (scheduled_end_at - scheduled_start_at)) / 60)::int);"),
+  "The repair must re-sync duration from the start/end pair before clearing anything.",
+);
+assert(
+  repair.indexOf("set duration_minutes =") < repair.indexOf("insert into public.dos_meeting_start_time_repair"),
+  "The duration re-sync must come before the rows are recorded and cleared.",
+);
+
 for (const condition of [
   "where meeting_status = 'logged'",
   "and planned_start_at is null",
