@@ -23,9 +23,18 @@
 --   2. Backfills `duration_minutes` from the existing start/end pair for every
 --      row that has one. Every duration currently readable stays readable and
 --      identical; no report total moves.
---   3. Clears the synthetic start on the logged rows that provably carry one,
---      recording each previous value first so the change is auditable and
---      exactly reversible.
+--   3. Creates the audit table the repair writes to.
+--
+-- It is additive on purpose, and it is safe to apply BEFORE the application
+-- code that reads the new column: nothing existing changes value, and code
+-- that knows nothing about `duration_minutes` keeps working unchanged.
+--
+-- Clearing the synthetic start times is a SEPARATE migration
+-- (20260916121000_dos_meeting_start_time_repair.sql) that must run only AFTER
+-- the new code is live. Until then the application derives a meeting's length
+-- from the start/end pair alone, so clearing those first would make 68 logged
+-- meetings report no duration at all and the Master Ministry Report totals
+-- would drop for as long as the gap lasted.
 --
 -- Nothing else is touched: no date, no participant, no note, no duration, no
 -- row that carries a time a person actually entered.
@@ -63,33 +72,3 @@ comment on table public.dos_meeting_start_time_repair is
   'Logged meetings whose start time was a synthetic local noon written by Log Meeting before a start-time field existed. One row per repaired meeting, holding the exact previous values.';
 
 alter table public.dos_meeting_start_time_repair enable row level security;
-
--- Step 3. Record, then clear.
---
--- The scope is deliberately narrow and evidence-based. A row qualifies only
--- when ALL of these hold:
---
---   * it is logged -- a scheduled meeting's time was typed by a person;
---   * it carries no planned snapshot, so it never went through the
---     scheduled -> logged path that preserves a real planned time;
---   * it records the time zone it was written in, so "local noon" is a fact
---     rather than an assumption;
---   * its start is EXACTLY 12:00 in that zone -- the stamp the old code wrote.
---
--- A logged meeting at 10:00, 13:00 or 15:00 local was entered by a person and
--- is left exactly as it is. Times are never shifted, only either kept or, when
--- provably invented, recorded as unknown.
-insert into public.dos_meeting_start_time_repair (meeting_id, previous_scheduled_start_at, previous_scheduled_end_at, previous_timezone)
-select id, scheduled_start_at, scheduled_end_at, timezone
-from public.missionary_tables
-where meeting_status = 'logged'
-  and planned_start_at is null
-  and timezone is not null
-  and scheduled_start_at is not null
-  and to_char(scheduled_start_at at time zone timezone, 'HH24:MI') = '12:00'
-on conflict (meeting_id) do nothing;
-
-update public.missionary_tables
-set scheduled_start_at = null,
-    scheduled_end_at = null
-where id in (select meeting_id from public.dos_meeting_start_time_repair);

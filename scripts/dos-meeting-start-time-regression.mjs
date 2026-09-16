@@ -42,6 +42,8 @@ const loader = read("src/lib/dos/missionary-app.ts");
 const report = read("src/lib/dos/ministry-report.ts");
 const migration = read("supabase/migrations/20260916120000_dos_meeting_start_time.sql");
 const rollback = read("supabase/migrations/20260916120000_dos_meeting_start_time_rollback.sql");
+const repair = read("supabase/migrations/20260916121000_dos_meeting_start_time_repair.sql");
+const repairRollback = read("supabase/migrations/20260916121000_dos_meeting_start_time_repair_rollback.sql");
 
 /* ---------------------------------------------------------------- 1. the zone */
 
@@ -260,6 +262,16 @@ assert(
   migration.includes("create table if not exists public.dos_meeting_start_time_repair"),
   "Every repaired row's previous values must be recorded.",
 );
+
+// The schema step must be safe to apply before the code that reads the new
+// column, so it may not clear anything on its own. Clearing the starts before
+// the code is live would leave 68 logged meetings with no derivable duration
+// and drop the report totals for as long as the gap lasted.
+assert(
+  !/scheduled_start_at\s*=\s*null/.test(migration),
+  "The schema step must not clear any timestamp; that is the separate repair step.",
+);
+
 for (const condition of [
   "where meeting_status = 'logged'",
   "and planned_start_at is null",
@@ -267,30 +279,35 @@ for (const condition of [
   "and scheduled_start_at is not null",
   "to_char(scheduled_start_at at time zone timezone, 'HH24:MI') = '12:00'",
 ]) {
-  assert(migration.includes(condition), `The repair must be scoped by: ${condition}`);
+  assert(repair.includes(condition), `The repair must be scoped by: ${condition}`);
 }
-// The repair's only write is "both timestamps become null". Nothing is
-// shifted by an interval, and no other column is assigned.
+// The repair's only write is "both timestamps become null", and only for a row
+// whose duration is already recorded. Nothing is shifted by an interval, and
+// no other column is assigned.
 assert(
-  migration.includes(`update public.missionary_tables
+  repair.includes(`update public.missionary_tables
 set scheduled_start_at = null,
     scheduled_end_at = null
-where id in (select meeting_id from public.dos_meeting_start_time_repair);`),
-  "A provably invented start becomes unknown; no timestamp is ever shifted.",
+where id in (select meeting_id from public.dos_meeting_start_time_repair)
+  and duration_minutes is not null;`),
+  "A provably invented start becomes unknown, and only once its duration is safely recorded.",
 );
 assert(
-  !/interval\s*'|at time zone[^\n]*\+/i.test(migration),
+  !/interval\s*'|at time zone[^\n]*\+/i.test(repair),
   "No timestamp arithmetic may appear in the repair.",
 );
 assert(
-  !/table_date\s*=|notes\s*=|field_person_ids\s*=|participant_names\s*=/.test(migration),
+  !/table_date\s*=|notes\s*=|field_person_ids\s*=|participant_names\s*=/.test(repair),
   "The repair must not touch dates, notes, attendance or participants.",
 );
 assert(
-  rollback.includes("set scheduled_start_at = repair.previous_scheduled_start_at")
-    && rollback.includes("and meetings.scheduled_start_at is null")
-    && rollback.includes("drop column if exists duration_minutes"),
-  "The rollback must restore exactly the rows the repair cleared, from their recorded values.",
+  repairRollback.includes("set scheduled_start_at = repair.previous_scheduled_start_at")
+    && repairRollback.includes("and meetings.scheduled_start_at is null"),
+  "The repair rollback must restore exactly the rows it cleared, from their recorded values.",
+);
+assert(
+  rollback.includes("drop column if exists duration_minutes"),
+  "The schema rollback must drop the column it added.",
 );
 
 console.log("DOS meeting start time regression passed.");
