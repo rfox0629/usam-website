@@ -31836,7 +31836,11 @@ function MyRecordMeetingCards({
    names answered no question the meeting pair above does not already answer,
    and each of those people is a Person record in their own right. */
 function MyRecordOverviewPanel({
+  assessmentResults,
   assignments,
+  onOpenShareResult,
+  onSendResource,
+  resourceShares,
   commitments,
   commitmentsEnabled,
   draftAssessments,
@@ -31855,7 +31859,13 @@ function MyRecordOverviewPanel({
   people,
   record,
 }: {
+  assessmentResults: DosAppAssessmentResult[];
   assignments: DosAppResourceAssignment[];
+  onOpenShareResult: (resultId: string) => void;
+  /* Null when the account holder has no linked People record, in which case
+     there is nobody to preselect and the action is not offered. */
+  onSendResource: (() => void) | null;
+  resourceShares: DosAppResourceShareAssignment[];
   commitments: DosAppPersonCommitment[];
   commitmentsEnabled: boolean;
   draftAssessments: MyRecordAssessmentLibraryItem[];
@@ -31989,6 +31999,47 @@ function MyRecordOverviewPanel({
             </div>
           ) : (
             <MyRecordSectionEmpty>Nothing open right now.</MyRecordSectionEmpty>
+          )}
+        </MyRecordSurfaceSection>
+
+        {/* USA-280: assessments this account holder is a participant in. The
+            same rows the spouse's People record shows, read from one source,
+            so a couple assessment appears on both records without being
+            stored twice. */}
+        <MyRecordSurfaceSection label="Resources">
+          <Eyebrow
+            action={onSendResource ? <MyRecordSectionAction onClick={onSendResource}>+ Add</MyRecordSectionAction> : undefined}
+            count={resourceShares.length || undefined}
+          >
+            Resources
+          </Eyebrow>
+          {resourceShares.length ? (
+            <div className="divide-y divide-dos-rule">
+              {resourceShares.map((share) => {
+                const shareResource = getDosResourceBySlug(share.resourceSlug);
+                const shareResult = share.resultId
+                  ? assessmentResults.find((result) => result.id === share.resultId) ?? null
+                  : null;
+
+                return (
+                  <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={share.id}>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{shareResource?.title ?? "Library resource"}</p>
+                      <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{shareParticipantSummary(share.participants)}</p>
+                      <p className="mt-1 flex items-center gap-2 text-[12.5px] text-dos-eyebrow">
+                        <StatusPill tone={dosResourceShareStatusTone(share.status)}>{dosResourceShareStatusLabel(share.status)}</StatusPill>
+                        <span>{dosResourceShareDateLine(share)}</span>
+                      </p>
+                    </div>
+                    {share.status === "completed" && shareResult ? (
+                      <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <MyRecordSectionEmpty>No assessments yet.</MyRecordSectionEmpty>
           )}
         </MyRecordSurfaceSection>
 
@@ -32348,14 +32399,24 @@ function MyRecordWorkspace({
   onSave,
   onScheduleMeeting,
   onTabChange,
+  assessmentResults,
+  onOpenShareResult,
+  onSendResource,
   people,
   profileName,
   record,
   reminders,
   resourceAssignments,
+  resourceShareAssignments,
   returnLabel = null,
   tab,
 }: {
+  /* USA-280: the assessments this account holder is a participant in, so a
+     Marriage Assessment they took reaches their own record and not only the
+     spouse's People page. */
+  assessmentResults: DosAppAssessmentResult[];
+  onOpenShareResult: (resultId: string) => void;
+  onSendResource: (() => void) | null;
   commitments: DosAppPersonCommitment[];
   commitmentsEnabled: boolean;
   errorMessage: string;
@@ -32387,12 +32448,47 @@ function MyRecordWorkspace({
   record: DosAppUserRecord;
   reminders: DosAppRelationshipReminder[];
   resourceAssignments: DosAppResourceAssignment[];
+  resourceShareAssignments: DosAppResourceShareAssignment[];
   /* USA-268: "Reports" when a discipleship meeting was opened from Reports,
      so Back returns there. The same prop Person and the meeting record use. */
   returnLabel?: string | null;
   tab: MyRecordTab;
 }) {
-  const timeline = useMemo(() => buildMyRecordTimeline(record, people), [people, record]);
+  /* USA-280: newest first, matching the Person record's ordering. */
+  const myResourceShares = useMemo(() => [...resourceShareAssignments].sort((first, second) => (
+    (parseDisplayDate(second.createdAt)?.getTime() ?? 0) - (parseDisplayDate(first.createdAt)?.getTime() ?? 0)
+  )), [resourceShareAssignments]);
+  const timeline = useMemo(() => {
+    /* The same two events the Person record records, worded the same way:
+       a link becoming ready is not a send, and only a completed assessment
+       opens its report. */
+    const shareItems: MyRecordTimelineItem[] = [
+      ...myResourceShares.map((share) => ({
+        badge: "Assessment",
+        body: shareParticipantSummary(share.participants),
+        date: share.createdAt,
+        icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+        id: `my-record-share-${share.id}`,
+        kind: "assessment" as const,
+        meta: dosResourceShareStatusLabel(share.status),
+        title: `Link ready for ${getDosResourceBySlug(share.resourceSlug)?.title ?? "Library resource"}`,
+      })),
+      ...myResourceShares.filter((share) => share.status === "completed").map((share) => ({
+        badge: "Assessment",
+        body: shareParticipantSummary(share.participants),
+        date: share.completedAt,
+        icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+        id: `my-record-share-complete-${share.id}`,
+        kind: "assessment" as const,
+        meta: null,
+        title: `Completed ${getDosResourceBySlug(share.resourceSlug)?.title ?? "Library resource"}`,
+      })),
+    ];
+
+    return [...buildMyRecordTimeline(record, people), ...shareItems].sort((first, second) => (
+      (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0)
+    ));
+  }, [myResourceShares, people, record]);
   const activeMyRecordTab = normalizeMyRecordTab(tab);
   const recordScrollRef = useRef<HTMLDivElement>(null);
   const [isMyRecordFabOpen, setIsMyRecordFabOpen] = useState(false);
@@ -32673,7 +32769,11 @@ function MyRecordWorkspace({
             <div className="min-w-0 lg:flex-1">
               {activeMyRecordTab === "overview" ? (
                 <MyRecordOverviewPanel
+                  assessmentResults={assessmentResults}
                   assignments={resourceAssignments}
+                  onOpenShareResult={onOpenShareResult}
+                  onSendResource={onSendResource}
+                  resourceShares={myResourceShares}
                   commitments={commitments}
                   commitmentsEnabled={commitmentsEnabled}
                   draftAssessments={draftAssessments}
@@ -36340,13 +36440,16 @@ function PersonDetailOverlay({
       title: `Completed ${resourceAssignmentTitle(assignment)}`,
     })),
     /* USA-278: assignment and completion reach the Timeline. Draft answers
-       never do -- a half-finished assessment is not a record of anything. */
+       never do -- a half-finished assessment is not a record of anything.
+       USA-280: creating a link is not sending. DOS makes the link; a person
+       decides whether to pass it on, and DOS never learns whether they did.
+       The Timeline says what actually happened. */
     ...personResourceShares.map((share) => ({
       date: share.createdAt,
       description: shareParticipantSummary(share.participants),
       id: `history-resource-share-${share.id}`,
       kind: "assessment" as const,
-      title: `Sent ${getDosResourceBySlug(share.resourceSlug)?.title ?? "Library resource"}`,
+      title: `Link ready for ${getDosResourceBySlug(share.resourceSlug)?.title ?? "Library resource"}`,
     })),
     ...personResourceShares.filter((share) => share.status === "completed").map((share) => ({
       date: share.completedAt,
@@ -39355,6 +39458,15 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   const myRecordResourceAssignments = useMemo(() => (
     myRecordPerson ? data.resourceAssignments.filter((assignment) => assignment.personId === myRecordPerson.id) : []
   ), [data.resourceAssignments, myRecordPerson]);
+  /* USA-280: My Record read only Journey assignments, so an assessment the
+     account holder took never appeared on their own record even though the
+     verified identity link already named their People row. This is the same
+     helper the Person record uses, and it matches either participant, so a
+     husband sees a couple assessment his wife's link created. Nothing is
+     duplicated: the People records and My Record read one row. */
+  const myRecordResourceShares = useMemo(() => (
+    myRecordPerson ? dosResourceSharesForPerson(data.resourceShareAssignments, myRecordPerson.id) : []
+  ), [data.resourceShareAssignments, myRecordPerson]);
   /* USA-272: my own Accountability commitments, read from the same canonical
      store the Person page reads. My Record shows them; it never writes them. */
   const myRecordCommitments = useMemo(() => (
@@ -47135,11 +47247,15 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onSave={submitMyRecord}
             onScheduleMeeting={(personId) => openScheduleMeeting(personId ?? undefined)}
             onTabChange={setMyRecordTab}
+            assessmentResults={data.assessmentResults}
+            onOpenShareResult={setShareResultId}
+            onSendResource={myRecordPerson ? () => openSendResourceForPerson(myRecordPerson.id) : null}
             people={people}
             profileName={profileName}
             record={data.myRecord}
             reminders={data.reminders}
             resourceAssignments={myRecordResourceAssignments}
+            resourceShareAssignments={myRecordResourceShares}
             returnLabel={reportsReturn ? "Reports" : null}
             tab={myRecordTab}
           />

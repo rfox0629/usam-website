@@ -5616,6 +5616,32 @@ export async function loadDosAppData(
     };
   }).sort((first, second) => activityDateValue(first.startAt) - activityDateValue(second.startAt));
 
+  /* USA-280: My Record's heading showed an email address because this was
+     always null. The name comes from links this workspace has already
+     verified, never from matching on a name:
+
+       1. the viewer's own team member row, found by dos_user_id, which is the
+          same link the rest of DOS treats as proof of identity;
+       2. failing that, the People record the verified dos_identity_links row
+          points at.
+
+     Both are absent for a connected read, where the viewer is looking at
+     someone else's workspace and has no identity in it. */
+  const viewerIdentityValues = viewer ? uniqueStrings([viewer.userId, viewer.email]) : [];
+  const viewerTeamMemberName = viewerIdentityValues.length
+    ? cleanOptionalText(
+      householdMemberRows.find((member) => {
+        const linkedValue = member.dos_user_id?.trim();
+
+        return Boolean(linkedValue) && viewerIdentityValues.some((value) => value.toLowerCase() === linkedValue!.toLowerCase());
+      })?.display_name ?? null,
+    )
+    : null;
+  const viewerPersonName = viewerPersonId
+    ? cleanOptionalText(people.find((person) => person.id === viewerPersonId)?.name ?? null)
+    : null;
+  const viewerFullName = connectedRead ? null : (viewerTeamMemberName ?? viewerPersonName);
+
   return {
     data: {
       accountabilityCheckInCommitments,
@@ -5684,7 +5710,7 @@ export async function loadDosAppData(
         slug: workspace.slug,
         stateName: cleanOptionalText(workspace.primary_state ?? workspace.location),
         userEmail: viewer?.access === "member" ? viewer.email : null,
-        userFullName: null,
+        userFullName: viewerFullName,
         userPersonId: viewerPersonId,
         userPhone: null,
       },
