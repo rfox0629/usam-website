@@ -197,11 +197,12 @@ import {
   dosResourceActionLabels,
   dosResourceShareStatusLabel,
   isDosResourceShareEnabled,
+  reliableAssessmentRoleFor,
   resourceShareParticipantRoles,
   shareParticipantSummary,
   type DosResourceShareStatus,
 } from "@/src/lib/dos/resource-sharing";
-import { AssessmentCategoryBreakdown } from "@/src/components/dos/assessments/AssessmentPrimitives";
+import { AssessmentCategoryTable } from "@/src/components/dos/assessments/AssessmentUi";
 
 const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
 const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-0 md:py-0";
@@ -34438,6 +34439,9 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
 /* USA-278: the resource's two actions, in the header where the primary action
    belongs. Sending establishes who the assessment is for; previewing is the
    leader reading it for themselves. */
+/* USA-279: the assessment's two actions, in the book study's button
+   treatment. Sending establishes who the assessment is for; previewing is the
+   leader reading it for themselves. */
 function AssessmentResourceActions({
   onSend,
   resource,
@@ -34452,68 +34456,72 @@ function AssessmentResourceActions({
   const canSend = actions.canSend && Boolean(onSend);
 
   return (
-    <div className="grid gap-2">
-      <div className="flex flex-wrap gap-2">
-        {canSend ? (
-          <button
-            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#2563EB] px-4 text-xs font-black text-white transition-colors hover:bg-[#1D4ED8]"
-            onClick={() => onSend?.(resource)}
-            type="button"
-          >
-            {actions.sendLabel}
-          </button>
-        ) : null}
-        {previewHref ? (
-          <a
-            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-4 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
-            href={previewHref}
-          >
-            {actions.previewLabel}
-          </a>
-        ) : null}
-      </div>
+    <div className="flex w-full flex-wrap gap-[10px]">
       {canSend ? (
-        <p className="text-[11px] font-semibold leading-5 text-[#64748B]">
-          Sending creates a link for the couple. Preview is for you — it saves nothing and assigns nobody.
-        </p>
+        <button
+          className="inline-flex min-h-[46px] flex-1 basis-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[11px] bg-[linear-gradient(135deg,#2563EB_0%,#1D4ED8_100%)] px-3 text-[14.5px] font-semibold text-white"
+          onClick={() => onSend?.(resource)}
+          type="button"
+        >
+          {actions.sendLabel}
+        </button>
+      ) : null}
+      {previewHref ? (
+        <a
+          className="inline-flex min-h-[46px] flex-1 basis-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[11px] border border-[#DCEBFF] bg-white px-3 text-[14.5px] font-semibold text-[#0F172A]"
+          href={previewHref}
+        >
+          {actions.previewLabel}
+        </a>
       ) : null}
     </div>
   );
 }
 
+/* The detail body: three plain facts and the questions, on hairlines rather
+   than a stack of tinted introduction cards. */
 function AssessmentResourceContent({ resource }: { resource: DosResource }) {
   const assessment = resource.content?.assessment ?? null;
 
+  if (!assessment) {
+    return resource.content?.body
+      ? <p className="px-1 text-[15.5px] leading-[1.62] text-[#475569]">{resource.content.body}</p>
+      : null;
+  }
+
+  const [firstRole, secondRole] = assessment.participants;
+
   return (
-    <section className="rounded-[24px] border border-[#EAF2FF] bg-white p-4 shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
-      {resource.content?.body ? <p className="text-sm leading-7 text-[#475569]">{resource.content.body}</p> : null}
-      {resource.content?.assessmentScale ? <p className="mt-3 text-sm font-semibold leading-6 text-[#0F172A]">{resource.content.assessmentScale}</p> : null}
-      {assessment ? (
-        <div className="mt-4 grid gap-2">
-          {/* Who it is for and how it works, before the questions. */}
-          <div className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>Who it is for</p>
-            <p className="mt-1 text-sm leading-6 text-[#475569]">
-              {assessment.participants.join(" and ")} — two people in one relationship, answering together.
+    <div className="-mx-1">
+      <section className="border-y border-[#EAF2FF] bg-[#F8FBFF] px-4 py-5" aria-label="How this works">
+        <ul className="grid gap-2.5">
+          {[
+            `A couple answers ${assessment.questions.length} questions together.`,
+            `Each spouse gives their own scores, as ${firstRole} and ${secondRole}.`,
+            "Their results return to the linked People records.",
+          ].map((item) => (
+            <li className="flex gap-2.5 text-[14.5px] leading-[1.55] text-[#475569]" key={item}>
+              <span aria-hidden="true" className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-[#1D4ED8]" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section className="px-4 pt-6" aria-label="Questions">
+        <h2 className="text-[17px] font-bold tracking-[-0.015em] text-[#0F172A]">Questions</h2>
+        <div className="mt-3 border-t border-[#EAF2FF]">
+          {assessment.questions.slice(0, 5).map((question) => (
+            <p className="border-b border-[#EAF2FF] py-3 text-[14.5px] leading-[1.5] text-[#475569]" key={question.id}>
+              {question.prompt}
             </p>
-            <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>How it works</p>
-            <p className="mt-1 text-sm leading-6 text-[#475569]">
-              You send one link. They answer {assessment.questions.length} questions on a 0-10 scale, each answer labelled with whose it is, and the completed result comes back to their People record.
-            </p>
-          </div>
-          <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>
-            {assessment.questions.length} questions · {assessment.participants.join(" / ")}
-          </p>
-          <div className="grid gap-2">
-            {assessment.questions.slice(0, 5).map((question) => (
-              <p className="rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2 text-sm font-semibold leading-6 text-[#0F172A]" key={question.id}>
-                {question.prompt}
-              </p>
-            ))}
-          </div>
+          ))}
         </div>
-      ) : null}
-    </section>
+        <p className="mt-3 text-[13px] font-semibold text-[#64748B]">
+          {assessment.questions.length} questions in total. Preview shows every one.
+        </p>
+      </section>
+    </div>
   );
 }
 
@@ -34752,9 +34760,16 @@ type SendResourceResult = {
   url: string;
 };
 
-/* The compact send flow. Pick the person, confirm who is participating, then
-   create the assignment and its link. Opened from the Library with nobody
-   selected, or from a Person with that person already selected. */
+/* USA-279: one form, not a wizard.
+ *
+ * Who it is for, which role that person answers as, and who their spouse is,
+ * all on the screen that opens. Opened from a Person the picker is already
+ * filled in; opened from the Library it is empty.
+ *
+ * The role is always the leader's explicit choice. DOS stores no marital role,
+ * so there is nothing reliable to preselect from, and guessing it from
+ * selection order, a name, or the account owner is exactly the mistake this
+ * form exists to avoid. */
 function SendResourceSheet({
   onClose,
   onSend,
@@ -34763,55 +34778,48 @@ function SendResourceSheet({
   resource,
 }: {
   onClose: () => void;
-  onSend: (input: { personId: string; resourceSlug: string; spouseName: string; spousePersonId: string | null }) => Promise<SendResourceResult | { error: string }>;
+  onSend: (input: { personId: string; personRole: string; resourceSlug: string; spouseName: string; spousePersonId: string | null }) => Promise<SendResourceResult | { error: string }>;
   people: DosAppPerson[];
   preselectedPersonId?: string | null;
   resource: DosResource;
 }) {
+  const [firstRole, secondRole] = resourceShareParticipantRoles(resource);
   const [personId, setPersonId] = useState(preselectedPersonId ?? "");
-  const [query, setQuery] = useState("");
-  const [spouseMode, setSpouseMode] = useState<"contact" | "linked" | "name">("linked");
+  const [personQuery, setPersonQuery] = useState("");
+  const [role, setRole] = useState("");
   const [spousePersonId, setSpousePersonId] = useState("");
   const [spouseQuery, setSpouseQuery] = useState("");
-  const [spouseName, setSpouseName] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [result, setResult] = useState<SendResourceResult | null>(null);
 
   const person = people.find((candidate) => candidate.id === personId) ?? null;
-  const linkedSpouse = person ? dosLinkedSpouseForPerson(person, people) : null;
-  const namedSpouse = cleanShareParticipantName(person?.spouseName);
   const selectedSpouse = people.find((candidate) => candidate.id === spousePersonId) ?? null;
-  const [primaryRole, secondaryRole] = resourceShareParticipantRoles(resource);
-  const filteredPeople = query.trim()
-    ? people.filter((candidate) => candidate.name.toLowerCase().includes(query.trim().toLowerCase()))
-    : [];
-  const filteredSpouseOptions = spouseQuery.trim()
-    ? people.filter((candidate) => candidate.id !== personId && candidate.name.toLowerCase().includes(spouseQuery.trim().toLowerCase()))
-    : [];
 
-  /* When the person changes, the spouse question starts over from what their
-     record actually says -- never from the previous person's answer. */
+  /* Whenever the person changes, the role and the spouse start over from what
+     that person's own record says. A stale spouse or a role chosen for
+     somebody else must never survive the change. */
   useEffect(() => {
-    setSpousePersonId("");
-    setSpouseQuery("");
-    setSpouseName("");
-    setSpouseMode(person && dosLinkedSpouseForPerson(person, people) ? "linked" : namedSpouse ? "name" : "name");
+    const nextPerson = people.find((candidate) => candidate.id === personId) ?? null;
+    const linkedSpouse = nextPerson ? dosLinkedSpouseForPerson(nextPerson, people) : null;
+
+    setRole(reliableAssessmentRoleFor(resource, null) ?? "");
+    setSpousePersonId(linkedSpouse?.id ?? "");
+    setSpouseQuery(linkedSpouse?.name ?? cleanShareParticipantName(nextPerson?.spouseName) ?? "");
     setErrorMessage("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personId]);
 
-  const resolvedSpouse = spouseMode === "linked" && linkedSpouse
-    ? { name: linkedSpouse.name, personId: linkedSpouse.id }
-    : spouseMode === "contact" && selectedSpouse
-      ? { name: selectedSpouse.name, personId: selectedSpouse.id }
-      : { name: cleanShareParticipantName(spouseName) || namedSpouse, personId: null };
-  const participantLine = person
-    ? shareParticipantSummary([
-      { name: person.name, personId: person.id, role: primaryRole },
-      { name: resolvedSpouse.name, personId: resolvedSpouse.personId, role: secondaryRole },
-    ])
-    : "";
+  const spouseRole = role ? (role === firstRole ? secondRole : firstRole) : "";
+  const resolvedSpouseName = selectedSpouse ? selectedSpouse.name : cleanShareParticipantName(spouseQuery);
+  const personMatches = personQuery.trim()
+    ? people.filter((candidate) => candidate.name.toLowerCase().includes(personQuery.trim().toLowerCase())).slice(0, 6)
+    : [];
+  /* The same contact can never be both participants. */
+  const spouseMatches = spouseQuery.trim() && !selectedSpouse
+    ? people.filter((candidate) => candidate.id !== personId && candidate.name.toLowerCase().includes(spouseQuery.trim().toLowerCase())).slice(0, 5)
+    : [];
+  const isReady = Boolean(person && role && resolvedSpouseName);
 
   async function submit() {
     if (!person) {
@@ -34819,8 +34827,18 @@ function SendResourceSheet({
       return;
     }
 
-    if (!resolvedSpouse.name) {
-      setErrorMessage(`Add ${person.name.split(" ")[0]}'s spouse. A first name is enough.`);
+    if (!role) {
+      setErrorMessage("Choose whether they answer as the husband or the wife.");
+      return;
+    }
+
+    if (!resolvedSpouseName) {
+      setErrorMessage("Add their spouse. A first name is enough.");
+      return;
+    }
+
+    if (spousePersonId && spousePersonId === personId) {
+      setErrorMessage("Choose a different contact for the spouse.");
       return;
     }
 
@@ -34829,9 +34847,10 @@ function SendResourceSheet({
 
     const response = await onSend({
       personId: person.id,
+      personRole: role,
       resourceSlug: resource.slug,
-      spouseName: resolvedSpouse.name,
-      spousePersonId: resolvedSpouse.personId,
+      spouseName: resolvedSpouseName,
+      spousePersonId: spousePersonId || null,
     });
 
     setIsSubmitting(false);
@@ -34848,24 +34867,21 @@ function SendResourceSheet({
     return (
       <Sheet onClose={onClose} showEyebrow={false} title="Link ready">
         <div className="grid gap-4">
-          <DosFormSection icon="library" title={resource.title}>
-            <p className="text-dos-body text-dos-primary">
-              {/* Deliberately not "Sent". A link exists; delivering it is the
-                  sender's to do. */}
-              {result.reused ? "This couple already has an open link. Here it is again." : "The assessment is ready for"} {result.reused ? "" : result.participants.map((participant) => participant.name).join(" and ")}
-              {result.reused ? "" : "."}
+          <div>
+            <p className="text-[15.5px] leading-[1.62] text-[#0F172A]">
+              {result.reused
+                ? "This couple already has an open link. Here it is again."
+                : `The assessment is ready for ${result.participants.map((participant) => `${participant.name} (${participant.role})`).join(" and ")}.`}
             </p>
-            <p className="mt-1 text-dos-meta text-dos-secondary">
+            <p className="mt-1.5 text-[13.5px] leading-[1.5] text-[#64748B]">
               Nothing has been sent yet. Share the link however you normally reach them.
             </p>
-            <div className="mt-3">
-              <ResourceShareLinkActions
-                participantLine={result.participants.map((participant) => participant.name).join(" and ")}
-                resourceTitle={resource.title}
-                url={result.url}
-              />
-            </div>
-          </DosFormSection>
+          </div>
+          <ResourceShareLinkActions
+            participantLine={result.participants.map((participant) => participant.name).join(" and ")}
+            resourceTitle={resource.title}
+            url={result.url}
+          />
           <Button fullWidth onClick={onClose} variant="secondary">Done</Button>
         </div>
       </Sheet>
@@ -34874,184 +34890,125 @@ function SendResourceSheet({
 
   return (
     <Sheet kind="editable" onClose={onClose} showEyebrow={false} title={dosResourceActionLabels(resource).sendLabel}>
-      <div className="grid min-w-0 gap-4 overflow-x-hidden">
-        <DosFormSection icon="people" title="Who is this for?" variant="label">
+      <div className="grid min-w-0 gap-5 overflow-x-hidden">
+        <div>
+          <p className="text-[15px] font-bold tracking-[-0.012em] text-[#0F172A]">Who are you sending this to?</p>
           {person ? (
-            <div className="flex items-center gap-3">
+            <div className="mt-2 flex items-center gap-3 rounded-[12px] border border-[#DCEBFF] bg-white px-3 py-2.5">
               <Avatar name={person.name} size="sm" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[16px] font-bold leading-[1.2] text-dos-primary">{person.name}</p>
-                <p className="mt-0.5 text-dos-meta text-dos-secondary">{primaryRole}</p>
-              </div>
+              <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#0F172A]">{person.name}</span>
               <button
-                className="min-h-9 shrink-0 text-[13px] font-semibold text-dos-blue transition-colors hover:text-[#1B3EA0]"
-                onClick={() => { setPersonId(""); setQuery(""); }}
+                className="min-h-9 shrink-0 text-[13.5px] font-semibold text-[#1D4ED8]"
+                onClick={() => { setPersonId(""); setPersonQuery(""); }}
                 type="button"
               >
                 Change
               </button>
             </div>
           ) : (
-            <div className="grid gap-2">
-              <div className="relative">
-                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#94A3B8]">
-                  <Icon name="search" size={14} />
-                </span>
-                <input
-                  aria-label="Search people"
-                  className="min-h-11 w-full rounded-full border border-[#D6E4F7] bg-white pl-9 pr-4 text-sm text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search your field"
-                  type="search"
-                  value={query}
-                />
-              </div>
-              {filteredPeople.length ? (
-                <div className="grid gap-1 pr-1">
-                  {filteredPeople.slice(0, 8).map((candidate, index) => (
-                    <button
-                      className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
-                      key={candidate.id}
-                      onClick={() => { setPersonId(candidate.id); setQuery(""); }}
-                      type="button"
-                    >
-                      <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index)}`}>
-                        {initials(candidate.name)}
-                      </span>
-                      <span className="min-w-0 flex-1 truncate font-medium">{candidate.name}</span>
-                    </button>
-                  ))}
-                </div>
-              ) : query.trim() ? (
-                /* No quick-add here on purpose: sending an assessment is not
-                   the moment to create a contact record. */
-                <p className="text-dos-meta text-dos-secondary">Nobody by that name yet. Add them in People first.</p>
+            <div className="mt-2 grid gap-2">
+              <input
+                aria-label="Search people"
+                className="min-h-11 w-full rounded-[12px] border border-[#DCEBFF] bg-white px-3 text-[15px] text-[#0F172A] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB]"
+                onChange={(event) => setPersonQuery(event.target.value)}
+                placeholder="Search people"
+                type="search"
+                value={personQuery}
+              />
+              {personMatches.map((candidate) => (
+                <button
+                  className="flex min-h-10 items-center gap-2.5 rounded-[12px] px-2.5 text-left text-[15px] text-[#0F172A] hover:bg-[#F8FBFF]"
+                  key={candidate.id}
+                  onClick={() => { setPersonId(candidate.id); setPersonQuery(""); }}
+                  type="button"
+                >
+                  <Avatar name={candidate.name} size="sm" />
+                  <span className="min-w-0 flex-1 truncate font-medium">{candidate.name}</span>
+                </button>
+              ))}
+              {personQuery.trim() && !personMatches.length ? (
+                <p className="text-[13px] text-[#64748B]">Nobody by that name yet. Add them in People first.</p>
               ) : null}
             </div>
           )}
-        </DosFormSection>
+        </div>
 
         {person ? (
-          <DosFormSection icon="people" title="Who is participating?" variant="label">
-            <p className="text-dos-body text-dos-primary">
-              {person.name} answers as <span className="font-semibold">{primaryRole}</span>. Who answers as {secondaryRole}?
-            </p>
-
-            {linkedSpouse ? (
-              <label className="mt-3 flex cursor-pointer items-center gap-3 rounded-dos-1 border border-dos-line bg-white px-3 py-2.5">
-                <input
-                  checked={spouseMode === "linked"}
-                  className="h-4 w-4 accent-[#2251E8]"
-                  name="dos-share-spouse-mode"
-                  onChange={() => setSpouseMode("linked")}
-                  type="radio"
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[15px] font-semibold text-dos-primary">{linkedSpouse.name}</span>
-                  <span className="block text-dos-meta text-dos-secondary">Linked on {person.name.split(" ")[0]}&rsquo;s household</span>
-                </span>
-              </label>
-            ) : null}
-
-            <label className="mt-2 flex cursor-pointer items-center gap-3 rounded-dos-1 border border-dos-line bg-white px-3 py-2.5">
-              <input
-                checked={spouseMode === "name"}
-                className="h-4 w-4 accent-[#2251E8]"
-                name="dos-share-spouse-mode"
-                onChange={() => setSpouseMode("name")}
-                type="radio"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-semibold text-dos-primary">Enter their name</span>
-                <span className="block text-dos-meta text-dos-secondary">A first name is enough. No contact record is created.</span>
-              </span>
-            </label>
-            {spouseMode === "name" ? (
-              <div className="mt-2">
-                <DosFormField label={`${secondaryRole}'s name`}>
-                  <input
-                    aria-label={`${secondaryRole}'s name`}
-                    className={FieldInputClass(false)}
-                    onChange={(event) => setSpouseName(event.target.value)}
-                    placeholder="First name is enough"
-                    type="text"
-                    value={spouseName || namedSpouse}
-                  />
-                </DosFormField>
+          <>
+            <div>
+              <p className="text-[15px] font-bold tracking-[-0.012em] text-[#0F172A]">Their role in this assessment</p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                {[firstRole, secondRole].map((option) => (
+                  <button
+                    className={`min-h-11 rounded-[12px] border text-[14.5px] font-semibold ${
+                      role === option
+                        ? "border-[#1D4ED8] bg-[#1D4ED8] text-white"
+                        : "border-[#DCEBFF] bg-white text-[#0F172A]"
+                    }`}
+                    key={option}
+                    onClick={() => setRole(option)}
+                    type="button"
+                  >
+                    {option}
+                  </button>
+                ))}
               </div>
-            ) : null}
+            </div>
 
-            <label className="mt-2 flex cursor-pointer items-center gap-3 rounded-dos-1 border border-dos-line bg-white px-3 py-2.5">
-              <input
-                checked={spouseMode === "contact"}
-                className="h-4 w-4 accent-[#2251E8]"
-                name="dos-share-spouse-mode"
-                onChange={() => setSpouseMode("contact")}
-                type="radio"
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-semibold text-dos-primary">Choose an existing contact</span>
-                <span className="block text-dos-meta text-dos-secondary">Use this when they already have their own People record.</span>
-              </span>
-            </label>
-            {spouseMode === "contact" ? (
-              <div className="mt-2 grid gap-2">
-                {selectedSpouse ? (
-                  <div className="flex items-center gap-3 rounded-dos-1 border border-dos-line bg-white px-3 py-2.5">
-                    <Avatar name={selectedSpouse.name} size="sm" />
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-dos-primary">{selectedSpouse.name}</span>
+            <div>
+              <p className="text-[15px] font-bold tracking-[-0.012em] text-[#0F172A]">
+                Spouse{spouseRole ? ` (${spouseRole})` : ""}
+              </p>
+              {selectedSpouse ? (
+                <div className="mt-2 flex items-center gap-3 rounded-[12px] border border-[#DCEBFF] bg-white px-3 py-2.5">
+                  <Avatar name={selectedSpouse.name} size="sm" />
+                  <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-[#0F172A]">{selectedSpouse.name}</span>
+                  <button
+                    className="min-h-9 shrink-0 text-[13.5px] font-semibold text-[#1D4ED8]"
+                    onClick={() => { setSpousePersonId(""); setSpouseQuery(""); }}
+                    type="button"
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <div className="mt-2 grid gap-2">
+                  <input
+                    aria-label="Spouse name or contact"
+                    className="min-h-11 w-full rounded-[12px] border border-[#DCEBFF] bg-white px-3 text-[15px] text-[#0F172A] outline-none placeholder:text-[#94A3B8] focus:border-[#2563EB]"
+                    onChange={(event) => setSpouseQuery(event.target.value)}
+                    placeholder="Search contacts or type a name"
+                    type="text"
+                    value={spouseQuery}
+                  />
+                  {spouseMatches.map((candidate) => (
                     <button
-                      className="min-h-9 shrink-0 text-[13px] font-semibold text-dos-blue"
-                      onClick={() => { setSpousePersonId(""); setSpouseQuery(""); }}
+                      className="flex min-h-10 items-center gap-2.5 rounded-[12px] px-2.5 text-left text-[15px] text-[#0F172A] hover:bg-[#F8FBFF]"
+                      key={candidate.id}
+                      onClick={() => { setSpousePersonId(candidate.id); setSpouseQuery(candidate.name); }}
                       type="button"
                     >
-                      Change
+                      <Avatar name={candidate.name} size="sm" />
+                      <span className="min-w-0 flex-1 truncate font-medium">{candidate.name}</span>
                     </button>
-                  </div>
-                ) : (
-                  <>
-                    <input
-                      aria-label="Search contacts"
-                      className="min-h-11 w-full rounded-full border border-[#D6E4F7] bg-white px-4 text-sm text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
-                      onChange={(event) => setSpouseQuery(event.target.value)}
-                      placeholder="Search your field"
-                      type="search"
-                      value={spouseQuery}
-                    />
-                    {filteredSpouseOptions.slice(0, 6).map((candidate, index) => (
-                      <button
-                        className="flex min-h-9 items-center gap-2.5 rounded-2xl px-2.5 text-left text-sm text-[#0F172A] transition-colors hover:bg-[#F1F5F9]"
-                        key={candidate.id}
-                        onClick={() => { setSpousePersonId(candidate.id); setSpouseQuery(""); }}
-                        type="button"
-                      >
-                        <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[9px] font-semibold ${avatarTone(index)}`}>
-                          {initials(candidate.name)}
-                        </span>
-                        <span className="min-w-0 flex-1 truncate font-medium">{candidate.name}</span>
-                      </button>
-                    ))}
-                  </>
-                )}
-              </div>
-            ) : null}
-          </DosFormSection>
+                  ))}
+                  <p className="text-[13px] text-[#64748B]">A first name is enough. No contact is created.</p>
+                </div>
+              )}
+            </div>
+          </>
         ) : null}
 
-        {person && resolvedSpouse.name ? (
-          <div className="rounded-dos-1 border border-dos-line bg-dos-surface2 px-3.5 py-3">
-            <p className="text-dos-eyebrow uppercase text-dos-eyebrow">Confirm recipients</p>
-            <p className="mt-1 text-[15px] font-semibold text-dos-primary">{participantLine}</p>
-            <p className="mt-1.5 text-dos-meta text-dos-secondary">
-              They complete this together on one link, with each answer labelled. Both sets of answers come back to you.
-            </p>
-          </div>
+        {isReady && person ? (
+          <p className="rounded-[12px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2.5 text-[14.5px] leading-[1.5] text-[#0F172A]">
+            {person.name} answers as {role}. {resolvedSpouseName} answers as {spouseRole}.
+          </p>
         ) : null}
 
         <FormMessage message={errorMessage} />
         <div className="grid gap-2">
-          <Button disabled={isSubmitting || !person} fullWidth onClick={submit} variant="primary">
-            {isSubmitting ? "Creating link…" : "Create link"}
+          <Button disabled={isSubmitting || !isReady} fullWidth onClick={submit} variant="primary">
+            {isSubmitting ? "Creating link..." : "Create link"}
           </Button>
           <Button disabled={isSubmitting} fullWidth onClick={onClose} variant="secondary">Cancel</Button>
         </div>
@@ -35060,9 +35017,6 @@ function SendResourceSheet({
   );
 }
 
-/* A completed couple assessment, read from the People record. Each spouse's
-   own answers stay attributed; the figures are the ones already stored, not
-   recomputed here, and no diagnostic label is invented. */
 function ResourceShareResultSheet({
   onClose,
   result,
@@ -35093,7 +35047,11 @@ function ResourceShareResultSheet({
         </div>
 
         {result.categoryScores.length ? (
-          <AssessmentCategoryBreakdown
+          /* husbandScore / wifeScore are stored by ROLE, so the column labels
+             are looked up by role too. Labelling them by participant order
+             would put the wife's figures under the husband's name on any
+             assignment that was sent to her first. */
+          <AssessmentCategoryTable
             categories={result.categoryScores.map((category) => ({
               husbandScore: category.husbandScore ?? 0,
               maxScore: category.maxScore,
@@ -35102,9 +35060,8 @@ function ResourceShareResultSheet({
               score: category.score,
               wifeScore: category.wifeScore ?? 0,
             }))}
-            participantLabels={participants.length >= 2
-              ? [participantNames[participants[0]] || participants[0], participantNames[participants[1]] || participants[1]]
-              : undefined}
+            firstLabel={participantNames.Husband || "Husband"}
+            secondLabel={participantNames.Wife || "Wife"}
           />
         ) : null}
 
@@ -35119,7 +35076,7 @@ function ResourceShareResultSheet({
                     {participants.map((role) => (
                       <span className="text-dos-meta text-dos-secondary" key={role}>
                         <span className="font-semibold text-dos-primary">{participantNames[role] || role}</span>{" "}
-                        {typeof question.scores?.[role] === "number" ? question.scores?.[role] : "—"}
+                        {typeof question.scores?.[role] === "number" ? question.scores?.[role] : "not answered"}
                       </span>
                     ))}
                   </div>
@@ -42137,7 +42094,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     }
   }
 
-  async function createResourceShare(input: { personId: string; resourceSlug: string; spouseName: string; spousePersonId: string | null }) {
+  async function createResourceShare(input: { personId: string; personRole: string; resourceSlug: string; spouseName: string; spousePersonId: string | null }) {
     try {
       const response = await fetch("/api/dos/app/resource-share-assignments", {
         body: JSON.stringify({ ...input, workspaceId: data.workspace.id }),

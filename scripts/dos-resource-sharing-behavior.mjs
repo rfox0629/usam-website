@@ -351,6 +351,7 @@ function completeAnswers() {
 async function sendTo(input) {
   return shareLinks.createDosResourceShareAssignment({
     authorization,
+    primaryParticipantRole: "Husband",
     requestedByName: "Fox Family",
     resourceSlug: "marriage-assessment",
     workspaceId,
@@ -396,6 +397,7 @@ assert.equal(missingSpouse.status, 400, "a couple assessment needs both particip
 
 const notSendable = await shareLinks.createDosResourceShareAssignment({
   authorization,
+  primaryParticipantRole: "Husband",
   primaryPersonId: "33333333-3333-4333-8333-333333333333",
   requestedByName: "Fox Family",
   resourceSlug: "friendship-assessment",
@@ -576,4 +578,74 @@ const afterExpiry = await sendTo({ primaryPersonId: "33333333-3333-4333-8333-333
 assert.equal(afterExpiry.ok, true);
 assert.equal(afterExpiry.reused, false, "an expired link is replaced rather than handed back");
 
-console.log("DOS resource sharing (USA-278) behavior passed.");
+/* ---- USA-279: the role is chosen, never assumed --------------------------
+ *
+ * The person a leader picks first can be either spouse. Nothing may infer the
+ * role from selection order, a name, or the account owner. */
+
+const missingRole = await shareLinks.createDosResourceShareAssignment({
+  authorization,
+  primaryParticipantRole: "",
+  primaryPersonId: "11111111-1111-4111-8111-111111111111",
+  requestedByName: "Fox Family",
+  resourceSlug: "marriage-assessment",
+  secondaryParticipantName: "Patty",
+  secondaryPersonId: null,
+  workspaceId,
+});
+assert.equal(missingRole.ok, false, "a send with no role is refused rather than defaulted");
+assert.equal(missingRole.status, 400);
+
+const invalidRole = await sendTo({
+  primaryParticipantRole: "Spouse",
+  primaryPersonId: "11111111-1111-4111-8111-111111111111",
+  secondaryParticipantName: "Patty",
+  secondaryPersonId: null,
+});
+assert.equal(invalidRole.ok, false, "a role this resource does not declare is refused");
+
+/* Wife first: she is the anchor, and her husband answers as Husband. */
+resetState();
+const wifeFirst = await sendTo({
+  primaryParticipantRole: "Wife",
+  primaryPersonId: "22222222-2222-4222-8222-222222222222",
+  secondaryParticipantName: "Samuel Gaffney",
+  secondaryPersonId: "11111111-1111-4111-8111-111111111111",
+});
+assert.equal(wifeFirst.ok, true);
+assert.equal(wifeFirst.assignment.primary_participant_role, "Wife", "the first person is stored as the role that was chosen");
+assert.equal(wifeFirst.assignment.secondary_participant_role, "Husband", "the spouse takes the opposite role");
+assert.equal(
+  wifeFirst.assignment.primary_person_id,
+  "22222222-2222-4222-8222-222222222222",
+  "the person selected first stays the originating contact even when she is the wife",
+);
+
+const wifeFirstState = await shareLinks.loadDosResourceShareLink(wifeFirst.assignment.token);
+assert.deepEqual(
+  plain(wifeFirstState.participants),
+  [
+    { name: "Patty Gaffney", role: "Wife" },
+    { name: "Samuel Gaffney", role: "Husband" },
+  ],
+  "the recipient page labels each person with the role that was chosen for them",
+);
+
+/* Answers given on a wife-first link must come back attributed to the right
+   spouse, not merely displayed under a swapped label. */
+const wifeFirstAnswers = Object.fromEntries(questions.map((question) => [question.id, { Husband: 4, Wife: 9 }]));
+const wifeFirstSubmit = await shareLinks.submitDosResourceShareAssessment(wifeFirst.assignment.token, wifeFirstAnswers);
+assert.equal(wifeFirstSubmit.ok, true);
+
+const wifeFirstResult = supabaseState.tables.dos_assessment_results.at(-1);
+assert.equal(wifeFirstResult.person_id, "22222222-2222-4222-8222-222222222222", "the result anchors on the person who was sent it");
+assert.equal(wifeFirstResult.answers.participantNames.Wife, "Patty Gaffney");
+assert.equal(wifeFirstResult.answers.participantNames.Husband, "Samuel Gaffney");
+assert.equal(wifeFirstResult.answers.questions[0].scores.Wife, 9, "her score is stored under Wife");
+assert.equal(wifeFirstResult.answers.questions[0].scores.Husband, 4, "his score is stored under Husband");
+assert.ok(
+  wifeFirstResult.category_scores.every((category) => category.wifeScore > category.husbandScore),
+  "category figures follow the role, so a wife-first result never files her answers under husbandScore",
+);
+
+console.log("DOS resource sharing (USA-278 / USA-279) behavior passed.");

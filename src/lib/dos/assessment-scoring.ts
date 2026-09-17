@@ -129,26 +129,37 @@ export function scoreAssessmentParticipant(
   return { label: participant, maxScore, score };
 }
 
+/* USA-279: `husbandScore` and `wifeScore` are looked up by ROLE, never by
+   position in the participants array. The person a leader picks first can be
+   either spouse, so a wife-first assignment arrives here as
+   ["Wife", "Husband"]; reading index 0 as the husband would file her answers
+   under his name. The stored field names are unchanged so results written
+   before this release keep their meaning. A resource whose roles are not
+   Husband/Wife (Friendship, when it is made sendable) falls back to
+   participant order, which is all a generic pair has. */
 export function scoreAssessmentCategory(
   answers: AssessmentAnswerMap,
   group: AssessmentGroup,
   participants: readonly AssessmentParticipantKey[],
 ): AssessmentCategoryScore {
   const maxScore = group.questions.length * 10;
-  const husbandScore = group.questions.reduce((total, question) => total + (getAssessmentAnswer(answers, question.id, participants[0] ?? "Husband") ?? 0), 0);
-  const wifeScore = group.questions.reduce((total, question) => total + (getAssessmentAnswer(answers, question.id, participants[1] ?? "Wife") ?? 0), 0);
-  const participantTotal = participants.reduce((total, participant) => {
-    return total + group.questions.reduce((groupTotal, question) => groupTotal + (getAssessmentAnswer(answers, question.id, participant) ?? 0), 0);
-  }, 0);
+  const groupTotalFor = (participant: AssessmentParticipantKey | undefined) => (
+    participant === undefined
+      ? 0
+      : group.questions.reduce((total, question) => total + (getAssessmentAnswer(answers, question.id, participant) ?? 0), 0)
+  );
+  const husbandRole = participants.includes("Husband") ? "Husband" : participants[0];
+  const wifeRole = participants.includes("Wife") ? "Wife" : participants[1];
+  const participantTotal = participants.reduce((total, participant) => total + groupTotalFor(participant), 0);
   const score = Math.round(participantTotal / Math.max(participants.length, 1));
 
   return {
-    husbandScore,
+    husbandScore: groupTotalFor(husbandRole),
     maxScore,
     name: group.name,
     percentage: assessmentPercentage(score, maxScore),
     score,
-    wifeScore,
+    wifeScore: groupTotalFor(wifeRole),
   };
 }
 

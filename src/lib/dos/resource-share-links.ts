@@ -8,8 +8,10 @@ import {
   cleanShareParticipantName,
   dosResourceShareLifetimeDays,
   dosResourceSharePath,
+  isAssessmentRoleFor,
   isDosResourceShareEnabled,
   isValidDosResourceShareToken,
+  oppositeAssessmentRole,
   resourceShareParticipantRoles,
   shareRequesterDisplayName,
   type DosResourceShareStatus,
@@ -114,6 +116,9 @@ export async function dosPersonBelongsToWorkspace(personId: string, workspaceId:
 
 type CreateShareInput = {
   authorization: DosAuthorizedUser;
+  /* Which role the person chosen first answers as. Required: it is the
+     leader's explicit choice, never inferred from order or from a name. */
+  primaryParticipantRole: string;
   primaryPersonId: string;
   requestedByName: string | null;
   resourceSlug: string;
@@ -233,6 +238,15 @@ export async function createDosResourceShareAssignment(input: CreateShareInput):
     return { error: "Add the spouse's name, or select their contact.", ok: false, status: 400 };
   }
 
+  /* The role has to be one this resource declares. Defaulting it here would
+     reintroduce exactly the assumption this release removes. */
+  if (!isAssessmentRoleFor(resource, input.primaryParticipantRole)) {
+    return { error: "Choose which role this person answers as.", ok: false, status: 400 };
+  }
+
+  const primaryRole = input.primaryParticipantRole;
+  const secondaryRole = oppositeAssessmentRole(resource, primaryRole);
+
   const [primaryPerson, secondaryPerson] = await Promise.all([
     dosPersonBelongsToWorkspace(input.primaryPersonId, input.workspaceId),
     input.secondaryPersonId ? dosPersonBelongsToWorkspace(input.secondaryPersonId, input.workspaceId) : Promise.resolve(null),
@@ -281,7 +295,6 @@ export async function createDosResourceShareAssignment(input: CreateShareInput):
     };
   }
 
-  const [primaryRole, secondaryRole] = resourceShareParticipantRoles(resource);
   const supabase = createSupabaseAdminClient();
   const insert = await supabase
     .from(shareTable)

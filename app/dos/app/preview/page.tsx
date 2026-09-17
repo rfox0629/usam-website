@@ -3098,7 +3098,7 @@ export default async function DosAppPreviewPage({
   // USA-243: the recipient-facing Quick Review / Testimony / Review Options
   // forms with a synthetic bound link, for founder review and screenshots.
   if (params.gallery === "recipient-forms") {
-    const form = (["quick-review", "review-options", "testimony", "testimony-unbound"] as const).find((key) => key === params.form) ?? "testimony";
+    const form = (["marriage-assessment", "marriage-assessment-wife-first", "quick-review", "review-options", "testimony", "testimony-unbound"] as const).find((key) => key === params.form) ?? "testimony";
 
     return <RecipientFormsGallery form={form as RecipientFormPreviewKey} />;
   }

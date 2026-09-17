@@ -112,7 +112,7 @@ export function shareParticipantFirstName(value: string) {
   return cleanShareParticipantName(value).split(" ")[0] ?? "";
 }
 
-/* "Ryan and Brooke" — the couple line on the Library flow, the People record
+/* "Ryan and Brooke", the couple line on the Library flow, the People record
    row and the recipient page. Falls back to the roles when a name is missing
    so the line never reads as an empty slot. */
 export function shareParticipantSummary(participants: readonly DosResourceShareParticipant[]) {
@@ -126,11 +126,40 @@ export function shareParticipantSummary(participants: readonly DosResourceShareP
 }
 
 /* The two roles an assessment expects, straight from the Library resource so
-   the questionnaire, the stored answers and the results all agree. */
+   the questionnaire, the stored answers and the results all agree. Order here
+   is the resource's declaration order, not an assumption about who is sent
+   the link first. */
 export function resourceShareParticipantRoles(resource: Pick<DosResource, "content">) {
   const participants = resource.content?.assessment?.participants ?? [];
 
   return [participants[0] ?? "Participant 1", participants[1] ?? "Participant 2"] as const;
+}
+
+/* USA-279: the person a leader picks first can be either spouse, so the role
+   is an explicit choice rather than something inferred from selection order,
+   a name, the workspace owner, or any gender guess. Given one role, the
+   spouse necessarily answers as the other. */
+export function isAssessmentRoleFor(resource: Pick<DosResource, "content">, role: unknown): role is string {
+  return typeof role === "string" && resourceShareParticipantRoles(resource).includes(role);
+}
+
+export function oppositeAssessmentRole(resource: Pick<DosResource, "content">, role: string) {
+  const [first, second] = resourceShareParticipantRoles(resource);
+
+  return role === first ? second : first;
+}
+
+/* Whether existing relationship data reliably establishes which role a person
+   holds. Only an explicit stored household role counts. A surname, a first
+   name, the order a leader happened to click in, and the DOS account owner
+   never do, so the form asks instead of guessing. */
+export function reliableAssessmentRoleFor(
+  resource: Pick<DosResource, "content">,
+  storedRole: string | null | undefined,
+) {
+  const cleaned = typeof storedRole === "string" ? storedRole.trim() : "";
+
+  return isAssessmentRoleFor(resource, cleaned) ? cleaned : null;
 }
 
 /* Who the recipient sees asked for this. Never an email address, never a

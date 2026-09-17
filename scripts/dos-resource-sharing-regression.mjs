@@ -269,10 +269,10 @@ assert.ok(recipientPage.includes("index: false"), "a token page is never indexed
 
 assert.ok(recipientForm.includes("Start assessment"), "the recipient's own assessment says Start assessment");
 assert.ok(recipientForm.includes("Resume assessment"), "saved progress resumes rather than restarting");
-assert.ok(recipientForm.includes("Requested by"), "the recipient sees who asked");
+assert.ok(recipientForm.includes("From ${requestedByName}"), "the recipient sees who asked");
 assert.ok(recipientForm.includes("Never guess how your spouse would answer."));
 assert.ok(
-  recipientForm.includes("both of your responses are visible in this session"),
+  recipientForm.includes("Both sets of answers are visible on this screen"),
   "the joint model is stated before anyone starts",
 );
 assert.ok(recipientForm.includes("intent: \"save\""), "progress persists to the server, not to this browser");
@@ -290,7 +290,7 @@ assert.ok(
   "the Library detail no longer starts a questionnaire in place of establishing recipients",
 );
 assert.ok(dosApp.includes("mode=preview"), "preview opens the questions in preview mode");
-assert.ok(dosApp.includes("Preview is for you — it saves nothing and assigns nobody."));
+assert.ok(dosApp.includes("Preview shows every one."), "the detail page points at the preview");
 assert.ok(dosApp.includes("aria-label=\"Resources\""), "the Person Activity area has a Resources section");
 assert.ok(dosApp.includes("label: \"Send resource\""), "Send resource is on the Person floating plus menu");
 assert.ok(dosApp.includes("dosLinkedSpouseForPerson"), "the linked spouse comes from the household model");
@@ -299,7 +299,7 @@ assert.ok(dosApp.includes("View results"), "a completed resource row opens the r
 assert.ok(dosApp.includes("sharedResultIds"), "one completion is one timeline entry, not two");
 
 const sendSheet = dosApp.slice(dosApp.indexOf("function SendResourceSheet"), dosApp.indexOf("function ResourceShareResultSheet"));
-assert.ok(sendSheet.includes("A first name is enough. No contact record is created."));
+assert.ok(sendSheet.includes("A first name is enough. No contact is created."));
 assert.ok(sendSheet.includes("Nobody by that name yet. Add them in People first."), "sending never quick-adds a contact");
 assert.ok(!sendSheet.includes("onCreatePerson"), "the send flow has no contact-creation path");
 /* Comments may name the wording they avoid; the rendered flow may not. */
@@ -311,12 +311,101 @@ assert.ok(sendSheetCopy.includes("Nothing has been sent yet."), "the send flow s
 const spouseLookup = dosApp.slice(dosApp.indexOf("function dosLinkedSpouseForPerson"), dosApp.indexOf("function dosResourceShareDateLine"));
 assert.ok(!spouseLookup.includes("lastName") && !spouseLookup.includes("surname"), "a spouse is never inferred from a surname");
 
+/* ---- USA-279: the book study design, and a preview that is a preview ----- */
+
+const assessmentUi = read("src/components/dos/assessments/AssessmentUi.tsx");
+const marriageClient = read("app/dos/library/marriage-assessment/MarriageAssessmentClient.tsx");
+
+/* The book study's own tokens, reused rather than reinvented. */
+for (const token of [
+  "max-w-[700px]",          // the Journey's reading measure
+  "bg-white",               // no blue page background
+  "border-[#EAF2FF]",       // hairline
+  "bg-[#F8FBFF]",           // band
+  "rounded-[11px]",         // header button radius
+  "rounded-[14px]",         // dock button radius
+  "text-[11px] font-bold uppercase tracking-[0.15em]", // eyebrow ramp
+]) {
+  assert.ok(assessmentUi.includes(token), `assessment UI must reuse the book study token: ${token}`);
+}
+
+/* The shapes the founder called out as defects must not come back. */
+for (const defect of ["rounded-[28px]", "rounded-[24px]", "shadow-[0_24px_70px", "bg-[#F8FBFF] px-4 pb-24"]) {
+  assert.ok(!assessmentUi.includes(defect), `assessment UI must not reintroduce: ${defect}`);
+}
+
+assert.ok(
+  !marriageClient.includes("fixed inset-x-0 bottom-0"),
+  "the assessment page no longer pins a bar over its own content",
+);
+
+const preview = marriageClient.slice(marriageClient.indexOf("if (isPreview)"), marriageClient.indexOf("const activeGroup ="));
+assert.ok(preview.length > 200, "the preview branch was found");
+assert.ok(preview.includes("Preview only. Answers are not saved."), "preview says plainly that nothing is saved");
+assert.ok(preview.includes("groups.map"), "preview renders every group on one page");
+assert.ok(!preview.includes("AssessmentStepBand"), "preview shows no progress band");
+assert.ok(!preview.includes("AssessmentDock"), "preview shows no Back/Next wizard controls");
+assert.ok(!/completionPercentage|answeredCount|requiredCount/.test(preview), "preview shows no percentage or answered count");
+assert.ok(preview.includes("Back to Marriage Assessment"), "preview offers a labelled way back");
+assert.ok(
+  marriageClient.includes('const assessmentDetailHref = "/dos/app?view=library&resource=marriage-assessment"'),
+  "preview returns to the assessment detail screen, not the Library root",
+);
+
+/* The recipient keeps its step-by-step flow. */
+assert.ok(recipientForm.includes("AssessmentStepBand"), "the recipient questionnaire keeps its steps");
+assert.ok(recipientForm.includes('secondaryLabel={activeGroupIndex === 0 ? undefined : "Previous"}'), "the recipient has working Previous navigation");
+assert.ok(recipientForm.includes('primaryLabel={isLastGroup ? (isSubmitting ? "Sending..." : "Finish and send") : "Next"}'), "the recipient has working Next navigation");
+
+/* ---- USA-279: the role is an explicit choice ---------------------------- */
+
+assert.ok(shareLib.includes("isAssessmentRoleFor(resource, input.primaryParticipantRole)"), "the server validates the chosen role");
+assert.ok(shareLib.includes("oppositeAssessmentRole(resource, primaryRole)"), "the spouse takes the opposite role");
+assert.ok(shareRoute.includes("primaryParticipantRole: asString(payload.personRole)"), "the route carries the role through");
+
+const scoring = read("src/lib/dos/assessment-scoring.ts");
+assert.ok(
+  scoring.includes('participants.includes("Husband") ? "Husband" : participants[0]'),
+  "category figures are looked up by role, not by participant order",
+);
+assert.ok(
+  !scoring.includes('getAssessmentAnswer(answers, question.id, participants[0] ?? "Husband")'),
+  "the positional husband lookup is gone",
+);
+
+const sendForm = dosApp.slice(dosApp.indexOf("function SendResourceSheet"), dosApp.indexOf("function ResourceShareResultSheet"));
+assert.ok(sendForm.includes("Who are you sending this to?"), "the send form asks who it is for");
+assert.ok(sendForm.includes("Their role in this assessment"), "the send form asks for the role explicitly");
+assert.ok(sendForm.includes('placeholder="Search people"'), "the picker says Search people");
+assert.ok(!sendForm.includes("Search your field"), "the old picker wording is gone");
+assert.ok(sendForm.includes("A first name is enough. No contact is created."), "the spouse input stays compact and says a first name is enough");
+assert.ok(!sendForm.includes("Use this when they already have their own People record."), "the oversized radio-option explanations are gone");
+assert.ok(sendForm.includes("spousePersonId === personId"), "the same contact cannot be both participants");
+assert.ok(sendForm.includes("setRole(reliableAssessmentRoleFor"), "the role resets when the person changes");
+assert.ok(sendForm.includes("setSpousePersonId(linkedSpouse?.id"), "changing the person revalidates the spouse");
+assert.ok(sendForm.includes("answers as {role}"), "names and roles are shown before the link is created");
+
+/* ---- USA-279: no em dashes in this flow's user-facing copy -------------- */
+
+for (const [name, source] of [
+  ["AssessmentUi", assessmentUi],
+  ["marriage assessment client", marriageClient],
+  ["recipient form", recipientForm],
+  ["recipient page", recipientPage],
+  ["resource sharing library", read("src/lib/dos/resource-sharing.ts")],
+  ["share server library", shareLib],
+]) {
+  assert.ok(!source.includes("\u2014"), `${name} must not use em dashes in user-facing copy`);
+}
+
+assert.ok(!sendForm.includes("\u2014"), "the send form must not use em dashes");
+assert.ok(!preview.includes("\u2014"), "the preview must not use em dashes");
+
 /* ---- Existing work is preserved ----------------------------------------- */
 
-const marriageClient = read("app/dos/library/marriage-assessment/MarriageAssessmentClient.tsx");
 assert.ok(marriageClient.includes("/api/dos/app/assessment-results"), "the in-app save path is untouched");
 assert.ok(marriageClient.includes("Standalone result. Not saved to a profile."));
-assert.ok(marriageClient.includes("Preview. Nothing is saved, nobody is assigned this, and no link is created."));
+assert.ok(marriageClient.includes("Preview only. Answers are not saved."));
 
 const loader = read("src/lib/dos/missionary-app.ts");
 assert.ok(loader.includes("loadResourceShareAssignmentsForWorkspace"));
@@ -326,4 +415,4 @@ assert.ok(
 );
 assert.ok(loader.includes("loadResourceAssignmentsForWorkspace"), "Journey assignments still load");
 
-console.log("DOS resource sharing (USA-278) regression passed.");
+console.log("DOS resource sharing (USA-278 / USA-279) regression passed.");

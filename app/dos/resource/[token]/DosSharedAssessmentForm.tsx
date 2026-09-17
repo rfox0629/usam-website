@@ -1,27 +1,34 @@
 "use client";
 
-/* USA-278: the recipient's assigned assessment.
+/* The recipient's own assigned assessment, in the book study's visual system.
  *
- * No DOS account, no sign-in: the token is the whole of the access, and it
- * reaches this one assignment. Here "Start assessment" is the right words --
- * this is the couple's own assessment, not a library item they are browsing.
+ * No DOS account, no sign-in: the token is the whole of the access. The
+ * step-by-step completion flow is deliberate and unchanged; only the
+ * presentation moved onto the shared assessment components.
  *
- * This first release is the joint model the assessment already used: one
- * link, both spouses answering together, each answer labelled with whose it
- * is. The page says so before anyone starts, and says who will see the
- * answers, so nobody mistakes it for a private individual questionnaire.
+ * Roles come from the assignment, so a couple whose wife was sent the link
+ * sees her as Wife and her husband as Husband, and every answer is stored
+ * against the role it was given under.
  */
 
-import { CheckCircle2, ChevronRight, Heart, Loader2, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  assessmentPercentage,
   buildAssessmentGroups,
   countAssessmentAnswers,
   getAssessmentAnswer,
   type AssessmentAnswerMap,
 } from "@/src/lib/dos/assessment-scoring";
-import { AssessmentProgressBar, AssessmentScorePicker } from "@/src/components/dos/assessments/AssessmentPrimitives";
+import {
+  AssessmentDock,
+  AssessmentFacts,
+  AssessmentHeader,
+  AssessmentPage,
+  AssessmentQuestion,
+  AssessmentScoreRow,
+  AssessmentSection,
+  AssessmentStepBand,
+  AssessmentTopBar,
+} from "@/src/components/dos/assessments/AssessmentUi";
 import type { DosAssessmentQuestion } from "@/src/lib/dos/resource-catalog";
 
 type ShareLink = {
@@ -68,16 +75,13 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
 
   const answeredCount = countAssessmentAnswers(answers, questions, roles);
   const requiredCount = questions.length * roles.length;
-  const completionPercentage = assessmentPercentage(answeredCount, requiredCount);
   const activeGroup = groups[activeGroupIndex] ?? groups[0];
   const currentGroupAnsweredCount = activeGroup ? countAssessmentAnswers(answers, activeGroup.questions, roles) : 0;
   const currentGroupRequiredCount = activeGroup ? activeGroup.questions.length * roles.length : 0;
   const canContinue = currentGroupAnsweredCount === currentGroupRequiredCount;
   const isLastGroup = activeGroupIndex === groups.length - 1;
-  const participantLine = participants.map((participant) => `${participant.name} (${participant.role})`).join(" · ");
+  const participantLine = participants.map((participant) => `${participant.name} (${participant.role})`).join(" and ");
 
-  /* Progress is kept on the server, not in this browser, so the couple can
-     stop on a phone and pick the same link up later on a laptop. */
   const persistProgress = useCallback(async (nextAnswers: AssessmentAnswerMap) => {
     setSaveState("saving");
 
@@ -121,11 +125,6 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
 
       return nextAnswers;
     });
-  }
-
-  function goBack() {
-    setActiveGroupIndex((currentIndex) => Math.max(currentIndex - 1, 0));
-    scrollToTop();
   }
 
   async function submit() {
@@ -173,196 +172,105 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
 
   if (stage === "complete") {
     return (
-      <main className="min-h-screen overflow-x-hidden bg-[#F8FBFF] px-4 py-8 text-[#0F172A] md:px-6">
-        <section className="mx-auto grid w-full max-w-xl gap-4">
-          <div className="rounded-[28px] border border-[#DCEBFF] bg-white p-5 shadow-[0_24px_70px_rgba(37,99,235,0.08)] md:p-6">
-            <span className="flex h-12 w-12 items-center justify-center rounded-[20px] bg-[#EBF2FF] text-[#2563EB]">
-              <CheckCircle2 className="h-6 w-6" aria-hidden="true" strokeWidth={1.9} />
-            </span>
-            <h1 className="mt-4 text-2xl font-black leading-tight tracking-tight text-[#0F172A]">Assessment complete</h1>
-            <p className="mt-3 text-sm font-semibold leading-6 text-[#475569]">
-              Thank you, {participants.map((participant) => participant.name).join(" and ")}. Your answers were sent to {requestedByName}, who asked for this assessment.
-            </p>
-            <p className="mt-3 text-sm leading-6 text-[#64748B]">
-              This link is finished. You can close this page — nothing else is needed.
-            </p>
-          </div>
-        </section>
-      </main>
+      <AssessmentPage>
+        <AssessmentTopBar backLabel="" meta="Complete" title={title} />
+        <AssessmentHeader eyebrow="Assessment" title="Assessment complete" />
+        <AssessmentSection>
+          <p className="text-[15.5px] leading-[1.62] text-[#475569]">
+            Thank you, {participants.map((participant) => participant.name).join(" and ")}. Your answers went to {requestedByName}, who asked for this assessment.
+          </p>
+          <p className="mt-3 text-[14.5px] leading-[1.55] text-[#64748B]">
+            This link is finished. You can close this page.
+          </p>
+        </AssessmentSection>
+      </AssessmentPage>
     );
   }
 
   if (stage === "intro") {
     return (
-      <main className="min-h-screen overflow-x-hidden bg-[#F8FBFF] px-4 py-8 text-[#0F172A] md:px-6">
-        <section className="mx-auto grid w-full max-w-xl gap-4">
-          <header className="rounded-[28px] border border-[#DCEBFF] bg-white p-5 shadow-[0_24px_70px_rgba(37,99,235,0.08)] md:p-6">
-            <div className="flex items-center gap-3">
-              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-[20px] bg-[#EBF2FF] text-[#2563EB]">
-                <Heart className="h-5 w-5" aria-hidden="true" strokeWidth={1.9} />
-              </span>
-              <div className="min-w-0">
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]">{shareLink.typeLabel}</p>
-                <h1 className="mt-1 text-2xl font-black leading-tight tracking-tight text-[#0F172A]">{title}</h1>
-              </div>
-            </div>
-            <p className="mt-4 text-sm font-semibold leading-6 text-[#475569]">{shareLink.description}</p>
-
-            <div className="mt-5 grid gap-2 rounded-[20px] border border-[#DCEBFF] bg-[#F8FBFF] px-3.5 py-3">
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]">Requested by</p>
-              <p className="text-sm font-black text-[#0F172A]">{requestedByName}</p>
-              <p className="mt-2 text-[10px] font-black uppercase tracking-[0.14em] text-[#64748B]">For</p>
-              <p className="flex items-center gap-2 text-sm font-black text-[#0F172A]">
-                <Users className="h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={1.9} />
-                {participantLine}
-              </p>
-            </div>
-          </header>
-
-          <section className="rounded-[24px] border border-[#DCEBFF] bg-white p-4 shadow-[0_18px_48px_rgba(37,99,235,0.06)] md:p-5">
-            <h2 className="text-base font-black text-[#0F172A]">How this works</h2>
-            <ul className="mt-3 grid gap-2.5">
-              {[
-                `Sit down together and go through ${questions.length} questions. Each question is answered twice — once by each of you, on a 0 to 10 scale.`,
-                "Answer for yourself. Never guess how your spouse would answer.",
-                "Your progress saves as you go, so you can stop and come back to this same link.",
-              ].map((line) => (
-                <li className="flex gap-2.5 text-sm font-medium leading-6 text-[#475569]" key={line}>
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#2563EB]" aria-hidden="true" />
-                  <span>{line}</span>
-                </li>
-              ))}
-            </ul>
-            {/* Said plainly before anyone starts: this is a joint session, not
-                a confidential individual questionnaire. */}
-            <div className="mt-4 rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] px-3.5 py-3">
-              <p className="text-xs font-black uppercase tracking-[0.13em] text-[#64748B]">Who sees this</p>
-              <p className="mt-1.5 text-sm leading-6 text-[#475569]">
-                You are completing this together, so both of your responses are visible in this session to whoever is at the screen, and both will be shared with {requestedByName}, who asked for the assessment. This is not a private individual questionnaire.
-              </p>
-            </div>
-          </section>
-
-          <button
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.20)] transition-colors hover:bg-[#1D4ED8]"
-            onClick={() => { setStage("questions"); scrollToTop(); }}
-            type="button"
-          >
-            {hasSavedProgress ? "Resume assessment" : "Start assessment"}
-            <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-          </button>
-          {hasSavedProgress ? (
-            <p className="text-center text-xs font-semibold text-[#64748B]">
-              {answeredCount} of {requiredCount} answers saved so far.
-            </p>
-          ) : null}
-        </section>
-      </main>
+      <AssessmentPage>
+        <AssessmentTopBar backLabel="" meta={`From ${requestedByName}`} title={title} />
+        <AssessmentHeader description={shareLink.description} eyebrow={shareLink.typeLabel} title={title} />
+        <AssessmentFacts
+          items={[
+            `For ${participantLine}.`,
+            `${questions.length} questions, answered together. Each of you gives your own score from 0 to 10.`,
+            "Answer for yourself. Never guess how your spouse would answer.",
+            "Your progress saves as you go, so you can stop and come back to this same link.",
+            `Both sets of answers are visible on this screen and both go to ${requestedByName}. This is not a private individual questionnaire.`,
+          ]}
+        />
+        <AssessmentDock
+          onPrimary={() => { setStage("questions"); scrollToTop(); }}
+          primaryLabel={hasSavedProgress ? "Resume assessment" : "Start assessment"}
+        />
+        {hasSavedProgress ? (
+          <p className="px-5 pt-3 text-[13px] font-semibold text-[#64748B] sm:px-6">
+            {answeredCount} of {requiredCount} answers saved so far.
+          </p>
+        ) : null}
+      </AssessmentPage>
     );
   }
 
   return (
-    <main className="min-h-screen overflow-x-hidden bg-[#F8FBFF] px-4 pb-28 pt-5 text-[#0F172A] md:px-6 md:pb-10 md:pt-8">
-      <div className="mx-auto grid w-full max-w-3xl gap-4">
-        <header className="rounded-[28px] border border-[#DCEBFF] bg-white p-5 shadow-[0_24px_70px_rgba(37,99,235,0.08)] md:p-6">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]">{shareLink.typeLabel}</p>
-              <h1 className="mt-1 text-2xl font-black leading-tight tracking-tight text-[#0F172A]">{title}</h1>
-              <p className="mt-1.5 text-xs font-semibold text-[#64748B]">{participantLine}</p>
-            </div>
-            <span className="shrink-0 rounded-full border border-[#DCEBFF] bg-white px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-[#1D4ED8]">
-              {answeredCount}/{requiredCount}
-            </span>
-          </div>
-          <div className="mt-5">
-            <div className="mb-2 flex items-center justify-between gap-3 text-xs font-black text-[#64748B]">
-              <span>Progress</span>
-              <span>{completionPercentage}%</span>
-            </div>
-            <AssessmentProgressBar percentageValue={completionPercentage} />
-            <p className="mt-2 text-[11px] font-semibold text-[#94A3B8]">
-              {saveState === "saving" ? "Saving…" : null}
-              {saveState === "saved" ? "Progress saved. You can close this and come back to the same link." : null}
-              {saveState === "error" ? "Could not save just now — your answers stay on screen and will save again as you go." : null}
-              {saveState === "idle" ? "Your progress saves automatically." : null}
-            </p>
-          </div>
-        </header>
-
-        {activeGroup ? (
-          <section className="rounded-[28px] border border-[#DCEBFF] bg-white p-4 shadow-[0_18px_48px_rgba(37,99,235,0.06)] md:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.18em] text-[#2563EB]">
-                  Step {activeGroupIndex + 1} of {groups.length}
-                </p>
-                <h2 className="mt-1 text-xl font-black leading-tight text-[#0F172A]">{activeGroup.name}</h2>
-              </div>
-              <span className="rounded-full bg-[#EBF2FF] px-3 py-1 text-[10px] font-black text-[#1D4ED8]">
-                {currentGroupAnsweredCount}/{currentGroupRequiredCount}
-              </span>
-            </div>
-
-            <div className="mt-4 grid gap-4">
-              {activeGroup.questions.map((question, questionIndex) => (
-                <article className="rounded-[22px] border border-[#EAF2FF] bg-white p-3.5" key={question.id}>
-                  <div className="flex gap-3">
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-xs font-black text-[#1D4ED8]">
-                      {questionIndex + 1}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <h3 className="text-sm font-black leading-6 text-[#0F172A]">{question.prompt}</h3>
-                      {question.note ? <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">{question.note}</p> : null}
-                    </div>
-                  </div>
-                  <div className="mt-3 grid gap-3">
-                    {roles.map((role) => (
-                      <AssessmentScorePicker
-                        displayName={nameByRole[role]}
-                        key={`${question.id}-${role}`}
-                        onChange={(score) => updateAnswer(question.id, role, score)}
-                        participant={role}
-                        question={question}
-                        value={getAssessmentAnswer(answers, question.id, role)}
-                      />
-                    ))}
-                  </div>
-                </article>
+    <AssessmentPage>
+      <AssessmentTopBar
+        backLabel=""
+        meta={participantLine}
+        title={title}
+      />
+      {activeGroup ? (
+        <>
+          <AssessmentStepBand
+            answeredCount={answeredCount}
+            requiredCount={requiredCount}
+            stepIndex={activeGroupIndex + 1}
+            stepName={activeGroup.name}
+            stepTotal={groups.length}
+          />
+          <p className="px-5 pt-3 text-[12px] font-semibold text-[#94A3B8] sm:px-6">
+            {saveState === "saving" ? "Saving..." : null}
+            {saveState === "saved" ? "Progress saved. You can close this and come back to the same link." : null}
+            {saveState === "error" ? "Could not save just now. Your answers stay on screen and will save again as you go." : null}
+            {saveState === "idle" ? "Your progress saves automatically." : null}
+          </p>
+          {activeGroup.questions.map((question) => (
+            <AssessmentQuestion
+              index={questions.indexOf(question) + 1}
+              key={question.id}
+              note={question.note}
+              prompt={question.prompt}
+            >
+              {roles.map((role) => (
+                <AssessmentScoreRow
+                  displayName={nameByRole[role]}
+                  key={`${question.id}-${role}`}
+                  onChange={(score) => updateAnswer(question.id, role, score)}
+                  participant={role}
+                  question={question}
+                  value={getAssessmentAnswer(answers, question.id, role)}
+                />
               ))}
-            </div>
-          </section>
-        ) : null}
-
-        {errorMessage ? (
-          <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">{errorMessage}</p>
-        ) : null}
-      </div>
-
-      {/* Sits above the content rather than over it: the last question stays
-          readable on a small phone because the page reserves the bar's height. */}
-      <div className="fixed inset-x-0 bottom-0 z-20 border-t border-[#DCEBFF] bg-white/95 px-4 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)] shadow-[0_-18px_40px_rgba(37,99,235,0.10)] backdrop-blur md:sticky md:mx-auto md:mt-4 md:max-w-3xl md:rounded-[24px] md:border md:pb-3 md:shadow-[0_18px_48px_rgba(37,99,235,0.06)]">
-        <div className="mx-auto grid max-w-3xl grid-cols-[auto_1fr] gap-2">
-          <button
-            className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#DCEBFF] bg-white px-4 text-sm font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:text-[#94A3B8]"
-            disabled={activeGroupIndex === 0 || isSubmitting}
-            onClick={goBack}
-            type="button"
-          >
-            Back
-          </button>
-          <button
-            className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.20)] transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:bg-[#BFDBFE] disabled:shadow-none"
-            disabled={!canContinue || isSubmitting}
-            onClick={goNext}
-            type="button"
-          >
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" strokeWidth={1.9} /> : null}
-            {isLastGroup ? (isSubmitting ? "Sending…" : "Finish and send") : "Next"}
-            {isLastGroup || isSubmitting ? null : <ChevronRight className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-          </button>
-        </div>
-      </div>
-    </main>
+            </AssessmentQuestion>
+          ))}
+          {errorMessage ? (
+            <p className="px-5 pt-4 text-[13.5px] font-semibold text-[#B91C1C] sm:px-6">{errorMessage}</p>
+          ) : null}
+          <AssessmentDock
+            onPrimary={goNext}
+            onSecondary={activeGroupIndex === 0 ? undefined : () => {
+              setActiveGroupIndex((currentIndex) => Math.max(currentIndex - 1, 0));
+              scrollToTop();
+            }}
+            primaryDisabled={!canContinue || isSubmitting}
+            primaryLabel={isLastGroup ? (isSubmitting ? "Sending..." : "Finish and send") : "Next"}
+            secondaryDisabled={isSubmitting}
+            secondaryLabel={activeGroupIndex === 0 ? undefined : "Previous"}
+          />
+        </>
+      ) : null}
+    </AssessmentPage>
   );
 }

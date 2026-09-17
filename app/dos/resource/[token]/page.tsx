@@ -18,20 +18,16 @@ export const metadata: Metadata = {
   title: "Your assessment",
 };
 
-const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
-
+/* USA-279: the link states read as the same product as the assessment behind
+   them: white page, one column, hairline rules, no tinted card. */
 function ShareLinkState({ detail, title }: { detail: string; title: string }) {
   return (
-    <main className="min-h-screen bg-white px-5 py-10 text-[#0F172A]">
-      <section className="mx-auto max-w-md rounded-3xl border border-dos-hairline bg-white p-5 shadow-[0_18px_44px_rgba(15,21,32,0.07)]">
-        <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-          DOS Library
-        </p>
-        <h1 className="mt-3 text-4xl font-bold leading-none text-[#0F172A]" style={{ fontFamily: font.oswald }}>
-          {title}
-        </h1>
-        <p className="mt-3 text-sm leading-6 text-[#475569]">{detail}</p>
-      </section>
+    <main className="min-h-screen bg-white text-[#0F172A]">
+      <div className="mx-auto w-full max-w-[700px] px-5 pb-16 pt-12 sm:px-6">
+        <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#2563EB]">DOS Library</p>
+        <h1 className="mt-3 text-[27px] font-bold leading-[1.08] tracking-[-0.032em] text-[#0F172A]">{title}</h1>
+        <p className="mt-4 text-[15.5px] leading-[1.62] text-[#475569]">{detail}</p>
+      </div>
     </main>
   );
 }

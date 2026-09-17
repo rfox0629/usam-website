@@ -67,6 +67,10 @@ export async function POST(request: Request) {
   try {
     const result = await createDosResourceShareAssignment({
       authorization: authResult.authorization,
+      /* The leader's explicit Husband/Wife choice. The library refuses a value
+         this resource does not declare, so an absent or invented role is a
+         400 rather than a silent default. */
+      primaryParticipantRole: asString(payload.personRole),
       primaryPersonId: asString(payload.personId),
       /* The recipient sees who asked, and "who asked" is the workspace's own
          display name -- never an email address. */
