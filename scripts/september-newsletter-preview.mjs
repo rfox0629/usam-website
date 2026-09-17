@@ -1,30 +1,28 @@
-// September newsletter: Version A snapshot + V3 proposal previews.
+// September newsletter: Version A snapshot + V4 previews.
 //
 //   node --no-warnings --import ./scripts/ts-loader.mjs \
 //     scripts/september-newsletter-preview.mjs
 //
-// Renders both versions through their real renderers (no server, no database,
-// no Resend) and writes them under docs/newsletter/september-2026/:
+// Renders through the real renderers (no server, no database, no Resend) and
+// writes to docs/newsletter/september-2026/:
 //
-//   version-a/  the live September issue exactly as Operations renders it
-//               today. This is the recoverable snapshot; it is written from
-//               src/lib/communications/september-2026.ts, which this script
-//               never modifies.
-//   v3/         the proposed revision, in both its review form (reserved slots
-//               visible) and the form an email client would receive.
+//   version-a/  the September issue as it rendered before it moved onto its
+//               record — the recoverable snapshot.
+//   v4/         v4-email.*   what a subscriber would receive. No story.
+//               v4-review.*  private founder review. Adds the review-only story
+//                            mockup behind a "permission pending" marker.
 //
-// Screenshots use the local public/ directory as the image base so the PNGs do
-// not depend on a deploy being up.
-import { mkdir, writeFile } from "node:fs/promises";
+// The story mockup is read from docs/.../review-only/ and injected here only.
+// It is never written into v4-email.*, and nothing under src/ can reach it.
+import { existsSync } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { existsSync } from "node:fs";
 import { chromium } from "playwright";
 
 const root = process.cwd();
 const outDir = path.join(root, "docs", "newsletter", "september-2026");
 const imageBase = pathToFileURL(path.join(root, "public")).href;
-
 const load = (rel) => import(pathToFileURL(path.join(root, rel)).href);
 
 const links = {
@@ -35,123 +33,120 @@ const links = {
 
 const { renderEditorialNewsletter } = await load("src/lib/communications/newsletter-editorial.ts");
 const { septemberNewsletter } = await load("src/lib/communications/september-2026.ts");
-const { renderProposedNewsletter } = await load("src/lib/communications/proposed/september-ecosystem.ts");
-const { septemberProposedContent } = await load("src/lib/communications/proposed/september-content.ts");
+const { renderEcosystemNewsletter } = await load("src/lib/communications/newsletter-ecosystem.ts");
+const { septemberSections, SEPTEMBER_PREHEADER, SEPTEMBER_SUBJECT } =
+  await load("src/lib/communications/september-2026-sections.ts");
 
-// V2, checked out from PR #75's head into .v2-ref/, so the height and length
-// comparison in the review notes is measured rather than asserted. Optional:
-// the script still runs without it.
-const v2Ref = existsSync(path.join(root, ".v2-ref", "september-content.ts"))
-  ? {
-      render: (await load(".v2-ref/september-ecosystem.ts")).renderProposedNewsletter,
-      content: (await load(".v2-ref/september-content.ts")).septemberProposedContent,
-    }
-  : null;
+const absolute = (section) => (section.image
+  ? { ...section, image: { ...section.image, url: `${imageBase}${section.image.url}` } }
+  : section);
 
-// Version A — the live issue. postalAddress stays null: it is unverified, and
-// an invented address would be worse than a visibly missing one.
+const issue = (sections) => ({
+  markBase: imageBase,
+  postalAddress: null, // unverified; renders nothing and blocks sending
+  preheader: SEPTEMBER_PREHEADER,
+  sections: sections.map(absolute),
+  subject: SEPTEMBER_SUBJECT,
+});
+
 const versionA = renderEditorialNewsletter({
   links,
   newsletter: septemberNewsletter({ imageBase, postalAddress: null }),
   recipientFirstName: "Ryan",
 });
 
-const v3 = (showReservedSlots) => renderProposedNewsletter({
-  assetBase: imageBase,
-  content: septemberProposedContent,
+const email = renderEcosystemNewsletter({
+  issue: issue(septemberSections),
   links,
-  postalAddress: null,
   recipientFirstName: "Ryan",
-  showReservedSlots,
 });
 
-const v3Review = v3(true);
-const v3Email = v3(false);
+// Private review: the story slot filled with the unapproved mockup, visible and
+// marked. `body` carries it, not `story` — a `story` would claim a verified
+// permission this has not got.
+const mockupPath = path.join(outDir, "review-only", "story-mockup.json");
+let reviewSections = septemberSections;
 
-const targets = [
-  { dir: "version-a", name: "version-a", rendered: versionA, shoot: true },
-  { dir: "v3", name: "v3-review", rendered: v3Review, shoot: true },
-  { dir: "v3", name: "v3-email", rendered: v3Email, shoot: true },
-];
-
-if (v2Ref) {
-  targets.push({
-    dir: "v2",
-    name: "v2",
-    measureOnly: true,
-    rendered: v2Ref.render({
-      assetBase: imageBase,
-      content: v2Ref.content,
-      links,
-      postalAddress: null,
-      recipientFirstName: "Ryan",
-    }),
-    shoot: true,
-  });
+if (existsSync(mockupPath)) {
+  const mockup = JSON.parse(await readFile(mockupPath, "utf8"));
+  reviewSections = septemberSections.map((section) => (section.key === "ktg-story"
+    ? {
+      ...section,
+      body: mockup.text,
+      heading: mockup.heading,
+      hidden: false,
+      pendingNote: mockup.pendingNote,
+    }
+    : section));
 }
 
-for (const { dir, measureOnly, name, rendered } of targets) {
-  // V2 is rendered only to measure it; it is PR #75's, not this branch's, so
-  // it is not committed here.
-  const target = measureOnly ? path.join(root, ".v2-ref") : path.join(outDir, dir);
-  await mkdir(target, { recursive: true });
-  await writeFile(path.join(target, `${name}.html`), rendered.html, "utf8");
-  if (!measureOnly) {
-    await writeFile(path.join(target, `${name}.txt`), rendered.text, "utf8");
+const review = renderEcosystemNewsletter({
+  issue: issue(reviewSections),
+  links,
+  recipientFirstName: "Ryan",
+  reviewMarkers: true,
+});
+
+const targets = [
+  { dir: "version-a", name: "version-a", rendered: versionA },
+  { dir: "v4", name: "v4-email", rendered: email },
+  { dir: "v4", name: "v4-review", rendered: review },
+];
+
+for (const { dir, name, rendered } of targets) {
+  await mkdir(path.join(outDir, dir), { recursive: true });
+  await writeFile(path.join(outDir, dir, `${name}.html`), rendered.html, "utf8");
+  await writeFile(path.join(outDir, dir, `${name}.txt`), rendered.text, "utf8");
+}
+
+// A sendable render must never carry the mockup. Checked, not assumed.
+const sendable = await readFile(path.join(outDir, "v4", "v4-email.html"), "utf8");
+if (existsSync(mockupPath)) {
+  const mockup = JSON.parse(await readFile(mockupPath, "utf8"));
+  const fingerprint = mockup.text.slice(0, 60);
+  if (sendable.includes(fingerprint) || sendable.includes(mockup.pullQuote)) {
+    throw new Error("the story mockup leaked into the sendable render");
   }
 }
 
-// This environment ships a pinned Chromium that may not match the browser
-// build the installed Playwright expects, so use it directly when it is there.
 const pinnedChromium = "/opt/pw-browsers/chromium";
-const browser = await chromium.launch(
-  existsSync(pinnedChromium) ? { executablePath: pinnedChromium } : {},
-);
+const browser = await chromium.launch(existsSync(pinnedChromium) ? { executablePath: pinnedChromium } : {});
 const viewports = [
-  { key: "desktop", width: 700, height: 900 },
-  { key: "mobile", width: 390, height: 844 },
+  { key: "desktop", height: 900, width: 700 },
+  { key: "mobile", height: 844, width: 390 },
 ];
-const heights = {};
+const measured = {};
 
-for (const { dir, measureOnly, name, shoot } of targets) {
-  if (!shoot) continue;
-
-  const pageDir = measureOnly ? path.join(root, ".v2-ref") : path.join(outDir, dir);
-
+for (const { dir, name } of targets) {
   for (const viewport of viewports) {
     const page = await browser.newPage({
       deviceScaleFactor: 1,
       viewport: { height: viewport.height, width: viewport.width },
     });
-    // Navigated, not setContent: a document with an about:blank origin cannot
-    // load the file:// photographs, and would screenshot as an empty frame.
-    await page.goto(pathToFileURL(path.join(pageDir, `${name}.html`)).href, { waitUntil: "load" });
+    // Navigated, not setContent: an about:blank origin cannot load the file://
+    // photographs and would screenshot as empty frames.
+    await page.goto(pathToFileURL(path.join(outDir, dir, `${name}.html`)).href, { waitUntil: "load" });
     await page.waitForTimeout(600);
 
-    const missing = await page.evaluate(() => [...document.images].filter((i) => !i.naturalWidth).length);
-    if (missing > 0) {
-      throw new Error(`${name}/${viewport.key}: ${missing} image(s) failed to load`);
-    }
-
-    const measured = await page.evaluate(() => ({
-      overflow: document.documentElement.scrollWidth > window.innerWidth,
+    const result = await page.evaluate(() => ({
       height: document.documentElement.scrollHeight,
+      missing: [...document.images].filter((img) => !img.naturalWidth).length,
+      overflow: document.documentElement.scrollWidth > window.innerWidth,
     }));
-    heights[`${name}/${viewport.key}`] = measured;
 
-    if (!measureOnly) {
-      await page.screenshot({
-        fullPage: true,
-        path: path.join(outDir, dir, `${name}-${viewport.key}.png`),
-      });
+    if (result.missing > 0) {
+      throw new Error(`${name}/${viewport.key}: ${result.missing} image(s) failed to load`);
     }
+
+    measured[`${name}/${viewport.key}`] = result;
+    await page.screenshot({ fullPage: true, path: path.join(outDir, dir, `${name}-${viewport.key}.png`) });
     await page.close();
   }
 }
 
 await browser.close();
 
-for (const [key, value] of Object.entries(heights)) {
-  console.log(`${key.padEnd(24)} ${String(value.height).padStart(6)}px  overflow=${value.overflow}`);
+for (const [key, value] of Object.entries(measured)) {
+  console.log(`${key.padEnd(22)} ${String(value.height).padStart(6)}px  overflow=${value.overflow}`);
 }
 console.log(`\nwritten to ${path.relative(root, outDir)}`);

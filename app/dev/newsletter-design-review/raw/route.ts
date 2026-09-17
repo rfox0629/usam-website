@@ -1,26 +1,35 @@
 import { getConfiguredSiteUrl } from "@/src/lib/site-url";
-import { septemberProposedContent } from "@/src/lib/communications/proposed/september-content";
-import { renderProposedNewsletter } from "@/src/lib/communications/proposed/september-ecosystem";
+import { renderEcosystemNewsletter } from "@/src/lib/communications/newsletter-ecosystem";
+import {
+  septemberSections,
+  SEPTEMBER_PREHEADER,
+  SEPTEMBER_SUBJECT,
+} from "@/src/lib/communications/september-2026-sections";
 
 /**
  * The proposed HTML on its own, for full-width review and client testing.
  *
- * `showReservedSlots` stays off here: this is the byte stream an email client
- * would receive, so a review marker must never appear in it.
+ * Sendable output: no review markers, and no unverified testimony.
  */
 export const dynamic = "force-dynamic";
 
 export async function GET() {
   const siteUrl = getConfiguredSiteUrl();
-  const { html } = renderProposedNewsletter({
-    assetBase: siteUrl,
-    content: septemberProposedContent,
+  const { html } = renderEcosystemNewsletter({
+    issue: {
+      markBase: siteUrl,
+      postalAddress: null,
+      preheader: SEPTEMBER_PREHEADER,
+      sections: septemberSections.map((section) => (section.image
+        ? { ...section, image: { ...section.image, url: `${siteUrl}${section.image.url}` } }
+        : section)),
+      subject: SEPTEMBER_SUBJECT,
+    },
     links: {
-      archiveUrl: `${siteUrl}/newsletter/${septemberProposedContent.slug}`,
+      archiveUrl: `${siteUrl}/newsletter/q2-q3-2026-field-update`,
       preferencesUrl: `${siteUrl}/preferences/test-preview`,
       unsubscribeUrl: `${siteUrl}/unsubscribe/test-preview`,
     },
-    postalAddress: null,
     recipientFirstName: "Ryan",
   });
 

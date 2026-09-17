@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
 import { getConfiguredSiteUrl } from "@/src/lib/site-url";
-import { septemberProposedContent } from "@/src/lib/communications/proposed/september-content";
-import { renderProposedNewsletter } from "@/src/lib/communications/proposed/september-ecosystem";
+import { renderEcosystemNewsletter } from "@/src/lib/communications/newsletter-ecosystem";
+import {
+  septemberSections,
+  SEPTEMBER_PREHEADER,
+  SEPTEMBER_SUBJECT,
+} from "@/src/lib/communications/september-2026-sections";
 
 /**
- * TEMPORARY founder design review. Delete this directory and
- * src/lib/communications/proposed to remove the experiment entirely.
+ * TEMPORARY founder design review for the September issue.
  *
- * Reads nothing, writes nothing, and never touches Resend or the newsletter
- * record. It renders the proposed HTML into two iframes so desktop and phone
- * widths can be compared side by side.
+ * This route is publicly reachable on a deploy, so it renders the SENDABLE
+ * issue only: the featured testimony is not here, and neither is the private
+ * review mockup. Those live in docs/newsletter/september-2026/, generated
+ * locally by scripts/september-newsletter-preview.mjs.
+ *
+ * Reads nothing, writes nothing, never touches Resend or the newsletter record.
+ * Once the design is approved this directory can be deleted: the record and
+ * Operations preview render the same issue through the same renderer.
  */
 export const metadata: Metadata = {
   robots: { follow: false, index: false },
@@ -22,19 +30,23 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 export default function NewsletterDesignReviewPage() {
   const siteUrl = getConfiguredSiteUrl();
-  const { html } = renderProposedNewsletter({
-    assetBase: siteUrl,
-    content: septemberProposedContent,
+  const { html } = renderEcosystemNewsletter({
+    issue: {
+      markBase: siteUrl,
+      // Unverified, so nothing renders in the footer and sending stays blocked.
+      postalAddress: null,
+      preheader: SEPTEMBER_PREHEADER,
+      sections: septemberSections.map((section) => (section.image
+        ? { ...section, image: { ...section.image, url: `${siteUrl}${section.image.url}` } }
+        : section)),
+      subject: SEPTEMBER_SUBJECT,
+    },
     links: {
-      archiveUrl: `${siteUrl}/newsletter/${septemberProposedContent.slug}`,
+      archiveUrl: `${siteUrl}/newsletter/q2-q3-2026-field-update`,
       preferencesUrl: `${siteUrl}/preferences/test-preview`,
       unsubscribeUrl: `${siteUrl}/unsubscribe/test-preview`,
     },
-    // Still unverified, so nothing renders in the footer.
-    postalAddress: null,
     recipientFirstName: "Ryan",
-    // Review page only. The raw route and any email render leave this off.
-    showReservedSlots: true,
   });
 
   return (
@@ -47,18 +59,14 @@ export default function NewsletterDesignReviewPage() {
           September Newsletter · Proposed
         </h1>
         <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-400">
-          The live September newsletter is untouched. This page renders a proposed design only:
-          it reads no data, writes nothing, and is not connected to Resend. Deleting{" "}
-          <code className="text-stone-300">app/dev/newsletter-design-review</code> and{" "}
-          <code className="text-stone-300">src/lib/communications/proposed</code> restores the
-          current state exactly.
+          Three sections: the covering, the model in action, and the tool being prepared. This page
+          reads no data, writes nothing, and is not connected to Resend.
         </p>
         <p className="mt-4 max-w-2xl text-sm leading-7 text-stone-400">
-          The gold dashed block inside <em>From the Table</em> is a reserved slot, shown here and
-          nowhere else. The story it holds is not written, because the source reflection did not
-          reach the session and the only Planning Center reflection on record is marked{" "}
-          <code className="text-stone-300">private</code>. The raw HTML below omits the marker
-          entirely.
+          The featured testimony is <strong className="text-stone-200">not on this page</strong>. Its
+          sharing permission has not been verified, and this route is publicly reachable, so the
+          story is kept to the private review artifacts under{" "}
+          <code className="text-stone-300">docs/newsletter/september-2026/</code>.
         </p>
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_390px]">

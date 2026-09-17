@@ -1,0 +1,14 @@
+{
+  "_README": "PRIVATE DESIGN MOCKUP. NOT APPROVED COPY AND NOT PUBLISHABLE. Ryan's own de-identified draft of the From the Table story, used only to lay out and measure the private review render. It is deliberately NOT in src/, so no application route can import it, and NOT in the newsletter record, so it cannot reach a preview, a test send, or a broadcast. Delete or replace it once the sharing permission on Planning Center form 1115723, submission 45980998 is verified. See ../from-the-table-source.md.",
+  "_permission": "UNVERIFIED",
+  "_source": {
+    "formId": "1115723",
+    "submissionId": "45980998",
+    "submittedAt": "2026-09-15T10:03:00"
+  },
+  "pendingNote": "Mockup only. The sharing permission on the original Planning Center submission has not been verified: the export prints both permission statements and marks neither. Nothing below is approved, and none of it is in the newsletter record, the preview route, or any sendable HTML.",
+  "heading": "One evening,\nand what came after.",
+  "text": "One evening around a table, a woman joined us for conversation, worship, and prayer. Later she told us it was not one dramatic moment that stayed with her. She had sensed God's presence through the whole evening, and had begun to recognise what was standing between her and Him.\n\nAs music played, she took time to write and reflect. She said it helped her see both her own heart and God's heart more clearly. In the days that followed she described more peace, more time in Scripture, and a growing desire to care intentionally for her family and her marriage.\n\nWhat encouraged us most was her reminder that the gathering was only the beginning. We have kept reaching out, praying, and making time for her. This is the kind of ministry we hope to see at tables across the country: honest conversation, room to respond to God, and a relationship that continues after the evening ends.",
+  "pullQuote": "The Kitchen Table was our first encounter of ministry, but it certainly was not the last.",
+  "_pullQuoteStatus": "HELD. Verbatim quotation requires both the verified permission and Ryan's approval of the exact wording."
+}

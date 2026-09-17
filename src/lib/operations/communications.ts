@@ -6,6 +6,8 @@ import {
   type OperationsAuthorization,
 } from "@/src/lib/operations/auth";
 import { newsletterFromEmail, TEST_SEND_RECIPIENT } from "@/src/lib/communications/config";
+import { normalizeNewsletterSections } from "@/src/lib/communications/newsletter-sections";
+import type { CommunicationNewsletterSection } from "@/src/lib/communications/types";
 
 /**
  * Newsletter review workflow. Ordered: a newsletter moves forward through these
@@ -91,49 +93,22 @@ export type NewsletterRecord = {
   id: string;
   lastTestSentAt: string | null;
   plannedSendAt: string | null;
+  postalAddress: string | null;
   preheader: string | null;
-  sections: { body: string; heading: string; image?: { alt: string; url: string } }[];
+  sections: CommunicationNewsletterSection[];
   sentAt: string | null;
   slug: string;
   status: string;
   statusLabel: string;
   subject: string;
   summary: string | null;
+  template: string | null;
   title: string;
   updatedAt: string;
 };
 
 function statusLabel(status: string) {
   return newsletterStatusLabels[status] ?? status;
-}
-
-function normalizeSections(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => {
-      if (!item || typeof item !== "object") {
-        return null;
-      }
-
-      const section = item as Record<string, unknown>;
-      const heading = typeof section.heading === "string" ? section.heading.trim() : "";
-      const body = typeof section.body === "string" ? section.body.trim() : "";
-      const image = section.image && typeof section.image === "object"
-        ? section.image as Record<string, unknown>
-        : null;
-      const url = typeof image?.url === "string" ? image.url.trim() : "";
-      const alt = typeof image?.alt === "string" ? image.alt.trim() : "";
-
-      if (!heading || !body) {
-        return null;
-      }
-
-      return url && alt ? { body, heading, image: { alt, url } } : { body, heading };
-    })
-    .filter((item): item is { body: string; heading: string; image?: { alt: string; url: string } } => Boolean(item));
 }
 
 export function canAccessCommunications(authorization: OperationsAuthorization) {
@@ -258,20 +233,22 @@ function newsletterFromRow(row: Record<string, unknown>): NewsletterRecord {
     id: String(row.id),
     lastTestSentAt: (row.last_test_sent_at as string) ?? null,
     plannedSendAt: (row.planned_send_at as string) ?? null,
+    postalAddress: (row.postal_address as string) ?? null,
     preheader: (row.preheader as string) ?? null,
-    sections: normalizeSections(row.sections),
+    sections: normalizeNewsletterSections(row.sections),
     sentAt: (row.sent_at as string) ?? null,
     slug: String(row.slug),
     status,
     statusLabel: statusLabel(status),
     subject: String(row.subject),
     summary: (row.summary as string) ?? null,
+    template: (row.template as string) ?? null,
     title: String(row.title),
     updatedAt: String(row.updated_at ?? row.created_at ?? ""),
   };
 }
 
-const newsletterColumns = "id, slug, title, subject, preheader, summary, body_markdown, sections, cta_label, cta_url, status, planned_send_at, ready_at, last_test_sent_at, approved_at, approved_by_email, sent_at, cancelled_at, created_at, updated_at";
+const newsletterColumns = "id, slug, title, subject, preheader, summary, body_markdown, sections, cta_label, cta_url, status, planned_send_at, ready_at, last_test_sent_at, approved_at, approved_by_email, sent_at, cancelled_at, created_at, updated_at, postal_address, template";
 
 export async function loadNewsletters(): Promise<{ error?: string; newsletters: NewsletterRecord[] }> {
   if (!isSupabaseAdminConfigured()) {
@@ -447,6 +424,21 @@ export function evaluateSendReadiness({
 
   if (!senderConfigured) {
     blockers.push("No verified sending address is configured.");
+  }
+
+  // CAN-SPAM requires a physical mailing address on the message itself. Both
+  // renderers correctly render nothing rather than invent one, which means an
+  // unset address produces a silently non-compliant send unless it is blocked
+  // here.
+  if (!newsletter.postalAddress?.trim()) {
+    blockers.push("No verified postal address on this issue.");
+  }
+
+  // A story whose sharing permission has not been verified never reaches the
+  // renderer, but an issue that is *supposed* to carry one should not go out
+  // hollow without someone deciding that deliberately.
+  if (newsletter.sections.some((section) => section.type === "story" && !section.hidden && !section.story)) {
+    blockers.push("A story section has no verified sharing permission. Hide it or verify the permission.");
   }
 
   return { blockers, canSend: blockers.length === 0 };

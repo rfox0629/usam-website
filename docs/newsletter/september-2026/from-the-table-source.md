@@ -1,95 +1,132 @@
 # "From the Table" — source and permission status
 
-**Status: BLOCKED. The story is not written, and must not be written from memory.**
+**Status: PERMISSION UNVERIFIED. The story is out of every public render.**
 
-`src/lib/communications/proposed/september-content.ts` holds `table.story = null`
-for this reason. The section renders without it. Nothing has been invented to
-fill the gap.
+`src/lib/communications/september-2026-sections.ts` seeds the `ktg-story`
+section **hidden and empty**, and the seed migration carries it that way into the
+record. Nothing about the woman in the reflection is in the repository, the
+Operations record, the preview route, or any sendable HTML.
 
-Two independent things are missing. Either one alone is enough to hold it.
+## The source document
 
-## 1. The source document did not reach this session
+`Kitchen Table Reflection - People.pdf` was received and read.
 
-The editorial brief names **"Kitchen Table Reflection - People.pdf"** as the
-source. That file is not present anywhere this session can read:
+| | |
+|---|---|
+| Planning Center form | **1115723** — "Kitchen Table Reflection" |
+| Submission | **45980998** |
+| Submitted | **15 September 2026, 10:03 am** |
+| Exported | 17 September 2026, 4:36 pm |
+| URL on the export | `people.planningcenteronline.com/forms/1115723/submissions/45980998` |
+
+This is **not** the May reflection found earlier (form 1199861, submission
+42200110, "2 Minute Reflection (After Coffee)", `share_permission = 'private'`).
+That row's declined permission has not been applied to this submission, and the
+two are unrelated.
+
+The reflection contains the participant's **name**, her **email address**, and a
+specific, sensitive **personal disclosure**. None of it appears in this
+repository, and none of it may be published under any permission short of one
+that explicitly covers it.
+
+## What the PDF establishes, and what it does not
+
+It establishes the content. It does **not** establish the permission.
+
+Page 2 prints the privacy paragraph and then **both** permission statements, one
+after the other:
+
+> I give permission for USA Missionaries to share my testimony publicly (written
+> or verbal) in an anonymized form.
+
+> I give permission for USA Missionaries to share my testimony publicly with my
+> name included.
+
+The export was examined at the PDF drawing level, not just as text, to see
+whether the selection survived the print:
 
 | Checked | Result |
 |---|---|
-| The repository working tree | Not present |
-| Every `*.pdf` on the container filesystem | 15 files, all USAM guides, DOS screenshots, or a skill example. None is this file. |
-| Supabase Storage, all buckets | 7 PDFs, all in `partners-documents` (bylaws, EIN, IRS determination letter, and similar). None is this file. |
-| The session's own upload directory | Empty |
+| Text layer | Both statements present, identical styling, same left margin, no marker glyph before either |
+| Background rectangles | Two, at y=1659 and y=1722 — same 600pt width, same white fill, no highlight on either |
+| Checkbox or tick vector paths in that band | **None** |
+| Image XObjects in that band | None (the file's one image is elsewhere) |
+| Form fields / AcroForm | **None** — the file has no interactive fields |
+| Annotations carrying a state | None |
 
-The reflection therefore has to be re-attached before the story can be drafted.
+**The selection state was not captured in the export.** The PDF prints the two
+option labels whether or not either was chosen, so it cannot tell us which was
+selected — or whether either was. As instructed, no consent has been inferred
+from the text.
 
-## 2. The sharing permission on record says private
+## Why it could not be verified here
 
-The brief asks that the selected sharing permission on the original Planning
-Center submission be verified before publishing any version of the story. It was
-checked. The result does not clear publication.
+The original submission has to be read in Planning Center. This session cannot
+reach it:
 
-Exactly one Planning Center reflection has been imported into the production
-database (`dos_meeting_reviews`, the row created by migration
-`20260910150000_dos_person_feedback_import.sql`):
+- No `PCO_APP_ID` or `PCO_SECRET` in this environment, and no `.env` file.
+- The codebase's Planning Center client covers People and Giving only; it has no
+  Forms endpoint, so there is no existing code path to a submission's answers.
+- Neither form 1115723 nor submission 45980998 has been imported into the
+  production database. The only imported reflection is the May one.
 
-| Field | Value |
+Pulling production Planning Center credentials out of the deployment to query a
+third party for a private submission is not something to do unasked, so it was
+not done.
+
+## What needs confirming — exactly
+
+In Planning Center, open
+`people.planningcenteronline.com/forms/1115723/submissions/45980998` and read the
+**Sharing Permission** answer. Then record it here:
+
+```
+Form:        1115723
+Submission:  45980998
+Selected:    anonymous | with_name | neither
+Read by:     <name>
+Read on:     <date>
+```
+
+Then one of three things happens:
+
+| Selected | What may publish |
 |---|---|
-| Source system | `planning_center` |
-| Form | `2 Minute Reflection (After Coffee)` (form `1199861`) |
-| Submission | `42200110` |
-| Submitted | 2026-05-13 |
-| Attached to | A Person, not a meeting |
-| **`share_permission`** | **`private`** |
-| Narrative content | One field, `stood_out`, 55 characters. Every other response field is empty. |
+| **Anonymized** | The story with **no** name, no photograph, and no detail that identifies her. Her specific disclosure still needs its own judgement: "anonymized" covers identity, not sensitivity. |
+| **With name included** | The name may appear. A photograph and the specific disclosure each still need separate, explicit confirmation — a name permission is not an image permission and not a disclosure permission. |
+| **Neither / cannot be determined** | Nothing publishes. The section stays hidden, and the issue ships on 02's model copy, the men's update, and the invitation, which is exactly how it renders today. |
 
-The permission vocabulary for this form is fixed by
-`supabase/migrations/20260513190000_dos_quick_reviews.sql` to exactly three
-values: `anonymous`, `with_name`, `private`. On the participant-facing form
-(`app/mission/MissionReviewCTA.tsx`) `private` is the option labelled
-**"No, please keep my story private."**
+Because the disclosure is sensitive and the form was submitted two days before
+this draft, ask her directly before the send even where the checkbox permits it.
+A form checkbox is weaker consent than a conversation.
 
-`private` is not "share it without her name". It is the option that declines
-publication. De-identifying it does not convert it into consent, so the
-instruction to "draft without her name for now" cannot be carried out against
-this record: there is nothing here that may be drafted from, named or unnamed.
+## How the code enforces this
 
-## What this does and does not establish
+`normalizeNewsletterSections` will only carry a story when **all** of these hold:
 
-It establishes that **no reflection currently in USAM systems may be published
-in this issue.**
+1. there is text;
+2. `permission` is `anonymous` or `with_name` — there is no `private` member, so
+   a declined permission cannot be represented at all;
+3. the attribution matches the permission's scope: `anonymous` must have none,
+   `with_name` must have one;
+4. a `source` is recorded — form id, submission id, who verified it, and when.
 
-It does not establish that the PDF and this database row are the same
-submission — the form names differ ("Kitchen Table Reflection" versus "2 Minute
-Reflection (After Coffee)"), and this row's 55 characters of narrative are far
-too thin to be the source of a main ministry story. The likeliest reading is
-that the PDF is a **different** Planning Center submission that was never
-imported. If so, its permission is unknown and still has to be read off the
-submission itself.
+Anything short of that and the story is dropped rather than reconciled. On top
+of that, `evaluateSendReadiness` blocks the send while a visible story section
+has no verified story, so an issue cannot go out hollow by accident either.
 
-## To unblock
+## The pull quote
 
-1. Re-attach `Kitchen Table Reflection - People.pdf`.
-2. In Planning Center, open that submission and read the answer to its sharing
-   question. Record the form ID, submission ID, and the selected value here.
-3. Only if that value permits publication, draft `table.story`, at the scope the
-   value allows and no wider:
-   - `anonymous` → no name, no photograph, no detail that identifies her.
-   - `with_name` → name permitted; photograph and specific disclosures still
-     need their own explicit confirmation, since a name permission is not an
-     image or disclosure permission.
-   - `private` → nothing publishes. The section ships on its frame and
-     invitation, exactly as it renders today.
-4. If publication is permitted but the disclosure is sensitive, ask her directly
-   before the send. A form checkbox from May is weaker consent than a
-   conversation in September.
+> "The Kitchen Table was our first encounter of ministry, but it certainly was
+> not the last."
 
-## Budget when it is written
+**Held.** A verbatim quotation needs the verified permission *and* Ryan's
+approval of the exact wording, separately. It is not in the fixture or the
+record.
 
-Roughly 600–900 characters, two or three paragraphs, sitting between the
-photograph and "Your table is enough.":
+## The private review mockup
 
-1. What happened at the gathering.
-2. How Ryan and Brooke kept caring for her afterward.
-
-The invitation that follows it is already written and already carries the
-section, so the story does not have to do the closing work as well.
+`review-only/story-mockup.json` holds Ryan's own de-identified draft, used only
+to lay out and measure the private review render. It is outside `src/` so no
+route can import it, outside the record so it cannot reach a preview or a send,
+and a regression check fails the build if it appears in anything sendable.

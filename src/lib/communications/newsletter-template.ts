@@ -1,5 +1,9 @@
 import { getConfiguredSiteUrl } from "@/src/lib/site-url";
+import { normalizeNewsletterSections } from "./newsletter-sections";
 import type { CommunicationNewsletter, CommunicationSubscriber } from "./types";
+
+// Re-exported so existing importers keep one name for it.
+export { normalizeNewsletterSections };
 
 type RenderNewsletterEmailInput = {
   manageToken: string;
@@ -48,39 +52,6 @@ function textParagraphs(value: string | null | undefined) {
 
 function subscriberGreeting(subscriber: CommunicationSubscriber) {
   return subscriber.first_name?.trim() || "friend";
-}
-
-export function normalizeNewsletterSections(value: unknown) {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value
-    .map((item) => {
-      if (!item || typeof item !== "object") {
-        return null;
-      }
-
-      const section = item as Record<string, unknown>;
-      const heading = typeof section.heading === "string" ? section.heading.trim() : "";
-      const body = typeof section.body === "string" ? section.body.trim() : "";
-      const image = section.image && typeof section.image === "object"
-        ? section.image as Record<string, unknown>
-        : null;
-      const imageUrl = typeof image?.url === "string" ? image.url.trim() : "";
-      const imageAlt = typeof image?.alt === "string" ? image.alt.trim() : "";
-
-      if (!heading || !body) {
-        return null;
-      }
-
-      // An image is only carried through when it has both a URL and real alt
-      // text; a photograph with no description is dropped rather than shipped.
-      return imageUrl && imageAlt
-        ? { body, heading, image: { alt: imageAlt, url: imageUrl } }
-        : { body, heading };
-    })
-    .filter((item): item is { body: string; heading: string; image?: { alt: string; url: string } } => Boolean(item));
 }
 
 export function renderNewsletterEmail({
