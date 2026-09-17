@@ -459,4 +459,81 @@ assert.ok(
 );
 assert.ok(loader.includes("loadResourceAssignmentsForWorkspace"), "Journey assignments still load");
 
+/* ---- USA-280: My Record reaches the account holder's own record ---------- */
+
+const identity = read("src/lib/dos/identity.ts");
+const linkLoaderStart = identity.indexOf("async function loadVerifiedIdentityLink");
+const linkLoaderBody = identity.slice(linkLoaderStart, identity.indexOf("async function loadCandidatePeople"));
+
+assert.ok(
+  !/authorization\.access !== "member"/.test(linkLoaderBody),
+  "an admin must be able to READ a link this workspace already verified, or My Record has no person",
+);
+assert.ok(
+  linkLoaderBody.includes('.eq("verification_status", "verified")'),
+  "only a verified link is ever read",
+);
+assert.ok(
+  identity.indexOf("const existingLinkResult = await loadVerifiedIdentityLink")
+    < identity.indexOf('return { message: "DOS admins do not need a workspace person identity link."'),
+  "the verified link is read BEFORE the admin guard, and the guard still blocks inferring or creating one",
+);
+assert.ok(
+  /isAdminDosAuthorization\(authorization\)[\s\S]{0,120}DOS admins do not need a workspace person identity link/.test(identity),
+  "admins are still refused an inferred or newly created identity link",
+);
+
+assert.ok(
+  !/displayName: viewer\?\.email/.test(loader),
+  "My Record must not fall back to the sign-in address for a person's name",
+);
+assert.ok(
+  loader.includes("function myRecordDisplayName"),
+  "an email-shaped stored display name is rejected rather than shown as a name",
+);
+
+const myRecordRoute = read("app/api/dos/app/my-record/route.ts");
+assert.ok(
+  !/display_name: displayName \|\| auth/.test(myRecordRoute),
+  "the API must not write the sign-in address into display_name",
+);
+
+/* ---- USA-280: the report on paper --------------------------------------- */
+
+const reportSource = read("src/components/dos/assessments/AssessmentReport.tsx");
+
+assert.ok(
+  reportSource.includes(".assessment-report :where(p, li, dd) { color: inherit; }"),
+  "the site's pale-grey <p> default must not win inside the report",
+);
+assert.ok(
+  reportSource.includes("body:has(> .assessment-report-sheet) > *:not(.assessment-report-sheet) { display: none !important; }"),
+  "printing the report must not print the app behind it",
+);
+assert.ok(
+  /\.assessment-report-sheet \{[^}]*position: static !important;/.test(reportSource),
+  "a fixed sheet cannot paginate, so it becomes an ordinary document on paper",
+);
+
+const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+
+assert.ok(
+  appClient.includes('className="assessment-report-sheet fixed inset-0 z-dos-sheet'),
+  "the DOS report sheet carries the class its print rules target",
+);
+assert.ok(
+  /const report = \(\s*<div className="assessment-report-sheet[\s\S]{0,4000}return isMounted \? createPortal\(report, document\.body\) : null;/.test(appClient),
+  "the report portals to the body, so z-dos-sheet outranks the quick-action button",
+);
+assert.ok(
+  appClient.includes("Send another"),
+  "a reassessment is an explicit action, not a reuse of the finished link",
+);
+
+const dosLayout = read("app/dos/app/layout.tsx");
+assert.ok(
+  dosLayout.includes(".dos-app-route :where(p, li, dd)"),
+  "DOS paragraphs inherit their container's colour instead of the dark site's grey",
+);
+
 console.log("DOS resource sharing (USA-278 / USA-279 / USA-280) regression passed.");

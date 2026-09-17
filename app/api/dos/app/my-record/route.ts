@@ -572,7 +572,7 @@ async function ensureMyRecord(
   const { data, error } = await supabase
     .from("dos_user_records")
     .upsert({
-      display_name: displayName || authorization.email,
+      display_name: displayName,
       user_id: authorization.userId,
       workspace_id: workspaceId,
     }, { onConflict: "workspace_id,user_id" })
@@ -721,7 +721,7 @@ async function handleMyRecordPost(request: Request) {
       .from("dos_user_records")
       .update({
         current_season_focus: asNullableText(payload.currentSeasonFocus, 500),
-        display_name: displayName || authResult.authorization.email,
+        display_name: displayName,
       })
       .eq("id", recordId)
       .eq("workspace_id", workspaceId)

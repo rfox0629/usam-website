@@ -32032,7 +32032,17 @@ function MyRecordOverviewPanel({
                       </p>
                     </div>
                     {share.status === "completed" && shareResult ? (
-                      <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
+                      <div className="flex shrink-0 flex-col items-end gap-1.5">
+                        <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
+                        {onSendResource ? (
+                          <PDButton
+                            ariaLabel={`Send another ${shareResource?.title ?? "assessment"}`}
+                            onClick={onSendResource}
+                          >
+                            Send another
+                          </PDButton>
+                        ) : null}
+                      </div>
                     ) : null}
                   </div>
                 );
@@ -35148,6 +35158,12 @@ function ResourceShareResultSheet({
   onClose: () => void;
   result: DosAppAssessmentResult;
 }) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const answers = result.answers as {
     participantNames?: Record<string, string>;
     participants?: string[];
@@ -35194,8 +35210,13 @@ function ResourceShareResultSheet({
     }
     : null;
 
-  return (
-    <div className="fixed inset-0 z-dos-sheet overflow-y-auto overscroll-contain bg-white" role="dialog" aria-label={result.assessmentTitle}>
+  /* USA-280: the report renders into the body, not into the app shell. The
+     shell is an `isolate` container, so a z-index inside it cannot outrank the
+     quick-action button, which portals to the body at z-90. Portaling the
+     report too puts z-dos-sheet back on the documented scale, and the button
+     stopped sitting on top of the couple's scores. */
+  const report = (
+    <div className="assessment-report-sheet fixed inset-0 z-dos-sheet overflow-y-auto overscroll-contain bg-white" role="dialog" aria-label={result.assessmentTitle}>
       <AssessmentReport
         backLabel="Close"
         comparison={comparison}
@@ -35227,6 +35248,8 @@ function ResourceShareResultSheet({
       />
     </div>
   );
+
+  return isMounted ? createPortal(report, document.body) : null;
 }
 
 function LibraryCatalogResourcePage({
@@ -35417,11 +35440,13 @@ function PDPill({
 }
 
 function PDButton({
+  ariaLabel,
   children,
   href,
   onClick,
   tone = "outline",
 }: {
+  ariaLabel?: string;
   children: ReactNode;
   href?: string;
   onClick?: () => void;
@@ -35441,14 +35466,14 @@ function PDButton({
 
   if (href) {
     return (
-      <a className={className} href={href} onClick={onClick}>
+      <a aria-label={ariaLabel} className={className} href={href} onClick={onClick}>
         {children}
       </a>
     );
   }
 
   return (
-    <button className={className} onClick={onClick} type="button">
+    <button aria-label={ariaLabel} className={className} onClick={onClick} type="button">
       {children}
     </button>
   );
@@ -37178,7 +37203,18 @@ function PersonDetailOverlay({
                                 </p>
                               </div>
                               {share.status === "completed" && shareResult ? (
-                                <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
+                                /* USA-280: a reassessment is an explicit action, and it
+                                   sends a new link rather than reopening the finished
+                                   one. The completed result stays exactly as it is. */
+                                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                  <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
+                                  <PDButton
+                                    ariaLabel={`Send another ${shareResource?.title ?? "assessment"}`}
+                                    onClick={() => onSendResource(person.id)}
+                                  >
+                                    Send another
+                                  </PDButton>
+                                </div>
                               ) : share.status === "revoked" || share.status === "expired" ? null : (
                                 <PDButton onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}${share.shareUrl}`)}>Copy link</PDButton>
                               )}

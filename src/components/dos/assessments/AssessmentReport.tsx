@@ -141,11 +141,35 @@ export function AssessmentReport({
   return (
     <main className="assessment-report min-h-screen bg-white">
       <style>{`
+        /* The site's own <p> default is pale grey for a black page. It targets
+           the element directly, so it outranks the colour a light container
+           sets on itself. Inside the report, text inherits instead. */
+        .assessment-report :where(p, li, dd) { color: inherit; }
+
         @media print {
           .assessment-report-hide-on-print { display: none !important; }
           .assessment-report { background: #fff; }
           .assessment-report-section { break-inside: avoid; page-break-inside: avoid; }
           .assessment-report-answer { break-inside: avoid; page-break-inside: avoid; }
+
+          /* The report opens over the DOS app as a fixed sheet. A fixed
+             element cannot paginate, so printing it gave one clipped page with
+             the app behind it. On paper the sheet becomes an ordinary
+             document, and the app it covers is not printed at all. */
+          html:has(.assessment-report), body:has(.assessment-report) {
+            background: #fff !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+
+          body:has(> .assessment-report-sheet) > *:not(.assessment-report-sheet) { display: none !important; }
+
+          .assessment-report-sheet {
+            position: static !important;
+            height: auto !important;
+            overflow: visible !important;
+          }
+
           @page { margin: 14mm; }
         }
       `}</style>

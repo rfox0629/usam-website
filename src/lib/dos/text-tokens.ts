@@ -32,8 +32,10 @@ export const dosText = {
   eyebrow: "#6B7686",
   /** Blue section eyebrow on refreshed screens (11.5px, 600, tracked). */
   eyebrowSection: "#2251E8",
-  /** Genuinely disabled or inactive UI. Never used for readable content. */
-  disabled: "#9AA3B2",
+  /** Genuinely disabled or inactive UI. Still has to be legible: a disabled
+      "Create link" button is what tells you what filling the form will do.
+      USA-280 moved this from `#9AA3B2`, which was 2.5:1 on the band. */
+  disabled: "#68707F",
 } as const;
 
 /** Surface, rule, and accent tokens used alongside the text ladder. */

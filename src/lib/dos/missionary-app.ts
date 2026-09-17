@@ -2394,12 +2394,27 @@ function safeDurationMinutes(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+/* USA-280: an email address is not a name. My Record's heading read
+   "ryan@..." because this placeholder, and the row the API writes with the
+   same fallback, put the sign-in address where the person's name belongs.
+   Returning null lets the caller fall back to the workspace profile name,
+   which comes from links this workspace has already verified. */
+function myRecordDisplayName(value: string | null | undefined) {
+  const cleaned = value?.trim();
+
+  if (!cleaned || cleaned.includes("@")) {
+    return null;
+  }
+
+  return cleaned;
+}
+
 function emptyMyRecord(workspaceId: string, viewer?: DosAuthorizedUser | null): DosAppUserRecord {
   return {
     assessmentResults: [],
     createdAt: null,
     currentSeasonFocus: null,
-    displayName: viewer?.email ?? null,
+    displayName: null,
     externalAssessmentResults: [],
     id: null,
     journalEntries: [],
@@ -3672,7 +3687,7 @@ async function loadMyRecordForWorkspace(
       assessmentResults,
       createdAt: recordRow.created_at,
       currentSeasonFocus: recordRow.current_season_focus,
-      displayName: recordRow.display_name,
+      displayName: myRecordDisplayName(recordRow.display_name),
       externalAssessmentResults,
       id: recordRow.id,
       journalEntries,

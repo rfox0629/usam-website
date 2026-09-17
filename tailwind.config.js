@@ -35,7 +35,7 @@ module.exports = {
           // refreshed screens use `eyebrowSection` (blue).
           eyebrow: "#6B7686",
           eyebrowSection: "#2251E8",
-          disabled: "#9AA3B2",
+          disabled: "#68707F",
           // Accent
           blue: "#2251E8",
           blueText: "#1E3FB8",

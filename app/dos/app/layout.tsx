@@ -29,6 +29,17 @@ export default function DosAppLayout({ children }: { children: ReactNode }) {
               font-family: inherit;
             }
 
+            /* USA-280: globals.css paints <p>, <li> and <dd> pale grey for the
+               black marketing pages, and it sets the colour on those elements
+               themselves, which beats the colour a DOS card sets on itself.
+               That is why supporting copy read as light grey on white here.
+               Inside DOS these elements inherit their container instead, which
+               is what the DOS text ladder already expresses; anything meant to
+               be muted carries its own token and is unchanged. */
+            .dos-app-route :where(p, li, dd) {
+              color: inherit;
+            }
+
             .dos-app-route :where(button, a, input, textarea, select):focus {
               outline: none;
             }
