@@ -31980,6 +31980,7 @@ function MyRecordOverviewPanel({
   onOpenScheduledMeeting,
   onOpenSheet,
   onPauseResourceAssignment,
+  onRemoveResourceAssignment,
   onScheduleMeeting,
   people,
   record,
@@ -32005,6 +32006,7 @@ function MyRecordOverviewPanel({
   onOpenScheduledMeeting: (meetingId: string) => void;
   onOpenSheet: (sheet: MyRecordSheetState) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onRemoveResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onScheduleMeeting: (personId: string | null) => void;
   people: DosAppPerson[];
   record: DosAppUserRecord;
@@ -32148,6 +32150,7 @@ function MyRecordOverviewPanel({
                           { label: assignment.status === "paused" ? "Resume" : "Pause", onSelect: () => onPauseResourceAssignment(assignment) },
                           { label: "Complete", onSelect: () => onMarkResourceAssignmentComplete(assignment) },
                           { label: "Edit dates", onSelect: () => onEditResourceAssignment(assignment) },
+                          { danger: true, label: "Remove", onSelect: () => onRemoveResourceAssignment(assignment) },
                         ]}
                         label={`More actions for ${resourceAssignmentTitle(assignment)}`}
                       />
@@ -32573,6 +32576,7 @@ function MyRecordWorkspace({
   onOpenPersonRecord,
   onOpenScheduledMeeting,
   onPauseResourceAssignment,
+  onRemoveResourceAssignment,
   onQuickTab,
   onSave,
   onScheduleMeeting,
@@ -32614,6 +32618,7 @@ function MyRecordWorkspace({
      Next meeting card opens it. My Record does not keep a second copy. */
   onOpenScheduledMeeting: (meetingId: string) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onRemoveResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onQuickTab: (tab: MyRecordTab) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
   /* The Schedule action on an empty Upcoming meeting card. The Person is
@@ -32966,6 +32971,7 @@ function MyRecordWorkspace({
                   onOpenScheduledMeeting={onOpenScheduledMeeting}
                   onOpenSheet={openMyRecordSheet}
                   onPauseResourceAssignment={onPauseResourceAssignment}
+                  onRemoveResourceAssignment={onRemoveResourceAssignment}
                   onScheduleMeeting={onScheduleMeeting}
                   people={people}
                   record={record}
@@ -35539,6 +35545,95 @@ function LibraryCatalogResourcePage({
   );
 }
 
+/* USA-281: "+ Add" under Resources used to assume the Marriage Assessment.
+ * It now asks which resource, then hands off to that resource's own setup.
+ *
+ * Only resources with a working flow are listed, and they are grouped by what
+ * that flow actually does:
+ *   - "Send a link" is the share-link flow, which today is the Marriage
+ *     Assessment (dosShareableResourceSlugs).
+ *   - "Assign a journey" is the assignment flow (resource.assignable).
+ * Everything else in the Library is real but has neither flow yet, so it is
+ * not offered here; showing it would be offering something that does nothing.
+ *
+ * Choosing here creates NOTHING. It opens the setup for the chosen resource,
+ * and that setup is what writes, only when the person confirms it. */
+function ResourceAddSheet({
+  onAssign,
+  onClose,
+  onSend,
+  personName,
+}: {
+  onAssign: (resource: DosResource) => void;
+  onClose: () => void;
+  onSend: (resource: DosResource) => void;
+  personName: string;
+}) {
+  const sendable = dosResourceCatalog.filter((resource) => isDosResourceShareEnabled(resource));
+  const assignable = dosAssignableResourceItems;
+
+  return (
+    <Sheet
+      description={`Choose what to set up for ${personName}. Nothing is created until you confirm it.`}
+      onClose={onClose}
+      showEyebrow={false}
+      title="Add a resource"
+    >
+      <div className="max-h-[68dvh] space-y-5 overflow-y-auto pr-1 [scrollbar-width:none]">
+        {sendable.length ? (
+          <section aria-label="Send a link">
+            <p className="text-dos-eyebrow uppercase text-dos-eyebrowSection">Send a link</p>
+            <p className="mt-1 text-[13.5px] leading-[1.5] text-dos-secondary">
+              DOS prepares a link the two of them open together.
+            </p>
+            <div className="mt-2.5 divide-y divide-dos-rule overflow-hidden rounded-[16px] border border-dos-line bg-white">
+              {sendable.map((resource) => (
+                <button
+                  className="flex w-full min-h-[56px] items-center gap-3 px-3.5 py-3 text-left hover:bg-dos-blue50"
+                  key={resource.id}
+                  onClick={() => onSend(resource)}
+                  type="button"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-bold leading-[1.3] text-dos-primary">{resource.title}</span>
+                    <span className="mt-0.5 block text-[12.5px] leading-[1.4] text-dos-secondary">{resource.description}</span>
+                  </span>
+                  <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {assignable.length ? (
+          <section aria-label="Assign a journey">
+            <p className="text-dos-eyebrow uppercase text-dos-eyebrowSection">Assign a journey</p>
+            <p className="mt-1 text-[13.5px] leading-[1.5] text-dos-secondary">
+              A reading plan or guided resource, with its own dates and progress.
+            </p>
+            <div className="mt-2.5 divide-y divide-dos-rule overflow-hidden rounded-[16px] border border-dos-line bg-white">
+              {assignable.map((resource) => (
+                <button
+                  className="flex w-full min-h-[56px] items-center gap-3 px-3.5 py-3 text-left hover:bg-dos-blue50"
+                  key={resource.id}
+                  onClick={() => onAssign(resource)}
+                  type="button"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-bold leading-[1.3] text-dos-primary">{resource.title}</span>
+                    <span className="mt-0.5 block text-[12.5px] leading-[1.4] text-dos-secondary">{resource.description}</span>
+                  </span>
+                  <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </div>
+    </Sheet>
+  );
+}
+
 function ResourcePickerSheet({
   message,
   onClose,
@@ -36193,6 +36288,7 @@ function PersonDetailOverlay({
   onMarkResourceAssignmentComplete,
   onMarkResourceAssignmentInProgress,
   onOpenGuidedResource,
+  onRemoveResourceAssignment,
   onMarkPrayerAnswered,
   onOpenGathering,
   onOpenGroup,
@@ -36279,6 +36375,7 @@ function PersonDetailOverlay({
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
+  onRemoveResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenGathering?: (groupId: string, gatheringId: string) => void;
   onOpenGroup: (groupId: string) => void;
@@ -37303,12 +37400,21 @@ function PersonDetailOverlay({
                                 </span>
                               ) : null}
                             </div>
-                            {/* Continue is the one filled action on the page. */}
-                            {journey.isInAppJourney && journey.resource ? (
-                              <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
-                            ) : journey.resource ? (
-                              <PDButton href={journey.resource.path}>Open</PDButton>
-                            ) : null}
+                            {/* Continue is the one filled action on the page.
+                                USA-281: Remove sits beside it so a Journey
+                                assigned by mistake can be taken off this
+                                record without asking anyone. */}
+                            <span className="flex shrink-0 items-center gap-1">
+                              {journey.isInAppJourney && journey.resource ? (
+                                <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
+                              ) : journey.resource ? (
+                                <PDButton href={journey.resource.path}>Open</PDButton>
+                              ) : null}
+                              <RowActionMenu
+                                items={[{ danger: true, label: "Remove", onSelect: () => onRemoveResourceAssignment(journey.assignment) }]}
+                                label={`More actions for ${journey.title}`}
+                              />
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -39405,6 +39511,9 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   const [resourceAssignmentDuplicate, setResourceAssignmentDuplicate] = useState<ResourceAssignmentDuplicateState>(null);
   const [resourceAssignmentNotice, setResourceAssignmentNotice] = useState<ResourceAssignmentNotice>(null);
   const [assignResourcePickerPersonId, setAssignResourcePickerPersonId] = useState<string | null>(null);
+  /* USA-281: which person "+ Add" was pressed for. Holding the id here is what
+     keeps them selected through the picker and into whichever setup follows. */
+  const [addResourcePersonId, setAddResourcePersonId] = useState<string | null>(null);
   const [assignTargetPicker, setAssignTargetPicker] = useState<AssignTargetPickerState>(null);
   const [groupJourneyAssign, setGroupJourneyAssign] = useState<GroupJourneyAssignState>(null);
   const [guidedResourceDetail, setGuidedResourceDetail] = useState<GuidedResourceDetailState>(null);
@@ -42453,12 +42562,11 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     setSendResourceTarget({ personId: personId ?? null, slug: resource.slug });
   }
 
+  /* USA-281: was hardcoded to the Marriage Assessment, so "+ Add" under
+     Resources could only ever set up that one thing. It now asks. */
   function openSendResourceForPerson(personId: string) {
-    const marriageAssessment = getDosResourceBySlug("marriage-assessment");
-
-    if (marriageAssessment) {
-      openSendResource(marriageAssessment, personId);
-    }
+    setErrorMessage("");
+    setAddResourcePersonId(personId);
   }
 
   async function createResourceShare(input: { personId: string; personRole: string; resourceSlug: string; spouseName: string; spousePersonId: string | null }) {
@@ -42862,6 +42970,39 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
         startDate: result.assignment.startDate,
         text: status === "completed" ? "Resource completed." : status === "paused" ? "Resource paused." : "Resource updated.",
       });
+    }
+  }
+
+  /* USA-281: remove an assignment somebody did not want.
+   *
+   * A soft delete server side, so the row, its dates and every guided-resource
+   * reflection attached to it are preserved and a restore is one column away.
+   * The confirmation says what removal does and, for an assignment that came
+   * from a group, that it only affects this person's copy. */
+  async function removeResourceAssignment(assignment: DosAppResourceAssignment) {
+    const title = resourceAssignmentTitle(assignment);
+    const sharedNote = assignment.assignmentContext === "group"
+      ? " This removes it from this record only. Everyone else assigned it in the group keeps theirs."
+      : "";
+    const progressNote = assignment.status === "not_started"
+      ? ""
+      : " Progress already recorded is kept and is not deleted.";
+
+    if (!window.confirm(`Remove "${title}" from this record?${sharedNote}${progressNote}`)) {
+      return;
+    }
+
+    const result = await submitJson(
+      "/api/dos/app/resource-assignments",
+      { action: "remove", id: assignment.id },
+      "PATCH",
+      false,
+    ) as { removed?: boolean } | null;
+
+    if (result?.removed) {
+      /* The list is server data, so the refresh is what makes the row stay
+         gone after a reload rather than only disappearing in this tab. */
+      router.refresh();
     }
   }
 
@@ -47484,6 +47625,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onOpenPersonRecord={myRecordPerson ? openPersonDetail : null}
             onOpenScheduledMeeting={openMeetingDetail}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
+            onRemoveResourceAssignment={(assignment) => void removeResourceAssignment(assignment)}
             onQuickTab={setMyRecordTab}
             onSave={submitMyRecord}
             onScheduleMeeting={(personId) => openScheduleMeeting(personId ?? undefined)}
@@ -47568,6 +47710,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onRequestReview={(meeting, type) => setPendingMeetingSendAction({ meeting, type })}
             onPauseCommitment={(commitment) => void setCommitmentStatus(commitment, commitment.status === "paused" ? "active" : "paused")}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
+            onRemoveResourceAssignment={(assignment) => void removeResourceAssignment(assignment)}
             onScheduleMeeting={() => openScheduleMeeting(selectedPerson.id)}
             participantReviews={data.participantReviews}
               participantTestimonies={data.participantTestimonies}
@@ -48040,6 +48183,23 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             isSubmitting={isSubmitting}
             onClose={() => setResourceAssignmentSheet(null)}
             onSubmit={handleResourceAssignmentCheckInSubmit}
+          />
+        ) : null}
+
+        {addResourcePersonId ? (
+          <ResourceAddSheet
+            onAssign={(resource) => {
+              const personId = addResourcePersonId;
+              setAddResourcePersonId(null);
+              openResourceAssignmentCreate(resource, personId, { assignmentContext: "person" });
+            }}
+            onClose={() => setAddResourcePersonId(null)}
+            onSend={(resource) => {
+              const personId = addResourcePersonId;
+              setAddResourcePersonId(null);
+              openSendResource(resource, personId);
+            }}
+            personName={people.find((person) => person.id === addResourcePersonId)?.name ?? "this person"}
           />
         ) : null}
 

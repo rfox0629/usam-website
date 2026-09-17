@@ -563,4 +563,74 @@ assert.ok(
   "DOS paragraphs inherit their container's colour instead of the dark site's grey",
 );
 
+/* ---- USA-281: the picker, and removal ----------------------------------- */
+
+assert.ok(
+  appClient.includes("function ResourceAddSheet"),
+  "+ Add opens a picker rather than assuming one resource",
+);
+assert.ok(
+  !/function openSendResourceForPerson\([^)]*\) \{\s*const marriageAssessment/.test(appClient),
+  "+ Add no longer hardcodes the Marriage Assessment",
+);
+assert.ok(
+  appClient.includes("setAddResourcePersonId(personId)"),
+  "the person + Add was pressed for is kept through the picker",
+);
+assert.ok(
+  appClient.includes("isDosResourceShareEnabled(resource)") && appClient.includes("dosAssignableResourceItems"),
+  "the picker offers only resources with a working share or assignment flow",
+);
+assert.ok(
+  /onSend=\{\(resource\) => \{[\s\S]{0,240}openSendResource\(resource, personId\)/.test(appClient)
+  && /onAssign=\{\(resource\) => \{[\s\S]{0,260}openResourceAssignmentCreate\(resource, personId/.test(appClient),
+  "each choice routes to that resource's own setup, carrying the person",
+);
+
+const removalMigration = read("supabase/migrations/20260918120000_usa_281_resource_assignment_removal.sql");
+
+assert.ok(
+  removalMigration.includes("add column if not exists removed_at timestamptz"),
+  "removal is a soft delete, so progress and reflections survive it",
+);
+assert.ok(
+  !/delete\s+from\s+public\.dos_resource_assignments/i.test(removalMigration),
+  "the removal migration never deletes an assignment row",
+);
+assert.ok(
+  loader.includes('.is("removed_at", null)'),
+  "a removed assignment is filtered out where assignments are read, so it stays gone after a refresh",
+);
+assert.ok(
+  loader.includes("isMissingColumnError(result.error)"),
+  "reads still work before the removal migration is applied",
+);
+
+const assignmentsRoute = read("app/api/dos/app/resource-assignments/route.ts");
+
+assert.ok(
+  assignmentsRoute.includes('action === "remove" || action === "restore"'),
+  "removal and restore are explicit actions on the assignment route",
+);
+assert.ok(
+  /removal[\s\S]{0,400}\.eq\("workspace_id", workspaceResult\.workspaceId\)/.test(assignmentsRoute),
+  "removal is scoped to the workspace the caller is authorized for",
+);
+assert.ok(
+  appClient.includes("window.confirm(`Remove \"${title}\" from this record?"),
+  "removal is confirmed rather than immediate",
+);
+assert.ok(
+  appClient.includes("Everyone else assigned it in the group keeps theirs."),
+  "a shared assignment says what removal does to the other participants",
+);
+assert.ok(
+  appClient.includes("Progress already recorded is kept and is not deleted."),
+  "removal discloses that recorded progress survives",
+);
+assert.ok(
+  appClient.includes('{ danger: true, label: "Remove"'),
+  "Remove is reachable from the row menu in My Record and on a Person",
+);
+
 console.log("DOS resource sharing (USA-278 / USA-279 / USA-280) regression passed.");

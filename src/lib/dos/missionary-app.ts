@@ -4117,12 +4117,33 @@ async function loadAccountabilityCheckInsForWorkspace(supabase: SupabaseAdminCli
 }
 
 async function loadResourceAssignmentsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const columns = "id, workspace_id, resource_slug, person_id, assigned_by_user_id, status, start_date, due_date, completed_at, paused_at, personal_message, follow_up_cadence, linked_commitment_id, assignment_context, source_group_id, sharing_level, created_at, updated_at";
+
+  /* USA-281: an assignment a member removed is soft deleted, so it is filtered
+     out here rather than anywhere downstream. The row and every progress
+     record attached to it are still in the database. */
   const result = await supabase
     .from("dos_resource_assignments")
-    .select("id, workspace_id, resource_slug, person_id, assigned_by_user_id, status, start_date, due_date, completed_at, paused_at, personal_message, follow_up_cadence, linked_commitment_id, assignment_context, source_group_id, sharing_level, created_at, updated_at")
+    .select(columns)
     .eq("workspace_id", workspaceId)
+    .is("removed_at", null)
     .order("due_date", { ascending: true })
     .order("updated_at", { ascending: false });
+
+  /* Before the removal migration is applied there is no column to filter on.
+     Reading everything is the old behaviour and is correct until then. */
+  if (result.error && isMissingColumnError(result.error)) {
+    const fallback = await supabase
+      .from("dos_resource_assignments")
+      .select(columns)
+      .eq("workspace_id", workspaceId)
+      .order("due_date", { ascending: true })
+      .order("updated_at", { ascending: false });
+
+    return fallback.error && isMissingWorkflowTable(fallback.error, "dos_resource_assignments")
+      ? { data: [] as ResourceAssignmentRow[], error: null }
+      : fallback;
+  }
 
   return result.error && isMissingWorkflowTable(result.error, "dos_resource_assignments")
     ? { data: [] as ResourceAssignmentRow[], error: null }
