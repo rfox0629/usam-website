@@ -12753,6 +12753,63 @@ function resourceAssignmentResource(assignment: DosAppResourceAssignment) {
   return resolveDosResourceReference(assignment.resourceSlug);
 }
 
+/* USA-281: a compact row menu, so a row can offer one action and still reach
+   every other one. Nothing is removed to tidy a screen: Check-in, Pause,
+   Complete and Edit dates all live in here, one tap from where they were. */
+function RowActionMenu({
+  items,
+  label,
+}: {
+  items: ReadonlyArray<{ danger?: boolean; label: string; onSelect: () => void }>;
+  label: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <div
+      className="relative"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setIsOpen(false);
+        }
+      }}
+    >
+      <button
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        aria-label={label}
+        className="flex h-11 w-11 items-center justify-center rounded-full text-dos-secondary transition-colors hover:bg-dos-blue50 hover:text-dos-primary"
+        onClick={() => setIsOpen((open) => !open)}
+        type="button"
+      >
+        <MoreHorizontal aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
+      </button>
+      {isOpen ? (
+        <div className="absolute right-0 z-dos-popover mt-1 w-44 rounded-2xl border border-dos-line bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]" role="menu">
+          {items.map((item) => (
+            <button
+              className={`flex min-h-11 w-full items-center rounded-xl px-3 text-left text-dos-label font-semibold hover:bg-dos-blue50 ${item.danger ? "text-[#B42318] hover:bg-[#FEF2F2]" : "text-dos-primary"}`}
+              key={item.label}
+              onClick={() => {
+                setIsOpen(false);
+                item.onSelect();
+              }}
+              role="menuitem"
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 /* USA-281: several assignments can exist for one resource. They are grouped
    for DISPLAY only: nothing is merged, nothing is deleted, and each row keeps
    its own dates, progress and notes. The furthest along leads, because that is
@@ -32082,9 +32139,18 @@ function MyRecordOverviewPanel({
                       ) : primary.kind === "resume" ? (
                         <PDButton onClick={() => onPauseResourceAssignment(assignment)} tone="solid">{primary.label}</PDButton>
                       ) : null}
-                      {/* Check-in, Pause, Complete and Edit dates moved here.
-                          Five buttons ran off the side of a phone. */}
-                      <PDButton ariaLabel={`Manage ${resourceAssignmentTitle(assignment)}`} onClick={() => onEditResourceAssignment(assignment)}>More</PDButton>
+                      {/* Every action the retired Growth panel had is still
+                          here. Five buttons ran off the side of a phone, so
+                          the four secondary ones moved into this menu. */}
+                      <RowActionMenu
+                        items={[
+                          ...(assignment.status === "not_started" ? [] : [{ label: "Check-in", onSelect: () => onLogResourceCheckIn(assignment) }]),
+                          { label: assignment.status === "paused" ? "Resume" : "Pause", onSelect: () => onPauseResourceAssignment(assignment) },
+                          { label: "Complete", onSelect: () => onMarkResourceAssignmentComplete(assignment) },
+                          { label: "Edit dates", onSelect: () => onEditResourceAssignment(assignment) },
+                        ]}
+                        label={`More actions for ${resourceAssignmentTitle(assignment)}`}
+                      />
                     </span>
                   </div>
                 );

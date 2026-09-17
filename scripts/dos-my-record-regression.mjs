@@ -312,9 +312,43 @@ assert(overviewPanelSource.indexOf("<MyRecordMeetingCards") < overviewPanelSourc
 assert(!overviewPanelSource.includes("People Discipling Me") && !overviewPanelSource.includes("mentorRelationships"), "USA-272: Overview carries no roster of the people discipling me.");
 assert(overviewPanelSource.includes("commitmentsEnabled") && overviewPanelSource.includes('commitment.status === "active"'), "USA-272: current commitments read my own canonical Accountability commitments, and only when the capability is on.");
 assert(overviewPanelSource.includes('assignment.status !== "completed"') && overviewPanelSource.includes("draftAssessments"), "USA-272: current commitments still show what production treats as active (D10): open journeys and draft assessments.");
-["Continue", "Start", "Check-in", "Pause", "Complete", "Edit dates"].forEach((action) => {
-  assert(overviewPanelSource.includes(`>${action}</PDButton>`) || overviewPanelSource.includes(`{assignment.status === "paused" ? "Resume" : "${action}"}`), `USA-272: a journey keeps its ${action} action from the retired Growth panel.`);
+/* USA-272 held that a journey keeps every action the retired Growth panel had.
+   That guarantee still stands. USA-281 changed only WHERE they are: the row
+   offers the one action its state calls for, and the other four moved into the
+   row's own menu rather than spilling five buttons off the side of a phone.
+   So this now checks reachability, not button count. */
+assert(
+  overviewPanelSource.includes("resourceAssignmentPrimaryAction(assignment"),
+  "USA-281: the row's primary action is chosen from the assignment's state.",
+);
+["Start", "Continue", "Open", "Resume"].forEach((label) => {
+  assert(
+    overviewPanelSource.includes(`{primary.label}`) && client.includes(`label: "${label}"`),
+    `USA-281: ${label} is still a primary action a journey can offer.`,
+  );
 });
+["Check-in", "Complete", "Edit dates"].forEach((action) => {
+  assert(
+    overviewPanelSource.includes(`{ label: "${action}"`),
+    `USA-272/281: a journey keeps its ${action} action, now inside the row menu.`,
+  );
+});
+assert(
+  overviewPanelSource.includes('assignment.status === "paused" ? "Resume" : "Pause"'),
+  "USA-272/281: a journey keeps Pause and Resume.",
+);
+assert(
+  overviewPanelSource.includes("<RowActionMenu"),
+  "USA-281: the secondary actions are reachable from the row, not dropped.",
+);
+assert(
+  overviewPanelSource.includes("groupResourceAssignmentsByResource(openAssignments)"),
+  "USA-281: several assignments for one resource read as one entry, grouped rather than merged.",
+);
+assert(
+  overviewPanelSource.includes("linkedCommitmentIds.has(commitment.id)"),
+  "USA-281: a commitment is hidden only when its link to an assignment is established.",
+);
 
 // 8. Timeline: searchable, filtered, chronological.
 const timelinePanelSource = client.slice(client.indexOf("function MyRecordTimelinePanel"), client.indexOf("function MyRecordMyLifePanel"));

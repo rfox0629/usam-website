@@ -290,7 +290,23 @@ assert.ok(
 /* USA-280: the report is shared, scrollable, printable, and honest about the
    number it leads with. */
 const report = read("src/components/dos/assessments/AssessmentReport.tsx");
-assert.ok(report.includes("Print or save as PDF"), "the report can be printed");
+/* USA-281: "Print or save as PDF" handed the page to the browser, which
+   stamped its own header, footer and the workspace URL onto every sheet. Both
+   actions now hand over a generated document instead. */
+assert.ok(/onClick=\{handleDownload\}[\s\S]{0,160}Download PDF/.test(report), "the report can be downloaded as a document");
+assert.ok(/onClick=\{handlePrint\}[\s\S]{0,160}>\s*Print\s*</.test(report), "the report can still be printed");
+assert.ok(
+  report.includes("buildAssessmentReportPdf(data)"),
+  "both actions build the document from the same data the screen renders",
+);
+assert.ok(
+  report.includes("link.download = assessmentReportFileName"),
+  "the download carries a real filename rather than the page title",
+);
+assert.ok(
+  !/window\.print\(\)(?![\s\S]{0,400}refuses the generated file)/.test(report.slice(0, report.indexOf("return ("))),
+  "printing goes through the generated document, with window.print only as the fallback",
+);
 assert.ok(report.includes("@media print"), "the report has a print layout");
 assert.ok(report.includes("assessment-report-hide-on-print"), "app controls are hidden in print");
 assert.ok(report.includes("break-inside: avoid"), "print avoids splitting a section mid-answer");
@@ -334,7 +350,11 @@ assert.ok(
   "the Library detail no longer starts a questionnaire in place of establishing recipients",
 );
 assert.ok(dosApp.includes("mode=preview"), "preview opens the questions in preview mode");
-assert.ok(dosApp.includes("Preview shows every one."), "the detail page points at the preview");
+/* USA-281: the sample is labelled as a sample and the way to read all of them
+   is a link rather than a sentence. */
+assert.ok(dosApp.includes("Sample questions"), "the five questions on the detail page are labelled a sample");
+assert.ok(dosApp.includes("See all {total} questions"), "the detail page links to every question");
+assert.ok(dosApp.includes("{sample.length} of {total}"), "the detail page says how much of the assessment the sample covers");
 assert.ok(dosApp.includes("aria-label=\"Resources\""), "the Person Activity area has a Resources section");
 assert.ok(dosApp.includes("label: \"Send resource\""), "Send resource is on the Person floating plus menu");
 assert.ok(dosApp.includes("dosLinkedSpouseForPerson"), "the linked spouse comes from the household model");
@@ -525,9 +545,16 @@ assert.ok(
   /const report = \(\s*<div className="assessment-report-sheet[\s\S]{0,4000}return isMounted \? createPortal\(report, document\.body\) : null;/.test(appClient),
   "the report portals to the body, so z-dos-sheet outranks the quick-action button",
 );
+/* USA-281: a reassessment still never reuses a finished link, but the way to
+   start one is Resources > + Add, which is the single place a resource is
+   chosen. A completed row therefore offers its result and nothing else. */
 assert.ok(
-  appClient.includes("Send another"),
-  "a reassessment is an explicit action, not a reuse of the finished link",
+  !appClient.includes("Send another"),
+  "a completed row does not carry its own second send action",
+);
+assert.ok(
+  /share\.status === "completed" && shareResult \? \(\s*<PDButton onClick=\{\(\) => onOpenShareResult\(shareResult\.id\)\} tone="solid">View results<\/PDButton>/.test(appClient),
+  "a completed row offers View results",
 );
 
 const dosLayout = read("app/dos/app/layout.tsx");
