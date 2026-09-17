@@ -112,7 +112,13 @@ export function MarriageAssessmentClient({
           title="Marriage Assessment"
         />
         <AssessmentNotice>Preview only. Answers are not saved.</AssessmentNotice>
-        <AssessmentHeader description={description} eyebrow="Assessment" title="Marriage Assessment" />
+        {/* USA-281: the bar above already names the assessment and says this
+            is a preview. Repeating the eyebrow, the title and the description
+            underneath it pushed the first question off the screen, so what is
+            left is the one line a leader has not already read. */}
+        <p className="px-5 pb-1 pt-4 text-[14.5px] leading-[1.55] text-[#334E68] sm:px-6">
+          All {questions.length} questions, exactly as the couple will see them.
+        </p>
 
         {groups.map((group) => (
           <div key={group.name}>

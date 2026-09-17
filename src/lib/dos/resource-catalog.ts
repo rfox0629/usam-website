@@ -994,6 +994,36 @@ export function getDosResourceBySlug(slug: string | null | undefined): DosResour
   return dosResourceCatalog.find((resource) => resource.slug === slug) ?? null;
 }
 
+/**
+ * USA-281: resolve a stored resource reference that may be either form.
+ *
+ * Some assignment rows carry a catalog **id** where the **slug** belongs, for
+ * example `discipleship-marks-of-discipleship` for the resource whose slug is
+ * `marks-of-discipleship`. Those rows rendered as "Assigned Resource" with no
+ * title and no way to open them, because the slug lookup simply missed.
+ *
+ * Reading both forms repairs the display without touching a single row.
+ * New writes go through `canonicalDosResourceSlug()` below, so the id form
+ * stops being created; the rows that already exist keep working either way.
+ */
+export function resolveDosResourceReference(reference: string | null | undefined): DosResource | null {
+  if (!reference) {
+    return null;
+  }
+
+  return dosResourceCatalog.find((resource) => resource.slug === reference)
+    ?? dosResourceCatalog.find((resource) => resource.id === reference)
+    ?? null;
+}
+
+/**
+ * The slug a reference should be stored as. An unknown reference is returned
+ * unchanged rather than dropped, so nothing is lost by writing through this.
+ */
+export function canonicalDosResourceSlug(reference: string | null | undefined) {
+  return resolveDosResourceReference(reference)?.slug ?? reference ?? null;
+}
+
 export function getDosResourceByTitle(title: string | null | undefined): DosResource | null {
   const normalizedTitle = normalizeResourceTitle(title ?? "");
 

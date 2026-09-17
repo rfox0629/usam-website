@@ -190,10 +190,15 @@ export function AssessmentSection({
   );
 }
 
-/* A group of questions, introduced by a hairline heading rather than a card. */
+/* A group of questions, introduced by a hairline heading rather than a card.
+ *
+ * USA-281: this sits one level ABOVE a question, so it reads larger and
+ * heavier than the "Question 4" eyebrow beneath it. The old 30px top margin
+ * left a hole above the first group; the space now belongs to the group
+ * itself and is the same between every group. */
 export function AssessmentGroupHeading({ name }: { name: string }) {
   return (
-    <p className="mt-[30px] border-b border-[#EAF2FF] px-5 pb-2 text-[11px] font-bold uppercase tracking-[0.15em] text-[#1D4ED8] sm:px-6">
+    <p className="mt-7 border-b border-[#DCEBFF] px-5 pb-2.5 text-[12.5px] font-bold uppercase tracking-[0.13em] text-[#1D4ED8] first:mt-5 sm:px-6">
       {name}
     </p>
   );
@@ -214,8 +219,10 @@ export function AssessmentQuestion({
 }) {
   return (
     <article className="border-b border-[#EAF2FF] px-5 py-[22px] sm:px-6">
-      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#334E68]">Question {index}</p>
-      <h3 className="mt-2 text-[19px] font-semibold leading-[1.35] tracking-[-0.018em] text-[#0F172A]">{prompt}</h3>
+      {/* The number is a locator, not a heading: quieter than the group above
+          it and quieter than the prompt below it. */}
+      <p className="text-[10.5px] font-bold uppercase tracking-[0.14em] text-[#5A6473]">Question {index}</p>
+      <h3 className="mt-1.5 text-[18px] font-semibold leading-[1.35] tracking-[-0.018em] text-[#0F172A]">{prompt}</h3>
       {note ? <p className="mt-2 text-[13.5px] leading-[1.5] text-[#334E68]">{note}</p> : null}
       <div className="mt-4 grid gap-4">{children}</div>
     </article>

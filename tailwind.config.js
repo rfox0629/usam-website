@@ -84,6 +84,10 @@ module.exports = {
       // a 34px-inset phone).
       spacing: {
         "dos-nav-clearance": "calc(env(safe-area-inset-bottom) + 100px)",
+        // USA-281: the floating action button sits 80px above the safe area
+        // and is 64px tall, so nav clearance alone left it sitting on top of
+        // the last row's own buttons. Surfaces that carry a FAB use this.
+        "dos-fab-clearance": "calc(env(safe-area-inset-bottom) + 176px)",
       },
       zIndex: {
         // Ladder (spec §4.3): content 0 · sticky 10 · in-content detail

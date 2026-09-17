@@ -126,18 +126,53 @@ function categoryColumns() {
   return { combinedRight: MARGIN + CONTENT, firstX, secondX: firstX + CATEGORY_COLUMN_WIDTH };
 }
 
+/* A name is whatever the couple entered. "Jean-Christophe Ngoyi-Mwamba" does
+   not fit a table column, so column headings wrap inside their own width
+   rather than running into the next column. Two lines is enough for the names
+   people actually have; a third is truncated rather than allowed to collide. */
+function fitLines(value: string, size: number, font: "bold" | "regular", width: number, maxLines: number) {
+  const lines = wrapText(value, size, font, width);
+
+  if (lines.length <= maxLines) {
+    return lines;
+  }
+
+  const kept = lines.slice(0, maxLines);
+  let last = kept[maxLines - 1];
+
+  while (last.length > 1 && measureText(`${last}...`, size, font) > width) {
+    last = last.slice(0, -1);
+  }
+
+  kept[maxLines - 1] = `${last}...`;
+
+  return kept;
+}
+
 function categoryHeader(flow: Flow, firstName: string, secondName: string) {
   const { combinedRight, firstX, secondX } = categoryColumns();
+  const gutter = 10;
+  const firstLines = fitLines(firstName, 8, "bold", CATEGORY_COLUMN_WIDTH - gutter, 2);
+  const secondLines = fitLines(secondName, 8, "bold", CATEGORY_COLUMN_WIDTH - gutter, 2);
+  const rows = Math.max(firstLines.length, secondLines.length);
 
-  ensureRoom(flow, 22);
-  flow.doc.text("Category", { color: QUIET, size: 8, x: MARGIN, y: flow.y });
-  flow.doc.text(firstName, { color: BLUE, font: "bold", size: 8, x: firstX, y: flow.y });
-  flow.doc.text(secondName, { color: GREEN, font: "bold", size: 8, x: secondX, y: flow.y });
+  ensureRoom(flow, 14 + rows * 10);
+
+  const top = flow.y;
+
+  flow.doc.text("Category", { color: QUIET, size: 8, x: MARGIN, y: top });
+  firstLines.forEach((line, index) => {
+    flow.doc.text(line, { color: BLUE, font: "bold", size: 8, x: firstX, y: top + index * 10 });
+  });
+  secondLines.forEach((line, index) => {
+    flow.doc.text(line, { color: GREEN, font: "bold", size: 8, x: secondX, y: top + index * 10 });
+  });
   flow.doc.text("Together", {
     color: QUIET, size: 8,
-    x: combinedRight - measureText("Together", 8, "regular"), y: flow.y,
+    x: combinedRight - measureText("Together", 8, "regular"), y: top,
   });
-  flow.y += 8;
+
+  flow.y = top + (rows - 1) * 10 + 8;
   flow.doc.line({ color: RULE, thickness: 0.4, x1: MARGIN, x2: MARGIN + CONTENT, y: flow.y });
   flow.y += 14;
 }
@@ -278,7 +313,7 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
     const eyebrow = [`Question ${index + 1}`, question.group].filter(Boolean).join("  ·  ");
     const promptLines = wrapText(question.prompt, 10, "bold", CONTENT);
     const noteLines = question.note ? wrapText(question.note, 8.5, "regular", CONTENT) : [];
-    const blockHeight = 11 + promptLines.length * 13 + noteLines.length * 11 + 24;
+    const blockHeight = 11 + promptLines.length * 13 + noteLines.length * 11 + 36;
 
     ensureRoom(flow, blockHeight);
 
@@ -300,14 +335,25 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
     const firstText = `${nameForRole(firstRole)}  ${typeof firstScore === "number" ? `${firstScore} of 10` : "not answered"}`;
     const secondText = `${nameForRole(secondRole)}  ${typeof secondScore === "number" ? `${secondScore} of 10` : "not answered"}`;
 
+    /* Side by side when both fit, stacked when a name is long. Neither
+       arrangement is allowed to overlap the other. */
     flow.y += 2;
+
+    const firstWidth = measureText(firstText, 9.5, "bold");
+    const secondWidth = measureText(secondText, 9.5, "bold");
+    const secondX = Math.max(firstWidth + 28, CONTENT / 2);
+    const sideBySide = secondX + secondWidth <= CONTENT;
+
     flow.doc.text(firstText, { color: BLUE, font: "bold", size: 9.5, x: MARGIN, y: flow.y });
-    flow.doc.text(secondText, {
-      color: GREEN, font: "bold", size: 9.5,
-      x: MARGIN + Math.max(measureText(firstText, 9.5, "bold") + 28, CONTENT / 2),
-      y: flow.y,
-    });
-    flow.y += 11;
+
+    if (sideBySide) {
+      flow.doc.text(secondText, { color: GREEN, font: "bold", size: 9.5, x: MARGIN + secondX, y: flow.y });
+      flow.y += 11;
+    } else {
+      flow.y += 12;
+      flow.doc.text(secondText, { color: GREEN, font: "bold", size: 9.5, x: MARGIN, y: flow.y });
+      flow.y += 11;
+    }
 
     if (index < data.questions.length - 1) {
       flow.doc.line({ color: RULE, thickness: 0.4, x1: MARGIN, x2: MARGIN + CONTENT, y: flow.y });
