@@ -15,8 +15,9 @@
  *   - reorder or reword a question.
  */
 
-import { useCallback, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { assessmentScoreValues, type AssessmentCategoryScore } from "@/src/lib/dos/assessment-scoring";
+import { assessmentReportDocumentTitle, assessmentReportFileName, buildAssessmentReportPdf } from "@/src/lib/dos/assessment-report-pdf";
 
 export type AssessmentReportParticipant = {
   name: string;
@@ -114,11 +115,83 @@ export function AssessmentReport({
   footnote?: ReactNode;
   onBack?: () => void;
 }) {
+  /* USA-281: the document is generated, not printed.
+   *
+   * window.print() hands the page to the browser's own print pipeline, which
+   * stamps a header and footer onto every sheet: the document title, the page
+   * URL, the date. A DOS report printed that way carried "Workspace | DOS" and
+   * the discipler's personal workspace URL. No CSS removes that reliably,
+   * @page margins are honoured differently by each browser, and telling people
+   * to untick "Headers and footers" is not a fix.
+   *
+   * So both actions below build the PDF from the same data this screen is
+   * rendering and hand the reader that file. Download saves it under a real
+   * name; Print sends the generated file to the print dialog through a hidden
+   * frame, so what is printed is the document, not the web page around it. */
+  const frameRef = useRef<HTMLIFrameElement | null>(null);
+  const [objectUrl, setObjectUrl] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+
+  useEffect(() => () => {
+    if (objectUrl) {
+      URL.revokeObjectURL(objectUrl);
+    }
+  }, [objectUrl]);
+
+  const buildPdfUrl = useCallback(() => {
+    const bytes = buildAssessmentReportPdf(data);
+    const blob = new Blob([bytes as unknown as BlobPart], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
+
+    setObjectUrl((previous) => {
+      if (previous) {
+        URL.revokeObjectURL(previous);
+      }
+
+      return url;
+    });
+
+    return url;
+  }, [data]);
+
+  const handleDownload = useCallback(() => {
+    try {
+      const url = buildPdfUrl();
+      const link = document.createElement("a");
+
+      link.download = assessmentReportFileName;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setPdfError(null);
+    } catch {
+      setPdfError("The report could not be prepared for download. Use Print instead.");
+    }
+  }, [buildPdfUrl]);
+
   const handlePrint = useCallback(() => {
-    if (typeof window !== "undefined") {
+    try {
+      const url = buildPdfUrl();
+      const frame = frameRef.current;
+
+      if (!frame) {
+        window.open(url, "_blank", "noopener");
+        return;
+      }
+
+      frame.src = url;
+      frame.onload = () => {
+        frame.contentWindow?.focus();
+        frame.contentWindow?.print();
+      };
+      setPdfError(null);
+    } catch {
+      /* A browser that refuses the generated file still gets the page, which
+         the print stylesheet has already reduced to the report alone. */
       window.print();
     }
-  }, []);
+  }, [buildPdfUrl]);
 
   const roles = data.participants.map((participant) => participant.role);
   const nameForRole = (role: string) => data.participants.find((participant) => participant.role === role)?.name ?? role;
@@ -185,18 +258,33 @@ export function AssessmentReport({
               {backLabel}
             </button>
           ) : <span />}
-          <button
-            className="min-h-[44px] rounded-[11px] border border-[#DCEBFF] px-4 text-[14.5px] font-semibold text-[#1D4ED8]"
-            onClick={handlePrint}
-            type="button"
-          >
-            Print or save as PDF
-          </button>
+          <span className="flex shrink-0 items-center gap-2">
+            <button
+              className="min-h-[44px] rounded-[11px] border border-[#DCEBFF] px-4 text-[14.5px] font-semibold text-[#1D4ED8]"
+              onClick={handlePrint}
+              type="button"
+            >
+              Print
+            </button>
+            <button
+              className="min-h-[44px] rounded-[11px] bg-[#2251E8] px-4 text-[14.5px] font-semibold text-white"
+              onClick={handleDownload}
+              type="button"
+            >
+              Download PDF
+            </button>
+          </span>
         </div>
+        {pdfError ? (
+          <p className={`assessment-report-hide-on-print px-5 pt-2 text-[13.5px] sm:px-6 ${body}`} role="status">{pdfError}</p>
+        ) : null}
+        <iframe aria-hidden="true" className="hidden" ref={frameRef} title="" />
 
         <header className="px-5 pb-6 pt-6 sm:px-6">
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#1D4ED8]">Assessment</p>
-          <h1 className={`mt-2 text-[27px] font-bold leading-[1.08] tracking-[-0.032em] ${ink}`}>{data.title}</h1>
+          {/* The document and the screen carry the same name, so a saved file
+              and the page it came from are recognisably one thing. */}
+          <h1 className={`mt-2 text-[27px] font-bold leading-[1.08] tracking-[-0.032em] ${ink}`}>{assessmentReportDocumentTitle}</h1>
           <p className={`mt-3 text-[15.5px] leading-[1.62] ${body}`}>
             {data.participants.map((participant) => `${participant.name} (${participant.role})`).join(" and ")}
           </p>
