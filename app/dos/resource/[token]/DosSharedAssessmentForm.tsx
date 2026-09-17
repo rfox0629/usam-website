@@ -50,8 +50,52 @@ type SaveState = "error" | "idle" | "saved" | "saving";
 
 const autoSaveDelayMs = 1200;
 
+/* USA-280: the recipient form does not own the page scroll. Inside the
+   installed-app layout, and inside any overlay, the thing that scrolls is an
+   ancestor div with its own overflow, so window.scrollTo() moved nothing and
+   Next left the reader at the bottom of the previous step. Find whatever is
+   actually scrolling and move that. */
+function nearestScrollableAncestor(element: HTMLElement | null) {
+  let current = element?.parentElement ?? null;
+
+  while (current) {
+    const style = window.getComputedStyle(current);
+    const overflowY = style.overflowY;
+
+    if ((overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight) {
+      return current;
+    }
+
+    current = current.parentElement;
+  }
+
+  return null;
+}
+
 function scrollToTop() {
   window.scrollTo({ behavior: "smooth", top: 0 });
+}
+
+/* Put the new section's heading at the top of whatever is scrolling, then move
+   focus to it so a screen reader and the keyboard both land on the new step
+   rather than staying where the button was. */
+function revealSection(target: HTMLElement | null) {
+  if (!target) {
+    scrollToTop();
+    return;
+  }
+
+  const container = nearestScrollableAncestor(target);
+
+  if (container) {
+    const top = target.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+
+    container.scrollTo({ behavior: "smooth", top: Math.max(0, top) });
+  } else {
+    scrollToTop();
+  }
+
+  target.focus({ preventScroll: true });
 }
 
 export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink }) {
@@ -68,6 +112,7 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
   const [answers, setAnswers] = useState<AssessmentAnswerMap>(shareLink.responses);
   const [stage, setStage] = useState<"complete" | "intro" | "questions">("intro");
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
+  const sectionHeadingRef = useRef<HTMLDivElement>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [errorMessage, setErrorMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,6 +125,15 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
   const currentGroupRequiredCount = activeGroup ? activeGroup.questions.length * roles.length : 0;
   const canContinue = currentGroupAnsweredCount === currentGroupRequiredCount;
   const isLastGroup = activeGroupIndex === groups.length - 1;
+  /* Depends on the step and the stage only. An autosave or a score selection
+     re-renders this component constantly and must never move the reader. */
+  useEffect(() => {
+    if (stage !== "questions") {
+      return;
+    }
+
+    revealSection(sectionHeadingRef.current);
+  }, [activeGroupIndex, stage]);
   const participantLine = participants.map((participant) => `${participant.name} (${participant.role})`).join(" and ");
 
   const persistProgress = useCallback(async (nextAnswers: AssessmentAnswerMap) => {
@@ -167,7 +221,6 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
     }
 
     setActiveGroupIndex((currentIndex) => Math.min(currentIndex + 1, groups.length - 1));
-    scrollToTop();
   }
 
   if (stage === "complete") {
@@ -179,7 +232,7 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
           <p className="text-[15.5px] leading-[1.62] text-[#475569]">
             Thank you, {participants.map((participant) => participant.name).join(" and ")}. Your answers went to {requestedByName}, who asked for this assessment.
           </p>
-          <p className="mt-3 text-[14.5px] leading-[1.55] text-[#64748B]">
+          <p className="mt-3 text-[14.5px] leading-[1.55] text-[#334E68]">
             This link is finished. You can close this page.
           </p>
         </AssessmentSection>
@@ -206,7 +259,7 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
           primaryLabel={hasSavedProgress ? "Resume assessment" : "Start assessment"}
         />
         {hasSavedProgress ? (
-          <p className="px-5 pt-3 text-[13px] font-semibold text-[#64748B] sm:px-6">
+          <p className="px-5 pt-3 text-[13px] font-semibold text-[#334E68] sm:px-6">
             {answeredCount} of {requiredCount} answers saved so far.
           </p>
         ) : null}
@@ -223,14 +276,16 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
       />
       {activeGroup ? (
         <>
-          <AssessmentStepBand
-            answeredCount={answeredCount}
-            requiredCount={requiredCount}
-            stepIndex={activeGroupIndex + 1}
-            stepName={activeGroup.name}
-            stepTotal={groups.length}
-          />
-          <p className="px-5 pt-3 text-[12px] font-semibold text-[#94A3B8] sm:px-6">
+          <div aria-label={`${activeGroup.name}, step ${activeGroupIndex + 1} of ${groups.length}`} ref={sectionHeadingRef} tabIndex={-1}>
+            <AssessmentStepBand
+              answeredCount={answeredCount}
+              requiredCount={requiredCount}
+              stepIndex={activeGroupIndex + 1}
+              stepName={activeGroup.name}
+              stepTotal={groups.length}
+            />
+          </div>
+          <p className="px-5 pt-3 text-[12px] font-semibold text-[#334E68] sm:px-6">
             {saveState === "saving" ? "Saving..." : null}
             {saveState === "saved" ? "Progress saved. You can close this and come back to the same link." : null}
             {saveState === "error" ? "Could not save just now. Your answers stay on screen and will save again as you go." : null}
@@ -262,7 +317,6 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
             onPrimary={goNext}
             onSecondary={activeGroupIndex === 0 ? undefined : () => {
               setActiveGroupIndex((currentIndex) => Math.max(currentIndex - 1, 0));
-              scrollToTop();
             }}
             primaryDisabled={!canContinue || isSubmitting}
             primaryLabel={isLastGroup ? (isSubmitting ? "Sending..." : "Finish and send") : "Next"}

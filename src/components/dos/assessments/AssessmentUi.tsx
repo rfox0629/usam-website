@@ -9,7 +9,14 @@
  * assessment reads as the same product as a book study.
  *
  * Token family, matched to GuidedJourneyUi:
- *   ink #0F172A · body #475569 · muted #64748B · faint #94A3B8
+ *   ink #0F172A · body #475569 · quiet #334E68
+ *
+ * USA-280: the two pale greys this file used for question numbers, labels,
+ * prompts and metadata (#94A3B8 at about 2.8:1 on white, #64748B at about
+ * 4.8:1) were the "pale supporting text" in the founder's review. Supporting
+ * copy is now #334E68, a dark blue near 8:1, and headings stay #0F172A.
+ * Disabled controls keep #64748B, which is distinguishable from live text
+ * without becoming unreadable.
  *   hair #EAF2FF · hair-2 #DCEBFF · band #F8FBFF · warm #EBF2FF
  *   DOS blue #2563EB to #1D4ED8
  *
@@ -54,7 +61,7 @@ export function AssessmentTopBar({
       ) : null}
       <div className="min-w-0 flex-1">
         <p className="truncate text-[14px] font-bold tracking-[-0.012em] text-[#0F172A]">{title}</p>
-        {meta ? <p className="mt-px text-[11.5px] font-semibold text-[#64748B]">{meta}</p> : null}
+        {meta ? <p className="mt-px text-[11.5px] font-semibold text-[#334E68]">{meta}</p> : null}
       </div>
     </div>
   );
@@ -69,7 +76,7 @@ function BackControl({
   href?: string;
   onClick?: () => void;
 }) {
-  const className = "grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-[#F1F5F9] text-[#64748B]";
+  const className = "grid h-[30px] w-[30px] shrink-0 place-items-center rounded-full bg-[#F1F5F9] text-[#334E68]";
   const glyph = <span aria-hidden="true" className="text-sm leading-none">‹</span>;
 
   if (onClick) {
@@ -133,7 +140,7 @@ export function AssessmentSecondaryButton({
   href?: string;
   onClick?: () => void;
 }) {
-  const className = "inline-flex min-h-[46px] flex-1 basis-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[11px] border border-[#DCEBFF] bg-white px-3 text-[14.5px] font-semibold text-[#0F172A] disabled:text-[#94A3B8]";
+  const className = "inline-flex min-h-[46px] flex-1 basis-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[11px] border border-[#DCEBFF] bg-white px-3 text-[14.5px] font-semibold text-[#0F172A] disabled:text-[#64748B]";
 
   return href
     ? <a className={className} href={href}>{children}</a>
@@ -144,7 +151,7 @@ export function AssessmentSecondaryButton({
    introduction cards the old detail page carried. */
 export function AssessmentFacts({ items }: { items: readonly string[] }) {
   return (
-    <section className="border-y border-[#EAF2FF] bg-[#F8FBFF] px-5 py-5 sm:px-6" aria-label="How this works">
+    <section className="border-y border-[#EAF2FF] bg-white px-5 py-5 sm:px-6" aria-label="How this works">
       <ul className="grid gap-2.5">
         {items.map((item) => (
           <li className="flex gap-2.5 text-[14.5px] leading-[1.55] text-[#475569]" key={item}>
@@ -159,7 +166,7 @@ export function AssessmentFacts({ items }: { items: readonly string[] }) {
 
 export function AssessmentNotice({ children }: { children: ReactNode }) {
   return (
-    <p className="border-b border-[#DCEBFF] bg-[#EBF2FF] px-5 py-3 text-[13px] font-semibold text-[#1D4ED8] sm:px-6">
+    <p className="border-b border-[#DCEBFF] bg-white px-5 py-3 text-[13px] font-semibold text-[#1D4ED8] sm:px-6">
       {children}
     </p>
   );
@@ -176,7 +183,7 @@ export function AssessmentSection({
 }) {
   return (
     <section className="px-5 pt-[26px] sm:px-6" aria-label={title ?? label ?? "Section"}>
-      {label ? <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#94A3B8]">{label}</p> : null}
+      {label ? <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#334E68]">{label}</p> : null}
       {title ? <h2 className="mt-2 text-[25px] font-bold leading-[1.16] tracking-[-0.03em] text-[#0F172A]">{title}</h2> : null}
       {children}
     </section>
@@ -207,9 +214,9 @@ export function AssessmentQuestion({
 }) {
   return (
     <article className="border-b border-[#EAF2FF] px-5 py-[22px] sm:px-6">
-      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#94A3B8]">Question {index}</p>
+      <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#334E68]">Question {index}</p>
       <h3 className="mt-2 text-[19px] font-semibold leading-[1.35] tracking-[-0.018em] text-[#0F172A]">{prompt}</h3>
-      {note ? <p className="mt-2 text-[13.5px] leading-[1.5] text-[#64748B]">{note}</p> : null}
+      {note ? <p className="mt-2 text-[13.5px] leading-[1.5] text-[#334E68]">{note}</p> : null}
       <div className="mt-4 grid gap-4">{children}</div>
     </article>
   );
@@ -239,7 +246,7 @@ export function AssessmentScoreRow({
   return (
     <fieldset className="min-w-0">
       <legend className="text-[15px] font-bold tracking-[-0.012em] text-[#0F172A]">{heading}</legend>
-      <p className="mt-1 text-[13.5px] leading-[1.5] text-[#64748B]">{prompt}</p>
+      <p className="mt-1 text-[13.5px] leading-[1.5] text-[#334E68]">{prompt}</p>
       <div className="mt-2.5 grid grid-cols-6 gap-1.5 sm:grid-cols-11" role="radiogroup">
         {assessmentScoreValues.map((score) => {
           const active = value === score;
@@ -290,19 +297,19 @@ export function AssessmentStepBand({
   const percentage = requiredCount > 0 ? Math.max(2, Math.round((answeredCount / requiredCount) * 100)) : 0;
 
   return (
-    <section className="border-y border-[#EAF2FF] bg-[#F8FBFF] px-5 py-4 sm:px-6" aria-label="Assessment progress">
+    <section className="border-y border-[#EAF2FF] bg-white px-5 py-4 sm:px-6" aria-label="Assessment progress">
       <div className="flex items-baseline justify-between gap-3">
         <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#0F172A]">
           {stepName}
         </p>
-        <p className="text-[12.5px] font-bold tabular-nums text-[#64748B]">
+        <p className="text-[12.5px] font-bold tabular-nums text-[#334E68]">
           Step {stepIndex} of {stepTotal}
         </p>
       </div>
       <div className="mt-[11px] h-1 overflow-hidden rounded-full bg-[#E2E8F0]">
         <div className="h-full rounded-full bg-[#1D4ED8] transition-[width] duration-300" style={{ width: `${percentage}%` }} />
       </div>
-      <p className="mt-[9px] text-[12px] font-semibold text-[#64748B]">
+      <p className="mt-[9px] text-[12px] font-semibold text-[#334E68]">
         {answeredCount} of {requiredCount} answers given
       </p>
     </section>
@@ -329,7 +336,7 @@ export function AssessmentDock({
     <div className="mt-[34px] flex flex-col-reverse gap-3 px-5 sm:flex-row sm:items-center sm:gap-4 sm:px-6">
       {secondaryLabel && onSecondary ? (
         <button
-          className="min-h-[44px] text-[13.5px] font-semibold text-[#64748B] disabled:text-[#94A3B8]"
+          className="min-h-[44px] text-[13.5px] font-semibold text-[#334E68] disabled:text-[#64748B]"
           disabled={secondaryDisabled}
           onClick={onSecondary}
           type="button"
@@ -363,11 +370,11 @@ export function AssessmentScoreSummary({
   subtitle?: string;
 }) {
   return (
-    <section className="border-y border-[#EAF2FF] bg-[#F8FBFF] px-5 py-6 sm:px-6" aria-label="Result">
+    <section className="border-y border-[#EAF2FF] bg-white px-5 py-6 sm:px-6" aria-label="Result">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <p className="text-[34px] font-bold leading-none tracking-[-0.03em] text-[#0F172A]">
           {score}
-          <span className="text-[19px] font-semibold text-[#94A3B8]">/{maxScore}</span>
+          <span className="text-[19px] font-semibold text-[#475569]">/{maxScore}</span>
         </p>
         {rangeLabel ? (
           <span className="rounded-full bg-[#EBF2FF] px-[9px] py-[5px] text-[10.5px] font-bold uppercase tracking-[0.11em] text-[#1D4ED8]">
@@ -375,7 +382,7 @@ export function AssessmentScoreSummary({
           </span>
         ) : null}
       </div>
-      <p className="mt-2 text-[13.5px] font-semibold text-[#64748B]">{percentage}% overall</p>
+      <p className="mt-2 text-[13.5px] font-semibold text-[#334E68]">{percentage}% overall</p>
       {subtitle ? <p className="mt-3 text-[14.5px] leading-[1.55] text-[#475569]">{subtitle}</p> : null}
     </section>
   );
@@ -392,7 +399,7 @@ export function AssessmentParticipantScores({
         {scores.map((entry) => (
           <div className="rounded-[18px] border border-[#DCEBFF] bg-white p-[15px]" key={entry.label}>
             <p className="text-[15px] font-bold tracking-[-0.012em] text-[#0F172A]">{entry.label}</p>
-            <p className="mt-1 text-[13.5px] font-semibold text-[#64748B]">
+            <p className="mt-1 text-[13.5px] font-semibold text-[#334E68]">
               {entry.score} of {entry.maxScore}
             </p>
           </div>
@@ -419,9 +426,9 @@ export function AssessmentCategoryTable({
           <div className="border-b border-[#EAF2FF] py-3" key={category.name}>
             <div className="flex items-baseline justify-between gap-3">
               <p className="text-[14.5px] font-semibold text-[#0F172A]">{category.name}</p>
-              <p className="text-[12.5px] font-bold tabular-nums text-[#64748B]">{category.percentage}%</p>
+              <p className="text-[12.5px] font-bold tabular-nums text-[#334E68]">{category.percentage}%</p>
             </div>
-            <p className="mt-1 text-[12.5px] font-semibold text-[#64748B]">
+            <p className="mt-1 text-[12.5px] font-semibold text-[#334E68]">
               {firstLabel} {category.husbandScore} of {category.maxScore} · {secondLabel} {category.wifeScore} of {category.maxScore}
             </p>
           </div>

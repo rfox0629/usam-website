@@ -202,7 +202,7 @@ import {
   shareParticipantSummary,
   type DosResourceShareStatus,
 } from "@/src/lib/dos/resource-sharing";
-import { AssessmentCategoryTable } from "@/src/components/dos/assessments/AssessmentUi";
+import { AssessmentReport } from "@/src/components/dos/assessments/AssessmentReport";
 
 const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
 const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-0 md:py-0";
@@ -34606,9 +34606,13 @@ function AssessmentResourceContent({ resource }: { resource: DosResource }) {
 
   const [firstRole, secondRole] = assessment.participants;
 
+  /* USA-280: the assessment's own content sits on white rather than letting
+     the app shell's gradient show through it. The shell itself is untouched;
+     this is one resource's reading surface, the same white the preview, the
+     questionnaire and the report use. */
   return (
-    <div className="-mx-1">
-      <section className="border-y border-[#EAF2FF] bg-[#F8FBFF] px-4 py-5" aria-label="How this works">
+    <div className="-mx-1 overflow-hidden rounded-[14px] border border-[#EAF2FF] bg-white">
+      <section className="border-b border-[#EAF2FF] bg-white px-4 py-5" aria-label="How this works">
         <ul className="grid gap-2.5">
           {[
             `A couple answers ${assessment.questions.length} questions together.`,
@@ -34632,7 +34636,7 @@ function AssessmentResourceContent({ resource }: { resource: DosResource }) {
             </p>
           ))}
         </div>
-        <p className="mt-3 text-[13px] font-semibold text-[#64748B]">
+        <p className="mt-3 pb-5 text-[13px] font-semibold text-[#334E68]">
           {assessment.questions.length} questions in total. Preview shows every one.
         </p>
       </section>
@@ -35132,78 +35136,96 @@ function SendResourceSheet({
   );
 }
 
+/* USA-280: the completed assessment, full screen, sharing one component with
+   the copy the couple can reopen from their own link. It replaces a bottom
+   sheet that could not scroll far enough to reach the later answers. */
 function ResourceShareResultSheet({
+  allResults,
   onClose,
   result,
 }: {
+  allResults: DosAppAssessmentResult[];
   onClose: () => void;
   result: DosAppAssessmentResult;
 }) {
   const answers = result.answers as {
     participantNames?: Record<string, string>;
     participants?: string[];
-    questions?: Array<{ group?: string; id: string; prompt: string; scores?: Record<string, number | null> }>;
+    questions?: Array<{ group?: string; id: string; note?: string | null; prompt: string; scores?: Record<string, number | null> }>;
   };
   const participants = Array.isArray(answers?.participants) ? answers.participants : [];
   const participantNames = answers?.participantNames ?? {};
   const questions = Array.isArray(answers?.questions) ? answers.questions : [];
-  const participantLabels = participants.map((role) => participantNames[role] ? `${participantNames[role]} (${role})` : role);
+
+  /* The stored payload keeps each participant's own total only implicitly, as
+     the sum of their answers. Recomputing it here reads the same numbers the
+     couple gave; it introduces no new rule. */
+  const participantScores = participants.map((role) => ({
+    participant: role,
+    score: questions.reduce((total, question) => total + (question.scores?.[role] ?? 0), 0),
+  }));
+
+  /* The couple's previous assessment, if there is one. Matched on the two
+     People ids in either order, so a reassessment sent to the other spouse
+     still lines up, and compared only when the questionnaire and scale are
+     the same. Earlier results are never overwritten: each completion writes
+     its own dated row, and this only reads them. */
+  const coupleKey = [result.personId, result.secondaryPersonId].filter(Boolean).sort().join("|");
+  const previousResult = coupleKey
+    ? allResults
+      .filter((candidate) => (
+        candidate.id !== result.id
+        && candidate.assessmentType === result.assessmentType
+        && candidate.maxScore === result.maxScore
+        && [candidate.personId, candidate.secondaryPersonId].filter(Boolean).sort().join("|") === coupleKey
+        && (candidate.completedAt ?? "") < (result.completedAt ?? "")
+      ))
+      .sort((first, second) => (second.completedAt ?? "").localeCompare(first.completedAt ?? ""))[0] ?? null
+    : null;
+  const previousAnswers = previousResult?.answers as { questions?: Array<{ scores?: Record<string, number | null> }> } | undefined;
+  /* Scores are read by ROLE from the earlier payload, never by position. */
+  const comparison = previousResult && Array.isArray(previousAnswers?.questions)
+    ? {
+      completedAt: previousResult.completedAt,
+      participantScores: participants.map((role) => ({
+        participant: role,
+        score: (previousAnswers.questions ?? []).reduce((total, question) => total + (question.scores?.[role] ?? 0), 0),
+      })),
+    }
+    : null;
 
   return (
-    <Sheet onClose={onClose} showEyebrow={false} size="wide" title={result.assessmentTitle}>
-      <div className="grid gap-4">
-        <div className="rounded-dos-1 border border-dos-line bg-white px-3.5 py-3">
-          <p className="text-dos-eyebrow uppercase text-dos-eyebrow">Result</p>
-          <p className="mt-1 text-dos-display text-dos-primary">{result.overallScore}<span className="text-dos-heading text-dos-disabled">/{result.maxScore}</span></p>
-          <p className="mt-1 text-dos-meta text-dos-secondary">
-            {result.percentage}% · {result.completedAt ? formatDate(result.completedAt) : "Date not recorded"}
-            {participantLabels.length ? ` · ${participantLabels.join(" · ")}` : ""}
-          </p>
-        </div>
-
-        {result.categoryScores.length ? (
-          /* husbandScore / wifeScore are stored by ROLE, so the column labels
-             are looked up by role too. Labelling them by participant order
-             would put the wife's figures under the husband's name on any
-             assignment that was sent to her first. */
-          <AssessmentCategoryTable
-            categories={result.categoryScores.map((category) => ({
-              husbandScore: category.husbandScore ?? 0,
-              maxScore: category.maxScore,
-              name: category.name,
-              percentage: category.percentage,
-              score: category.score,
-              wifeScore: category.wifeScore ?? 0,
-            }))}
-            firstLabel={participantNames.Husband || "Husband"}
-            secondLabel={participantNames.Wife || "Wife"}
-          />
-        ) : null}
-
-        {questions.length ? (
-          <section className="rounded-dos-1 border border-dos-line bg-white p-3.5">
-            <h3 className="text-dos-label text-dos-primary">Answers</h3>
-            <div className="mt-2 divide-y divide-dos-rule">
-              {questions.map((question) => (
-                <div className="py-2.5" key={question.id}>
-                  <p className="text-[14.5px] leading-[1.45] text-dos-body">{question.prompt}</p>
-                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
-                    {participants.map((role) => (
-                      <span className="text-dos-meta text-dos-secondary" key={role}>
-                        <span className="font-semibold text-dos-primary">{participantNames[role] || role}</span>{" "}
-                        {typeof question.scores?.[role] === "number" ? question.scores?.[role] : "not answered"}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <Button fullWidth onClick={onClose} variant="secondary">Close</Button>
-      </div>
-    </Sheet>
+    <div className="fixed inset-0 z-dos-sheet overflow-y-auto overscroll-contain bg-white" role="dialog" aria-label={result.assessmentTitle}>
+      <AssessmentReport
+        backLabel="Close"
+        comparison={comparison}
+        data={{
+          categories: result.categoryScores.map((category) => ({
+            husbandScore: category.husbandScore ?? 0,
+            maxScore: category.maxScore,
+            name: category.name,
+            percentage: category.percentage,
+            score: category.score,
+            wifeScore: category.wifeScore ?? 0,
+          })),
+          completedAt: result.completedAt,
+          maxScore: result.maxScore,
+          overallScore: result.overallScore,
+          participantScores,
+          participants: participants.map((role) => ({ name: participantNames[role] || role, role })),
+          percentage: result.percentage,
+          questions: questions.map((question) => ({
+            group: question.group ?? null,
+            id: question.id,
+            note: question.note ?? null,
+            prompt: question.prompt,
+            scores: question.scores ?? {},
+          })),
+          title: result.assessmentTitle,
+        }}
+        onBack={onClose}
+      />
+    </div>
   );
 }
 
@@ -47661,6 +47683,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 
         {shareResultId && data.assessmentResults.some((result) => result.id === shareResultId) ? (
           <ResourceShareResultSheet
+            allResults={data.assessmentResults}
             onClose={() => setShareResultId(null)}
             result={data.assessmentResults.find((result) => result.id === shareResultId) as DosAppAssessmentResult}
           />

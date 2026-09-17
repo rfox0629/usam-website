@@ -233,7 +233,7 @@ export function MarriageAssessmentClient({
           subtitle={range.detail}
         />
         <div className="px-5 pt-[22px] sm:px-6">
-          <p className="text-[13.5px] font-semibold text-[#64748B]">
+          <p className="text-[13.5px] font-semibold text-[#334E68]">
             {saveContext
               ? {
                 error: `Results shown here. ${saveState.error ?? "Unable to save to profile."}`,

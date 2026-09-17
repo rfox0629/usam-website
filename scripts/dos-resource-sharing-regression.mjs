@@ -262,10 +262,54 @@ const recipientPage = read("app/dos/resource/[token]/page.tsx");
 const recipientForm = read("app/dos/resource/[token]/DosSharedAssessmentForm.tsx");
 
 assert.ok(recipientPage.includes("loadDosResourceShareLink"));
-for (const state of ["expired", "invalid", "revoked", "completed", "not_configured"]) {
+/* USA-280: a completed link is no longer a dead end, so it has no state copy;
+   it renders the couple's own report. The refusal states still do. */
+for (const state of ["expired", "invalid", "revoked", "not_configured"]) {
   assert.ok(recipientPage.includes(`${state}: {`), `recipient page missing state copy: ${state}`);
 }
+assert.ok(!recipientPage.includes("completed: {"), "a completed link shows the report, not a thank-you dead end");
+assert.ok(recipientPage.includes("DosSharedAssessmentReport"), "a completed link renders the shared report");
 assert.ok(recipientPage.includes("index: false"), "a token page is never indexed");
+
+/* USA-280: the link preview names the assessment, and never carries a token. */
+assert.ok(recipientPage.includes("openGraph"), "the recipient page declares its own share card");
+assert.ok(
+  recipientPage.includes("/share/assessment/${dosShareableResourceSlugs[0]}"),
+  "the share card is addressed by resource slug",
+);
+assert.ok(!/share\/assessment\/\$\{[^}]*token/.test(recipientPage), "no token reaches the share image URL");
+
+const shareCardRoute = read("app/share/assessment/[slug]/route.tsx");
+assert.ok(shareCardRoute.includes("generateStaticParams"), "the assessment share card is prerendered per slug");
+/* Comments in that file discuss tokens at length; the code must not use one. */
+assert.ok(
+  !shareCardRoute.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "").includes("token"),
+  "the share card route never reads a token",
+);
+
+/* USA-280: the report is shared, scrollable, printable, and honest about the
+   number it leads with. */
+const report = read("src/components/dos/assessments/AssessmentReport.tsx");
+assert.ok(report.includes("Print or save as PDF"), "the report can be printed");
+assert.ok(report.includes("@media print"), "the report has a print layout");
+assert.ok(report.includes("assessment-report-hide-on-print"), "app controls are hidden in print");
+assert.ok(report.includes("break-inside: avoid"), "print avoids splitting a section mid-answer");
+assert.ok(report.includes("the average of your two scores"), "the headline figure is labelled as an average");
+assert.ok(/not a\s+measure of your marriage/.test(report), "the report refuses to read as a diagnosis");
+assert.ok(report.includes("Every answer"), "every answer is in the report");
+assert.ok(!report.includes("\u2014"), "the report uses no em dashes");
+
+const sharedReport = read("app/dos/resource/[token]/DosSharedAssessmentReport.tsx");
+assert.ok(sharedReport.includes("AssessmentReport"), "the recipient view reuses the shared report");
+assert.ok(sharedReport.includes("can see these results"), "the recipient is told who can see the results");
+
+/* USA-280: Next and Previous move the real scroll container, not the window. */
+assert.ok(recipientForm.includes("nearestScrollableAncestor"), "the form scrolls the container that actually scrolls");
+assert.ok(recipientForm.includes("target.focus("), "focus moves to the new section");
+assert.ok(
+  /useEffect\(\(\) => \{[\s\S]*?revealSection[\s\S]*?\}, \[activeGroupIndex, stage\]\)/.test(recipientForm),
+  "the scroll effect depends on the step alone, so autosaves never move the reader",
+);
 
 assert.ok(recipientForm.includes("Start assessment"), "the recipient's own assessment says Start assessment");
 assert.ok(recipientForm.includes("Resume assessment"), "saved progress resumes rather than restarting");
@@ -415,4 +459,4 @@ assert.ok(
 );
 assert.ok(loader.includes("loadResourceAssignmentsForWorkspace"), "Journey assignments still load");
 
-console.log("DOS resource sharing (USA-278 / USA-279) regression passed.");
+console.log("DOS resource sharing (USA-278 / USA-279 / USA-280) regression passed.");

@@ -45,12 +45,40 @@ September 17 assessment plus incidental rows.
 
 ### Root cause of the duplication
 
-The prayer-partner import created a new `missionary_field_people` row for
-Brooke rather than matching the household roster member already in that
-workspace. The phone numbers differ only by formatting (`(651) 245-3375` vs
-`6512453375`) and the emails are her work and personal addresses, so an exact
-match on either field would miss. This is the creation behaviour to fix, and it
-is tracked separately from the repair itself.
+The order matters, and my first reading of it was wrong. The prayer-partner
+record `d23eee44` was created **first**, on 2026-06-30 at 13:28. The roster
+record `e1ca628f` came **ten days later**, on 2026-07-09 at 21:11, and its
+group membership row records why: *"Added from public group request."* Brooke
+submitted a public group join request, and that flow created a second person
+for someone already in the workspace.
+
+The prayer-partner import is not at fault; its matching already compares
+normalised phone digits and is workspace-scoped
+(`20260630132126_canonical_person_prayer_partners.sql`).
+
+The join-request path did not. In
+`app/api/dos/app/groups/join-requests/route.ts`, `findPossiblePersonMatches()`
+normalised the *incoming* phone and then compared it against the **stored
+string exactly**:
+
+```ts
+.in("phone", phoneValues)   // ["6512453375", "6512453375"]
+```
+
+Brooke's stored number was `(651) 245-3375`. Neither candidate string equals
+it, her two email addresses are her work and personal ones, so the email arm
+missed too, and the request fell through to "create a new person".
+
+**The fix** compares digits to digits. PostgREST cannot normalise inside a
+filter, so the workspace's own contacts are read (scoped to the workspace, and
+to rows that have a phone) and compared in the route. `normalizePhone()`
+already refuses anything shorter than seven digits.
+
+Widening the match deliberately feeds the caller's existing ambiguity branch:
+two people sharing a phone now produce two candidates, and the route already
+refuses that case with *"Multiple possible people match this request. Choose
+one person or create a new person."* Nothing is merged automatically on a
+phone number.
 
 ## ID mapping
 
