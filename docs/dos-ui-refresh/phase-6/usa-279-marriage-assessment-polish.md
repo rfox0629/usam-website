@@ -199,19 +199,66 @@ Run and passing on this branch:
   the recipient intro and questionnaire husband-first and wife-first, and the
   completed couple result. All screenshots in this folder come from that run.
 
-### Environment limitations, stated plainly
+### End to end through the real HTTP handlers
 
-- This container has no Supabase configuration, so the create / save / submit
-  HTTP handlers cannot reach a database here. The role storage and
-  role-based scoring are covered by the behavior script against a real module
-  graph, and the same narrowly scoped production verification with synthetic
-  records used for USA-278 should be repeated against the deployed build
-  before this is called verified in production.
+The shared Supabase database and the deployed hosts are unreachable from the
+agent container: the environment's network policy denies CONNECT to
+`*.vercel.app`, `usamissionaries.org` and `*.supabase.co`, and direct Postgres
+ports are blocked too. So the wife-first flow was exercised against the
+strongest available substitute: this branch's production build, served
+locally, talking to real PostgREST over a real PostgreSQL 16 carrying the
+production column sets (introspected from the shared database) and the real
+USA-278 migration, including its generated couple columns and partial unique
+indexes. Every route handler, query, constraint and score in that run is the
+shipped one; only the hosting and the particular database differ.
+
+Twenty-five checks, all passing, with synthetic contacts ("Testcase Wife" and
+"Testcase Husband") in a synthetic workspace:
+
+- a create with no role is refused 400, and the error is about the role
+- an invented role ("Spouse") is refused the same way
+- the wife-first link is created and comes back `link_ready`, never "Sent"
+- the row stores `Wife` first and `Husband` second, both named
+- the recipient page opens with no account and labels her Wife, him Husband
+- a partial save is accepted, persists under the roles, and moves the link to
+  `in_progress`
+- reopening the same link resumes those answers
+- a second link started from the *other* spouse reuses the first rather than
+  creating a mirrored duplicate; exactly one open assignment remains
+- the full assessment submits, the link becomes `completed`
+- with the wife at 9 and the husband at 4 throughout, every one of the five
+  categories attributes the higher score to the Wife
+- the result is attached to both People records, so it is reachable from either
+- a write to a completed link is a no-op, not an overwrite, and the link stays
+  completed
+- a repeated submission does not create a second result
+
+Twenty UI checks were clicked rather than asserted from source: the preview
+carries its notice, shows all fifteen questions on one page, has no percentage
+and no answered-count badge, and its back action points at
+`/dos/app?view=library&resource=marriage-assessment`; the send sheet asks all
+four things on one screen with no second step, keeps **Create link** disabled
+until a role is chosen, preselects neither role, and names both people and
+both roles once one is; the recipient page renders white with nothing pinned
+over its content, and a wife-first link shows her as Wife.
+
+The shared database was read but never written: share assignments and
+assessment results were 0 before and after, and no synthetic record was
+created in it.
+
+### Remaining limitations, stated plainly
+
+- Nothing was exercised against the shared database or the deployed Vercel
+  runtime, because the network policy above makes both unreachable from here.
+  Production verification after the deploy is therefore read-only: the served
+  pages are fetched through the Vercel MCP tool, and the database is inspected
+  through the Supabase MCP tool. A write-path production test would need to be
+  run by hand or from an environment with egress.
 - `npm run test:dos:visual` records byte-for-byte baselines keyed by platform
   and only `darwin-arm64` baselines exist, so it skips on Linux and cannot be
-  re-recorded from here. This change moves the Library resource screens, so
-  the macOS baselines need re-recording on a Mac. That is carried forward
-  with the `mobile--person-record` re-record already outstanding from USA-278.
+  re-recorded from here. This change moves the Library resource screens, so the
+  macOS baselines need re-recording on a Mac. That is carried forward with the
+  `mobile--person-record` re-record already outstanding from USA-278.
 
 ## Out of scope
 
