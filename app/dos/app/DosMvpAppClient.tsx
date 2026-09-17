@@ -206,13 +206,28 @@ import { AssessmentCategoryTable } from "@/src/components/dos/assessments/Assess
 
 const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
 const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-0 md:py-0";
-const dosPhoneShellClassName = "relative isolate mx-auto flex h-[100dvh] w-full overflow-hidden bg-white shadow-[0_18px_60px_rgba(42,37,29,0.08)] md:h-[100dvh] md:max-h-none md:rounded-none md:border-0 md:bg-[#F8FBFF] md:shadow-none";
-/* The Person surface's own atmosphere: the DOS shell's blue and violet
-   passes, without its warm one, over an opaque base so the Field list
-   underneath cannot show through. */
-const dosPersonAtmosphereClassName = "bg-[#F8FBFF] bg-[radial-gradient(circle_at_78%_6%,rgba(219,234,254,0.95),transparent_36%),radial-gradient(circle_at_50%_58%,rgba(221,214,254,0.4),transparent_44%),linear-gradient(140deg,#FAFCFF_0%,#F5F8FF_52%,#EEF3FF_100%)]";
+const dosPhoneShellClassName = "relative isolate mx-auto flex h-[100dvh] w-full overflow-hidden shadow-[0_18px_60px_rgba(42,37,29,0.08)] md:h-[100dvh] md:max-h-none md:rounded-none md:border-0 md:shadow-none";
 
+/* The opaque base every DOS surface sits on: white on a phone, the app tint
+   from md up. Named once so the shell and the surfaces that overlay it cannot
+   drift apart. */
+const dosSurfaceBaseClassName = "bg-white md:bg-[#F8FBFF]";
+/* The decorative passes: blue, warm and violet over a dawn gradient. */
 const dosDawnShellClassName = "bg-[radial-gradient(circle_at_78%_8%,rgba(219,234,254,0.92),transparent_34%),radial-gradient(circle_at_86%_92%,rgba(254,215,170,0.54),transparent_36%),radial-gradient(circle_at_48%_62%,rgba(221,214,254,0.48),transparent_42%),linear-gradient(135deg,#F8FBFF_0%,#F6F8FF_48%,#FFF4EC_100%)]";
+
+/* THE DOS app background. One definition, used everywhere.
+ *
+ * The shell paints it, and so does any surface that sits OVER another screen
+ * rather than replacing it (the Person record and My Record are both absolute
+ * overlays on the People list) and therefore has to paint an opaque copy so
+ * the list underneath cannot show through.
+ *
+ * The Person record used to carry its own variant instead: the same blue and
+ * violet passes but without the warm one. That is the whole reason a Person
+ * read as a cool blue/lavender sheet while every other screen carried the warm
+ * pass in its lower corner. There is no Person-specific background any more --
+ * a surface either shows this or it shows nothing. */
+const dosAppBackgroundClassName = `${dosSurfaceBaseClassName} ${dosDawnShellClassName}`;
 const googleCalendarReconnectCopy = "Calendar permissions need to be updated.";
 const googleCalendarEmptyStateCopy = "No Google Calendar events found yet. Choose calendars to import or refresh your connection.";
 
@@ -32584,7 +32599,7 @@ function MyRecordWorkspace({
        search, the circle filter and the scroll position without My Record
        having to remember any of them. */
     <div
-      className={`absolute inset-0 overflow-y-auto px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${dosPersonAtmosphereClassName} pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:px-10 md:pb-24 lg:px-14`}
+      className={`absolute inset-0 overflow-y-auto px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${dosAppBackgroundClassName} pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:px-10 md:pb-24 lg:px-14`}
       ref={recordScrollRef}
     >
       <div className="mx-auto w-full max-w-[1080px]">
@@ -36721,11 +36736,10 @@ function PersonDetailOverlay({
          and `md:px-10` were present, so the winning value was whichever
          Tailwind ordered last, and the full-bleed RIGHT NOW band (which offsets
          by the padding) overshot by 16px at exactly 768px. */
-      /* The Person page carries the same DOS atmosphere as Home and Meetings
-         rather than a flat white sheet -- but opaque, since it overlays the
-         Field list. Blue and violet only: the shell's warm pass is left out
-         per the no-tan/cream direction. Sections sit on restrained white. */
-      className={`absolute inset-0 overflow-y-auto px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? `${dosPersonAtmosphereClassName} pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:px-10 md:pb-24 lg:px-14` : "bg-white pb-28 md:bg-[#F8FBFF] md:px-6"}`}
+      /* The Person page carries the SAME background as Home and Meetings, from
+         the same constant -- opaque, because it overlays the Field list.
+         Sections sit on restrained white. */
+      className={`absolute inset-0 overflow-y-auto px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? `${dosAppBackgroundClassName} pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:px-10 md:pb-24 lg:px-14` : `${dosSurfaceBaseClassName} pb-28 md:px-6`}`}
     >
       <div className={conceptMode
         ? "mx-auto w-full max-w-[1080px]"
@@ -45989,7 +46003,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 
   return (
     <div className={dosRootShellClassName}>
-      <div ref={appShellRef} className={`${dosPhoneShellClassName} ${dosDawnShellClassName}`}>
+      <div ref={appShellRef} className={`${dosPhoneShellClassName} ${dosAppBackgroundClassName}`}>
         <DesktopNavigation
           activeTab={activeTab}
           moreAppView={activeMoreAppView}
