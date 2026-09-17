@@ -202,7 +202,7 @@ import {
   shareParticipantSummary,
   type DosResourceShareStatus,
 } from "@/src/lib/dos/resource-sharing";
-import { AssessmentCategoryTable } from "@/src/components/dos/assessments/AssessmentUi";
+import { AssessmentReport } from "@/src/components/dos/assessments/AssessmentReport";
 
 const font = { oswald: "'Inter Tight', 'Inter', sans-serif", rajdhani: "'Inter', sans-serif" };
 const dosRootShellClassName = "mx-auto min-h-[100dvh] w-full bg-white text-[#0F172A] md:bg-[#F8FBFF] md:px-0 md:py-0";
@@ -31836,7 +31836,11 @@ function MyRecordMeetingCards({
    names answered no question the meeting pair above does not already answer,
    and each of those people is a Person record in their own right. */
 function MyRecordOverviewPanel({
+  assessmentResults,
   assignments,
+  onOpenShareResult,
+  onSendResource,
+  resourceShares,
   commitments,
   commitmentsEnabled,
   draftAssessments,
@@ -31855,7 +31859,13 @@ function MyRecordOverviewPanel({
   people,
   record,
 }: {
+  assessmentResults: DosAppAssessmentResult[];
   assignments: DosAppResourceAssignment[];
+  onOpenShareResult: (resultId: string) => void;
+  /* Null when the account holder has no linked People record, in which case
+     there is nobody to preselect and the action is not offered. */
+  onSendResource: (() => void) | null;
+  resourceShares: DosAppResourceShareAssignment[];
   commitments: DosAppPersonCommitment[];
   commitmentsEnabled: boolean;
   draftAssessments: MyRecordAssessmentLibraryItem[];
@@ -31989,6 +31999,57 @@ function MyRecordOverviewPanel({
             </div>
           ) : (
             <MyRecordSectionEmpty>Nothing open right now.</MyRecordSectionEmpty>
+          )}
+        </MyRecordSurfaceSection>
+
+        {/* USA-280: assessments this account holder is a participant in. The
+            same rows the spouse's People record shows, read from one source,
+            so a couple assessment appears on both records without being
+            stored twice. */}
+        <MyRecordSurfaceSection label="Resources">
+          <Eyebrow
+            action={onSendResource ? <MyRecordSectionAction onClick={onSendResource}>+ Add</MyRecordSectionAction> : undefined}
+            count={resourceShares.length || undefined}
+          >
+            Resources
+          </Eyebrow>
+          {resourceShares.length ? (
+            <div className="divide-y divide-dos-rule">
+              {resourceShares.map((share) => {
+                const shareResource = getDosResourceBySlug(share.resourceSlug);
+                const shareResult = share.resultId
+                  ? assessmentResults.find((result) => result.id === share.resultId) ?? null
+                  : null;
+
+                return (
+                  <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={share.id}>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{shareResource?.title ?? "Library resource"}</p>
+                      <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{shareParticipantSummary(share.participants)}</p>
+                      <p className="mt-1 flex items-center gap-2 text-[12.5px] text-dos-eyebrow">
+                        <StatusPill tone={dosResourceShareStatusTone(share.status)}>{dosResourceShareStatusLabel(share.status)}</StatusPill>
+                        <span>{dosResourceShareDateLine(share)}</span>
+                      </p>
+                    </div>
+                    {share.status === "completed" && shareResult ? (
+                      <div className="flex shrink-0 flex-col items-end gap-1.5">
+                        <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
+                        {onSendResource ? (
+                          <PDButton
+                            ariaLabel={`Send another ${shareResource?.title ?? "assessment"}`}
+                            onClick={onSendResource}
+                          >
+                            Send another
+                          </PDButton>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <MyRecordSectionEmpty>No assessments yet.</MyRecordSectionEmpty>
           )}
         </MyRecordSurfaceSection>
 
@@ -32348,14 +32409,24 @@ function MyRecordWorkspace({
   onSave,
   onScheduleMeeting,
   onTabChange,
+  assessmentResults,
+  onOpenShareResult,
+  onSendResource,
   people,
   profileName,
   record,
   reminders,
   resourceAssignments,
+  resourceShareAssignments,
   returnLabel = null,
   tab,
 }: {
+  /* USA-280: the assessments this account holder is a participant in, so a
+     Marriage Assessment they took reaches their own record and not only the
+     spouse's People page. */
+  assessmentResults: DosAppAssessmentResult[];
+  onOpenShareResult: (resultId: string) => void;
+  onSendResource: (() => void) | null;
   commitments: DosAppPersonCommitment[];
   commitmentsEnabled: boolean;
   errorMessage: string;
@@ -32387,12 +32458,47 @@ function MyRecordWorkspace({
   record: DosAppUserRecord;
   reminders: DosAppRelationshipReminder[];
   resourceAssignments: DosAppResourceAssignment[];
+  resourceShareAssignments: DosAppResourceShareAssignment[];
   /* USA-268: "Reports" when a discipleship meeting was opened from Reports,
      so Back returns there. The same prop Person and the meeting record use. */
   returnLabel?: string | null;
   tab: MyRecordTab;
 }) {
-  const timeline = useMemo(() => buildMyRecordTimeline(record, people), [people, record]);
+  /* USA-280: newest first, matching the Person record's ordering. */
+  const myResourceShares = useMemo(() => [...resourceShareAssignments].sort((first, second) => (
+    (parseDisplayDate(second.createdAt)?.getTime() ?? 0) - (parseDisplayDate(first.createdAt)?.getTime() ?? 0)
+  )), [resourceShareAssignments]);
+  const timeline = useMemo(() => {
+    /* The same two events the Person record records, worded the same way:
+       a link becoming ready is not a send, and only a completed assessment
+       opens its report. */
+    const shareItems: MyRecordTimelineItem[] = [
+      ...myResourceShares.map((share) => ({
+        badge: "Assessment",
+        body: shareParticipantSummary(share.participants),
+        date: share.createdAt,
+        icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+        id: `my-record-share-${share.id}`,
+        kind: "assessment" as const,
+        meta: dosResourceShareStatusLabel(share.status),
+        title: `Link ready for ${getDosResourceBySlug(share.resourceSlug)?.title ?? "Library resource"}`,
+      })),
+      ...myResourceShares.filter((share) => share.status === "completed").map((share) => ({
+        badge: "Assessment",
+        body: shareParticipantSummary(share.participants),
+        date: share.completedAt,
+        icon: <Sparkles className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+        id: `my-record-share-complete-${share.id}`,
+        kind: "assessment" as const,
+        meta: null,
+        title: `Completed ${getDosResourceBySlug(share.resourceSlug)?.title ?? "Library resource"}`,
+      })),
+    ];
+
+    return [...buildMyRecordTimeline(record, people), ...shareItems].sort((first, second) => (
+      (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0)
+    ));
+  }, [myResourceShares, people, record]);
   const activeMyRecordTab = normalizeMyRecordTab(tab);
   const recordScrollRef = useRef<HTMLDivElement>(null);
   const [isMyRecordFabOpen, setIsMyRecordFabOpen] = useState(false);
@@ -32673,7 +32779,11 @@ function MyRecordWorkspace({
             <div className="min-w-0 lg:flex-1">
               {activeMyRecordTab === "overview" ? (
                 <MyRecordOverviewPanel
+                  assessmentResults={assessmentResults}
                   assignments={resourceAssignments}
+                  onOpenShareResult={onOpenShareResult}
+                  onSendResource={onSendResource}
+                  resourceShares={myResourceShares}
                   commitments={commitments}
                   commitmentsEnabled={commitmentsEnabled}
                   draftAssessments={draftAssessments}
@@ -34506,9 +34616,13 @@ function AssessmentResourceContent({ resource }: { resource: DosResource }) {
 
   const [firstRole, secondRole] = assessment.participants;
 
+  /* USA-280: the assessment's own content sits on white rather than letting
+     the app shell's gradient show through it. The shell itself is untouched;
+     this is one resource's reading surface, the same white the preview, the
+     questionnaire and the report use. */
   return (
-    <div className="-mx-1">
-      <section className="border-y border-[#EAF2FF] bg-[#F8FBFF] px-4 py-5" aria-label="How this works">
+    <div className="-mx-1 overflow-hidden rounded-[14px] border border-[#EAF2FF] bg-white">
+      <section className="border-b border-[#EAF2FF] bg-white px-4 py-5" aria-label="How this works">
         <ul className="grid gap-2.5">
           {[
             `A couple answers ${assessment.questions.length} questions together.`,
@@ -34532,7 +34646,7 @@ function AssessmentResourceContent({ resource }: { resource: DosResource }) {
             </p>
           ))}
         </div>
-        <p className="mt-3 text-[13px] font-semibold text-[#64748B]">
+        <p className="mt-3 pb-5 text-[13px] font-semibold text-[#334E68]">
           {assessment.questions.length} questions in total. Preview shows every one.
         </p>
       </section>
@@ -35032,79 +35146,110 @@ function SendResourceSheet({
   );
 }
 
+/* USA-280: the completed assessment, full screen, sharing one component with
+   the copy the couple can reopen from their own link. It replaces a bottom
+   sheet that could not scroll far enough to reach the later answers. */
 function ResourceShareResultSheet({
+  allResults,
   onClose,
   result,
 }: {
+  allResults: DosAppAssessmentResult[];
   onClose: () => void;
   result: DosAppAssessmentResult;
 }) {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
   const answers = result.answers as {
     participantNames?: Record<string, string>;
     participants?: string[];
-    questions?: Array<{ group?: string; id: string; prompt: string; scores?: Record<string, number | null> }>;
+    questions?: Array<{ group?: string; id: string; note?: string | null; prompt: string; scores?: Record<string, number | null> }>;
   };
   const participants = Array.isArray(answers?.participants) ? answers.participants : [];
   const participantNames = answers?.participantNames ?? {};
   const questions = Array.isArray(answers?.questions) ? answers.questions : [];
-  const participantLabels = participants.map((role) => participantNames[role] ? `${participantNames[role]} (${role})` : role);
 
-  return (
-    <Sheet onClose={onClose} showEyebrow={false} size="wide" title={result.assessmentTitle}>
-      <div className="grid gap-4">
-        <div className="rounded-dos-1 border border-dos-line bg-white px-3.5 py-3">
-          <p className="text-dos-eyebrow uppercase text-dos-eyebrow">Result</p>
-          <p className="mt-1 text-dos-display text-dos-primary">{result.overallScore}<span className="text-dos-heading text-dos-disabled">/{result.maxScore}</span></p>
-          <p className="mt-1 text-dos-meta text-dos-secondary">
-            {result.percentage}% · {result.completedAt ? formatDate(result.completedAt) : "Date not recorded"}
-            {participantLabels.length ? ` · ${participantLabels.join(" · ")}` : ""}
-          </p>
-        </div>
+  /* The stored payload keeps each participant's own total only implicitly, as
+     the sum of their answers. Recomputing it here reads the same numbers the
+     couple gave; it introduces no new rule. */
+  const participantScores = participants.map((role) => ({
+    participant: role,
+    score: questions.reduce((total, question) => total + (question.scores?.[role] ?? 0), 0),
+  }));
 
-        {result.categoryScores.length ? (
-          /* husbandScore / wifeScore are stored by ROLE, so the column labels
-             are looked up by role too. Labelling them by participant order
-             would put the wife's figures under the husband's name on any
-             assignment that was sent to her first. */
-          <AssessmentCategoryTable
-            categories={result.categoryScores.map((category) => ({
-              husbandScore: category.husbandScore ?? 0,
-              maxScore: category.maxScore,
-              name: category.name,
-              percentage: category.percentage,
-              score: category.score,
-              wifeScore: category.wifeScore ?? 0,
-            }))}
-            firstLabel={participantNames.Husband || "Husband"}
-            secondLabel={participantNames.Wife || "Wife"}
-          />
-        ) : null}
+  /* The couple's previous assessment, if there is one. Matched on the two
+     People ids in either order, so a reassessment sent to the other spouse
+     still lines up, and compared only when the questionnaire and scale are
+     the same. Earlier results are never overwritten: each completion writes
+     its own dated row, and this only reads them. */
+  const coupleKey = [result.personId, result.secondaryPersonId].filter(Boolean).sort().join("|");
+  const previousResult = coupleKey
+    ? allResults
+      .filter((candidate) => (
+        candidate.id !== result.id
+        && candidate.assessmentType === result.assessmentType
+        && candidate.maxScore === result.maxScore
+        && [candidate.personId, candidate.secondaryPersonId].filter(Boolean).sort().join("|") === coupleKey
+        && (candidate.completedAt ?? "") < (result.completedAt ?? "")
+      ))
+      .sort((first, second) => (second.completedAt ?? "").localeCompare(first.completedAt ?? ""))[0] ?? null
+    : null;
+  const previousAnswers = previousResult?.answers as { questions?: Array<{ scores?: Record<string, number | null> }> } | undefined;
+  /* Scores are read by ROLE from the earlier payload, never by position. */
+  const comparison = previousResult && Array.isArray(previousAnswers?.questions)
+    ? {
+      completedAt: previousResult.completedAt,
+      participantScores: participants.map((role) => ({
+        participant: role,
+        score: (previousAnswers.questions ?? []).reduce((total, question) => total + (question.scores?.[role] ?? 0), 0),
+      })),
+    }
+    : null;
 
-        {questions.length ? (
-          <section className="rounded-dos-1 border border-dos-line bg-white p-3.5">
-            <h3 className="text-dos-label text-dos-primary">Answers</h3>
-            <div className="mt-2 divide-y divide-dos-rule">
-              {questions.map((question) => (
-                <div className="py-2.5" key={question.id}>
-                  <p className="text-[14.5px] leading-[1.45] text-dos-body">{question.prompt}</p>
-                  <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
-                    {participants.map((role) => (
-                      <span className="text-dos-meta text-dos-secondary" key={role}>
-                        <span className="font-semibold text-dos-primary">{participantNames[role] || role}</span>{" "}
-                        {typeof question.scores?.[role] === "number" ? question.scores?.[role] : "not answered"}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : null}
-
-        <Button fullWidth onClick={onClose} variant="secondary">Close</Button>
-      </div>
-    </Sheet>
+  /* USA-280: the report renders into the body, not into the app shell. The
+     shell is an `isolate` container, so a z-index inside it cannot outrank the
+     quick-action button, which portals to the body at z-90. Portaling the
+     report too puts z-dos-sheet back on the documented scale, and the button
+     stopped sitting on top of the couple's scores. */
+  const report = (
+    <div className="assessment-report-sheet fixed inset-0 z-dos-sheet overflow-y-auto overscroll-contain bg-white" role="dialog" aria-label={result.assessmentTitle}>
+      <AssessmentReport
+        backLabel="Close"
+        comparison={comparison}
+        data={{
+          categories: result.categoryScores.map((category) => ({
+            husbandScore: category.husbandScore ?? 0,
+            maxScore: category.maxScore,
+            name: category.name,
+            percentage: category.percentage,
+            score: category.score,
+            wifeScore: category.wifeScore ?? 0,
+          })),
+          completedAt: result.completedAt,
+          maxScore: result.maxScore,
+          overallScore: result.overallScore,
+          participantScores,
+          participants: participants.map((role) => ({ name: participantNames[role] || role, role })),
+          percentage: result.percentage,
+          questions: questions.map((question) => ({
+            group: question.group ?? null,
+            id: question.id,
+            note: question.note ?? null,
+            prompt: question.prompt,
+            scores: question.scores ?? {},
+          })),
+          title: result.assessmentTitle,
+        }}
+        onBack={onClose}
+      />
+    </div>
   );
+
+  return isMounted ? createPortal(report, document.body) : null;
 }
 
 function LibraryCatalogResourcePage({
@@ -35295,11 +35440,13 @@ function PDPill({
 }
 
 function PDButton({
+  ariaLabel,
   children,
   href,
   onClick,
   tone = "outline",
 }: {
+  ariaLabel?: string;
   children: ReactNode;
   href?: string;
   onClick?: () => void;
@@ -35319,14 +35466,14 @@ function PDButton({
 
   if (href) {
     return (
-      <a className={className} href={href} onClick={onClick}>
+      <a aria-label={ariaLabel} className={className} href={href} onClick={onClick}>
         {children}
       </a>
     );
   }
 
   return (
-    <button className={className} onClick={onClick} type="button">
+    <button aria-label={ariaLabel} className={className} onClick={onClick} type="button">
       {children}
     </button>
   );
@@ -36340,13 +36487,16 @@ function PersonDetailOverlay({
       title: `Completed ${resourceAssignmentTitle(assignment)}`,
     })),
     /* USA-278: assignment and completion reach the Timeline. Draft answers
-       never do -- a half-finished assessment is not a record of anything. */
+       never do -- a half-finished assessment is not a record of anything.
+       USA-280: creating a link is not sending. DOS makes the link; a person
+       decides whether to pass it on, and DOS never learns whether they did.
+       The Timeline says what actually happened. */
     ...personResourceShares.map((share) => ({
       date: share.createdAt,
       description: shareParticipantSummary(share.participants),
       id: `history-resource-share-${share.id}`,
       kind: "assessment" as const,
-      title: `Sent ${getDosResourceBySlug(share.resourceSlug)?.title ?? "Library resource"}`,
+      title: `Link ready for ${getDosResourceBySlug(share.resourceSlug)?.title ?? "Library resource"}`,
     })),
     ...personResourceShares.filter((share) => share.status === "completed").map((share) => ({
       date: share.completedAt,
@@ -37053,7 +37203,18 @@ function PersonDetailOverlay({
                                 </p>
                               </div>
                               {share.status === "completed" && shareResult ? (
-                                <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
+                                /* USA-280: a reassessment is an explicit action, and it
+                                   sends a new link rather than reopening the finished
+                                   one. The completed result stays exactly as it is. */
+                                <div className="flex shrink-0 flex-col items-end gap-1.5">
+                                  <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
+                                  <PDButton
+                                    ariaLabel={`Send another ${shareResource?.title ?? "assessment"}`}
+                                    onClick={() => onSendResource(person.id)}
+                                  >
+                                    Send another
+                                  </PDButton>
+                                </div>
                               ) : share.status === "revoked" || share.status === "expired" ? null : (
                                 <PDButton onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}${share.shareUrl}`)}>Copy link</PDButton>
                               )}
@@ -39355,6 +39516,15 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   const myRecordResourceAssignments = useMemo(() => (
     myRecordPerson ? data.resourceAssignments.filter((assignment) => assignment.personId === myRecordPerson.id) : []
   ), [data.resourceAssignments, myRecordPerson]);
+  /* USA-280: My Record read only Journey assignments, so an assessment the
+     account holder took never appeared on their own record even though the
+     verified identity link already named their People row. This is the same
+     helper the Person record uses, and it matches either participant, so a
+     husband sees a couple assessment his wife's link created. Nothing is
+     duplicated: the People records and My Record read one row. */
+  const myRecordResourceShares = useMemo(() => (
+    myRecordPerson ? dosResourceSharesForPerson(data.resourceShareAssignments, myRecordPerson.id) : []
+  ), [data.resourceShareAssignments, myRecordPerson]);
   /* USA-272: my own Accountability commitments, read from the same canonical
      store the Person page reads. My Record shows them; it never writes them. */
   const myRecordCommitments = useMemo(() => (
@@ -47135,11 +47305,15 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onSave={submitMyRecord}
             onScheduleMeeting={(personId) => openScheduleMeeting(personId ?? undefined)}
             onTabChange={setMyRecordTab}
+            assessmentResults={data.assessmentResults}
+            onOpenShareResult={setShareResultId}
+            onSendResource={myRecordPerson ? () => openSendResourceForPerson(myRecordPerson.id) : null}
             people={people}
             profileName={profileName}
             record={data.myRecord}
             reminders={data.reminders}
             resourceAssignments={myRecordResourceAssignments}
+            resourceShareAssignments={myRecordResourceShares}
             returnLabel={reportsReturn ? "Reports" : null}
             tab={myRecordTab}
           />
@@ -47545,6 +47719,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 
         {shareResultId && data.assessmentResults.some((result) => result.id === shareResultId) ? (
           <ResourceShareResultSheet
+            allResults={data.assessmentResults}
             onClose={() => setShareResultId(null)}
             result={data.assessmentResults.find((result) => result.id === shareResultId) as DosAppAssessmentResult}
           />

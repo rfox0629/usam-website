@@ -175,10 +175,11 @@ async function loadVerifiedIdentityLink(
   authorization: AuthorizedDos,
   workspaceId: string,
 ) {
-  if (authorization.access !== "member") {
-    return { error: null, identity: null };
-  }
-
+  /* USA-280: this reads one row keyed on the viewer's own user id and this
+     workspace, and only one already marked verified. That is safe to read for
+     an admin too, and it is the row My Record needs to know which People
+     record is the account holder's own. Inferring or creating a link is still
+     refused for admins by the caller. */
   const { data, error } = await supabase
     .from("dos_identity_links")
     .select("id, user_id, profile_id, person_id, workspace_id, organization_id, verification_status, verification_method, match_reasons, verified_at")
@@ -343,14 +344,22 @@ export async function resolveDosIdentityForWorkspace(
     workspaceId: string;
   },
 ): Promise<DosIdentityResolution> {
-  if (isAdminDosAuthorization(authorization)) {
-    return { message: "DOS admins do not need a workspace person identity link.", status: "unavailable" };
-  }
-
   const existingLinkResult = await loadVerifiedIdentityLink(supabase, authorization, input.workspaceId);
 
   if (existingLinkResult.identity) {
     return { identity: existingLinkResult.identity, status: "linked" };
+  }
+
+  /* USA-280: an admin still does not get a link inferred or created for them.
+     Admin access is workspace-wide, so matching an admin against a workspace's
+     People, or creating a person for them, would attach identities to
+     workspaces they are only administering. What changed is the order: a link
+     this workspace has already verified is now read first, for admins too.
+     Reading it is what lets My Record find the account holder's own People
+     row, and Ryan is an admin of his own workspace, so returning early here
+     left his record with no person and no assessments on it. */
+  if (isAdminDosAuthorization(authorization)) {
+    return { message: "DOS admins do not need a workspace person identity link.", status: "unavailable" };
   }
 
   if (missingIdentityTable(existingLinkResult.error)) {

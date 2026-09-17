@@ -239,6 +239,8 @@ export function isAssessmentComplete(
 /* One place that turns a complete answer map into everything a result row
    needs. The server calls this on submit so the stored score is computed from
    the stored answers, not from whatever the browser posted. */
+export type AssessmentSummary = ReturnType<typeof summarizeAssessment>;
+
 export function summarizeAssessment({
   answers,
   maxScore,

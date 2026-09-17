@@ -29,7 +29,7 @@ const expectedColors = {
   ink2: "#5A6473",
   eyebrow: "#6B7686",
   eyebrowSection: "#2251E8",
-  disabled: "#9AA3B2",
+  disabled: "#68707F",
   blue: "#2251E8",
   blueText: "#1E3FB8",
   blue50: "#F1F4FF",

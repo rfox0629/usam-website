@@ -2394,12 +2394,27 @@ function safeDurationMinutes(value: number | null | undefined) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
 
+/* USA-280: an email address is not a name. My Record's heading read
+   "ryan@..." because this placeholder, and the row the API writes with the
+   same fallback, put the sign-in address where the person's name belongs.
+   Returning null lets the caller fall back to the workspace profile name,
+   which comes from links this workspace has already verified. */
+function myRecordDisplayName(value: string | null | undefined) {
+  const cleaned = value?.trim();
+
+  if (!cleaned || cleaned.includes("@")) {
+    return null;
+  }
+
+  return cleaned;
+}
+
 function emptyMyRecord(workspaceId: string, viewer?: DosAuthorizedUser | null): DosAppUserRecord {
   return {
     assessmentResults: [],
     createdAt: null,
     currentSeasonFocus: null,
-    displayName: viewer?.email ?? null,
+    displayName: null,
     externalAssessmentResults: [],
     id: null,
     journalEntries: [],
@@ -3672,7 +3687,7 @@ async function loadMyRecordForWorkspace(
       assessmentResults,
       createdAt: recordRow.created_at,
       currentSeasonFocus: recordRow.current_season_focus,
-      displayName: recordRow.display_name,
+      displayName: myRecordDisplayName(recordRow.display_name),
       externalAssessmentResults,
       id: recordRow.id,
       journalEntries,
@@ -5616,6 +5631,32 @@ export async function loadDosAppData(
     };
   }).sort((first, second) => activityDateValue(first.startAt) - activityDateValue(second.startAt));
 
+  /* USA-280: My Record's heading showed an email address because this was
+     always null. The name comes from links this workspace has already
+     verified, never from matching on a name:
+
+       1. the viewer's own team member row, found by dos_user_id, which is the
+          same link the rest of DOS treats as proof of identity;
+       2. failing that, the People record the verified dos_identity_links row
+          points at.
+
+     Both are absent for a connected read, where the viewer is looking at
+     someone else's workspace and has no identity in it. */
+  const viewerIdentityValues = viewer ? uniqueStrings([viewer.userId, viewer.email]) : [];
+  const viewerTeamMemberName = viewerIdentityValues.length
+    ? cleanOptionalText(
+      householdMemberRows.find((member) => {
+        const linkedValue = member.dos_user_id?.trim();
+
+        return Boolean(linkedValue) && viewerIdentityValues.some((value) => value.toLowerCase() === linkedValue!.toLowerCase());
+      })?.display_name ?? null,
+    )
+    : null;
+  const viewerPersonName = viewerPersonId
+    ? cleanOptionalText(people.find((person) => person.id === viewerPersonId)?.name ?? null)
+    : null;
+  const viewerFullName = connectedRead ? null : (viewerTeamMemberName ?? viewerPersonName);
+
   return {
     data: {
       accountabilityCheckInCommitments,
@@ -5684,7 +5725,7 @@ export async function loadDosAppData(
         slug: workspace.slug,
         stateName: cleanOptionalText(workspace.primary_state ?? workspace.location),
         userEmail: viewer?.access === "member" ? viewer.email : null,
-        userFullName: null,
+        userFullName: viewerFullName,
         userPersonId: viewerPersonId,
         userPhone: null,
       },

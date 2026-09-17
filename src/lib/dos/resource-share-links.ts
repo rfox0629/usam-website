@@ -22,6 +22,7 @@ import {
   normalizeAssessmentAnswers,
   summarizeAssessment,
   type AssessmentAnswerMap,
+  type AssessmentSummary,
 } from "@/src/lib/dos/assessment-scoring";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
@@ -450,7 +451,22 @@ export type DosResourceShareLinkState =
     token: string;
     typeLabel: string;
   }
-  | { status: "completed" }
+  /* USA-280: a completed link is no longer a dead end. The couple who
+     answered can reopen it and read their own report, for as long as the
+     link itself remains valid. Expiry and revocation still cut it off, and
+     the payload is still only this one assignment. */
+  | {
+    completedAt: string | null;
+    expiresAt: string | null;
+    participants: Array<{ name: string; role: string }>;
+    report: AssessmentSummary;
+    requestedByName: string;
+    resourceSlug: string;
+    responses: AssessmentAnswerMap;
+    status: "completed";
+    title: string;
+    questions: readonly DosAssessmentQuestion[];
+  }
   | { status: "expired" | "invalid" | "not_configured" | "revoked" };
 
 /* Everything the recipient page is allowed to know. Only the two participant
@@ -492,8 +508,36 @@ export async function loadDosResourceShareLink(token: string): Promise<DosResour
     return { status: "revoked" };
   }
 
+  /* A revoked or expired link is refused above and below this branch, so
+     reopening a completed one never outlives the access it was given. */
   if (row.status === "completed") {
-    return { status: "completed" };
+    if (isExpired(row)) {
+      return { status: "expired" };
+    }
+
+    const participantRoles = [row.primary_participant_role, row.secondary_participant_role];
+    const completedAnswers = normalizeAssessmentAnswers(row.responses, assessment.questions, participantRoles);
+
+    return {
+      completedAt: row.completed_at,
+      expiresAt: row.expires_at,
+      participants: [
+        { name: row.primary_participant_name, role: row.primary_participant_role },
+        { name: row.secondary_participant_name, role: row.secondary_participant_role },
+      ],
+      questions: assessment.questions,
+      report: summarizeAssessment({
+        answers: completedAnswers,
+        maxScore: assessment.maxScore,
+        participants: participantRoles,
+        questions: assessment.questions,
+      }),
+      requestedByName: shareRequesterDisplayName(row.requested_by_name),
+      resourceSlug: row.resource_slug,
+      responses: completedAnswers,
+      status: "completed",
+      title: resource.title,
+    };
   }
 
   if (row.status === "expired" || isExpired(row)) {

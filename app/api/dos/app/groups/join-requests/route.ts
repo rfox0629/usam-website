@@ -219,35 +219,54 @@ async function findPossiblePersonMatches(
     });
   }
 
+  /* USA-280: this compared the incoming phone against the stored string
+     exactly, so "(651) 245-3375" on file never matched "6512453375" on the
+     request and a second person was created for somebody already in the
+     workspace. That is how the duplicate Brooke Fox record came to exist.
+
+     Phone formatting is not identity: compare digits to digits. PostgREST
+     cannot normalise inside a filter, so the workspace's own contacts are read
+     and compared here. The read stays scoped to this workspace and to rows
+     that have a phone at all.
+
+     Widening the match deliberately feeds the caller's existing ambiguity
+     branch: two people who share a phone produce two candidates, and the
+     caller refuses and asks a human to choose. Nothing is merged
+     automatically on a phone number. */
   if (phone) {
-    const phoneValues = Array.from(new Set([phone, joinRequest.phone].filter(Boolean) as string[]));
     const { data, error } = await supabase
       .from("missionary_field_people")
       .select("id, name, phone, email")
       .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
-      .in("phone", phoneValues)
+      .not("phone", "is", null)
       .order("updated_at", { ascending: false })
-      .limit(10);
+      .limit(1000);
 
     if (error) {
       return { response: NextResponse.json({ error: error.message }, { status: 500 }) };
     }
 
-    ((data ?? []) as PersonRow[]).forEach((person) => {
-      const existing = peopleById.get(person.id);
+    ((data ?? []) as PersonRow[])
+      .filter((person) => {
+        /* normalizePhone already refuses anything under seven digits, which
+           is the shortest value worth treating as a phone number. */
+        return normalizePhone(person.phone) === phone;
+      })
+      .forEach((person) => {
+        const existing = peopleById.get(person.id);
 
-      if (existing) {
-        if (!existing.matchReasons.includes("phone")) {
-          existing.matchReasons.push("phone");
+        if (existing) {
+          if (!existing.matchReasons.includes("phone")) {
+            existing.matchReasons.push("phone");
+          }
+          return;
         }
-        return;
-      }
 
-      peopleById.set(person.id, {
-        ...person,
-        matchReasons: ["phone"],
+        peopleById.set(person.id, {
+          ...person,
+          matchReasons: ["phone"],
+        });
       });
-    });
   }
 
   return { people: Array.from(peopleById.values()) };

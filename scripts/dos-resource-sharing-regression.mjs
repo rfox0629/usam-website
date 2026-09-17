@@ -262,10 +262,54 @@ const recipientPage = read("app/dos/resource/[token]/page.tsx");
 const recipientForm = read("app/dos/resource/[token]/DosSharedAssessmentForm.tsx");
 
 assert.ok(recipientPage.includes("loadDosResourceShareLink"));
-for (const state of ["expired", "invalid", "revoked", "completed", "not_configured"]) {
+/* USA-280: a completed link is no longer a dead end, so it has no state copy;
+   it renders the couple's own report. The refusal states still do. */
+for (const state of ["expired", "invalid", "revoked", "not_configured"]) {
   assert.ok(recipientPage.includes(`${state}: {`), `recipient page missing state copy: ${state}`);
 }
+assert.ok(!recipientPage.includes("completed: {"), "a completed link shows the report, not a thank-you dead end");
+assert.ok(recipientPage.includes("DosSharedAssessmentReport"), "a completed link renders the shared report");
 assert.ok(recipientPage.includes("index: false"), "a token page is never indexed");
+
+/* USA-280: the link preview names the assessment, and never carries a token. */
+assert.ok(recipientPage.includes("openGraph"), "the recipient page declares its own share card");
+assert.ok(
+  recipientPage.includes("/share/assessment/${dosShareableResourceSlugs[0]}"),
+  "the share card is addressed by resource slug",
+);
+assert.ok(!/share\/assessment\/\$\{[^}]*token/.test(recipientPage), "no token reaches the share image URL");
+
+const shareCardRoute = read("app/share/assessment/[slug]/route.tsx");
+assert.ok(shareCardRoute.includes("generateStaticParams"), "the assessment share card is prerendered per slug");
+/* Comments in that file discuss tokens at length; the code must not use one. */
+assert.ok(
+  !shareCardRoute.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/[^\n]*/g, "").includes("token"),
+  "the share card route never reads a token",
+);
+
+/* USA-280: the report is shared, scrollable, printable, and honest about the
+   number it leads with. */
+const report = read("src/components/dos/assessments/AssessmentReport.tsx");
+assert.ok(report.includes("Print or save as PDF"), "the report can be printed");
+assert.ok(report.includes("@media print"), "the report has a print layout");
+assert.ok(report.includes("assessment-report-hide-on-print"), "app controls are hidden in print");
+assert.ok(report.includes("break-inside: avoid"), "print avoids splitting a section mid-answer");
+assert.ok(report.includes("the average of your two scores"), "the headline figure is labelled as an average");
+assert.ok(/not a\s+measure of your marriage/.test(report), "the report refuses to read as a diagnosis");
+assert.ok(report.includes("Every answer"), "every answer is in the report");
+assert.ok(!report.includes("\u2014"), "the report uses no em dashes");
+
+const sharedReport = read("app/dos/resource/[token]/DosSharedAssessmentReport.tsx");
+assert.ok(sharedReport.includes("AssessmentReport"), "the recipient view reuses the shared report");
+assert.ok(sharedReport.includes("can see these results"), "the recipient is told who can see the results");
+
+/* USA-280: Next and Previous move the real scroll container, not the window. */
+assert.ok(recipientForm.includes("nearestScrollableAncestor"), "the form scrolls the container that actually scrolls");
+assert.ok(recipientForm.includes("target.focus("), "focus moves to the new section");
+assert.ok(
+  /useEffect\(\(\) => \{[\s\S]*?revealSection[\s\S]*?\}, \[activeGroupIndex, stage\]\)/.test(recipientForm),
+  "the scroll effect depends on the step alone, so autosaves never move the reader",
+);
 
 assert.ok(recipientForm.includes("Start assessment"), "the recipient's own assessment says Start assessment");
 assert.ok(recipientForm.includes("Resume assessment"), "saved progress resumes rather than restarting");
@@ -415,4 +459,81 @@ assert.ok(
 );
 assert.ok(loader.includes("loadResourceAssignmentsForWorkspace"), "Journey assignments still load");
 
-console.log("DOS resource sharing (USA-278 / USA-279) regression passed.");
+/* ---- USA-280: My Record reaches the account holder's own record ---------- */
+
+const identity = read("src/lib/dos/identity.ts");
+const linkLoaderStart = identity.indexOf("async function loadVerifiedIdentityLink");
+const linkLoaderBody = identity.slice(linkLoaderStart, identity.indexOf("async function loadCandidatePeople"));
+
+assert.ok(
+  !/authorization\.access !== "member"/.test(linkLoaderBody),
+  "an admin must be able to READ a link this workspace already verified, or My Record has no person",
+);
+assert.ok(
+  linkLoaderBody.includes('.eq("verification_status", "verified")'),
+  "only a verified link is ever read",
+);
+assert.ok(
+  identity.indexOf("const existingLinkResult = await loadVerifiedIdentityLink")
+    < identity.indexOf('return { message: "DOS admins do not need a workspace person identity link."'),
+  "the verified link is read BEFORE the admin guard, and the guard still blocks inferring or creating one",
+);
+assert.ok(
+  /isAdminDosAuthorization\(authorization\)[\s\S]{0,120}DOS admins do not need a workspace person identity link/.test(identity),
+  "admins are still refused an inferred or newly created identity link",
+);
+
+assert.ok(
+  !/displayName: viewer\?\.email/.test(loader),
+  "My Record must not fall back to the sign-in address for a person's name",
+);
+assert.ok(
+  loader.includes("function myRecordDisplayName"),
+  "an email-shaped stored display name is rejected rather than shown as a name",
+);
+
+const myRecordRoute = read("app/api/dos/app/my-record/route.ts");
+assert.ok(
+  !/display_name: displayName \|\| auth/.test(myRecordRoute),
+  "the API must not write the sign-in address into display_name",
+);
+
+/* ---- USA-280: the report on paper --------------------------------------- */
+
+const reportSource = read("src/components/dos/assessments/AssessmentReport.tsx");
+
+assert.ok(
+  reportSource.includes(".assessment-report :where(p, li, dd) { color: inherit; }"),
+  "the site's pale-grey <p> default must not win inside the report",
+);
+assert.ok(
+  reportSource.includes("body:has(> .assessment-report-sheet) > *:not(.assessment-report-sheet) { display: none !important; }"),
+  "printing the report must not print the app behind it",
+);
+assert.ok(
+  /\.assessment-report-sheet \{[^}]*position: static !important;/.test(reportSource),
+  "a fixed sheet cannot paginate, so it becomes an ordinary document on paper",
+);
+
+const appClient = read("app/dos/app/DosMvpAppClient.tsx");
+
+assert.ok(
+  appClient.includes('className="assessment-report-sheet fixed inset-0 z-dos-sheet'),
+  "the DOS report sheet carries the class its print rules target",
+);
+assert.ok(
+  /const report = \(\s*<div className="assessment-report-sheet[\s\S]{0,4000}return isMounted \? createPortal\(report, document\.body\) : null;/.test(appClient),
+  "the report portals to the body, so z-dos-sheet outranks the quick-action button",
+);
+assert.ok(
+  appClient.includes("Send another"),
+  "a reassessment is an explicit action, not a reuse of the finished link",
+);
+
+const dosLayout = read("app/dos/app/layout.tsx");
+assert.ok(
+  dosLayout.includes(".dos-app-route :where(p, li, dd)"),
+  "DOS paragraphs inherit their container's colour instead of the dark site's grey",
+);
+
+console.log("DOS resource sharing (USA-278 / USA-279 / USA-280) regression passed.");
