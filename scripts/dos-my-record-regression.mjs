@@ -283,7 +283,7 @@ const aliasSource = client.slice(client.indexOf("const myRecordTabAliases"), cli
 
 // 6. My Record is built from the Person page's own composition.
 const myRecordWorkspaceSource = client.slice(client.indexOf("function MyRecordWorkspace"), client.indexOf("function GrowthMilestoneRow"));
-assert(myRecordWorkspaceSource.includes("dosPersonAtmosphereClassName") && myRecordWorkspaceSource.includes("absolute inset-0 overflow-y-auto px-4 pt-7"), "USA-272: My Record uses the Person overlay shell.");
+assert(myRecordWorkspaceSource.includes("dosAppBackgroundClassName") && myRecordWorkspaceSource.includes("absolute inset-0 overflow-y-auto px-4 pt-7"), "USA-272: My Record uses the Person overlay shell, on the shared DOS app background.");
 assert(myRecordWorkspaceSource.includes("<Segmented") && !myRecordWorkspaceSource.includes("<PillRail"), "USA-272: three fixed views use the canonical Segmented control, as Person does.");
 assert(myRecordWorkspaceSource.includes('className="mx-auto w-full max-w-[600px] pb-1 lg:mx-0 lg:max-w-[936px]"'), "USA-272: the rail mirrors Person's content geometry.");
 assert(myRecordWorkspaceSource.includes('<article aria-label="My Record" className="mx-auto w-full max-w-[600px] lg:mx-0 lg:max-w-[936px]">'), "USA-272: the content column matches Person's.");
