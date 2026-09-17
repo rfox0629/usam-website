@@ -5,6 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "typecheck": "tsc --noEmit",
+    "arch:validate": "node scripts/architecture/validate-architecture.mjs",
+    "arch:deps": "node scripts/architecture/dependency-report.mjs",
+    "arch:deps:check": "node scripts/architecture/dependency-report.mjs --check",
+    "arch:deps:baseline": "node scripts/architecture/dependency-report.mjs --write-baseline",
+    "arch:test": "node --test scripts/architecture/architecture.test.mjs",
     "smoke": "node scripts/ci-smoke.mjs",
     "test:operations-communications": "node scripts/operations-communications-regression.mjs",
     "communications:import": "node scripts/communications-audience-import.mjs",
