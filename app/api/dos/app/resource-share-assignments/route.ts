@@ -6,6 +6,8 @@ import { asString } from "@/src/lib/dos/review-requests";
 import {
   createDosResourceShareAssignment,
   linkDosResourceShareSpouse,
+  removeDosResourceShareAssignment,
+  restoreDosResourceShareAssignment,
   revokeDosResourceShareAssignment,
 } from "@/src/lib/dos/resource-share-links";
 import { isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
@@ -135,6 +137,32 @@ export async function PATCH(request: Request) {
   try {
     if (action === "revoke") {
       const result = await revokeDosResourceShareAssignment({ assignmentId, workspaceId });
+
+      return result.ok
+        ? NextResponse.json({ ok: true })
+        : NextResponse.json({ error: result.error }, { status: result.status });
+    }
+
+    /* USA-281: removal is a separate action from revocation, not a rename of
+       it. Revoking only ever applied to a live link; removing has to work on a
+       completed assessment too, and it preserves the responses and the result
+       either way. The workspace was proved above, so an id belonging to
+       another workspace is a 404 inside the library rather than an update
+       that finds nothing. */
+    if (action === "remove") {
+      const result = await removeDosResourceShareAssignment({
+        assignmentId,
+        removedByUserId: authResult.authorization.status === "authorized" ? authResult.authorization.userId : null,
+        workspaceId,
+      });
+
+      return result.ok
+        ? NextResponse.json({ linkRevoked: result.linkRevoked, ok: true, resultPreserved: result.resultPreserved })
+        : NextResponse.json({ error: result.error }, { status: result.status });
+    }
+
+    if (action === "restore") {
+      const result = await restoreDosResourceShareAssignment({ assignmentId, workspaceId });
 
       return result.ok
         ? NextResponse.json({ ok: true })

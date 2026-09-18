@@ -2394,9 +2394,14 @@ await check("Keep editing is the safe default and does not rebuild the form", as
   );
   assert(!/onExit\(\)/.test(guard.slice(guard.indexOf("onKeepEditing"))), "Keep editing must never exit.");
 
-  /* Escape and the dialog's own backdrop choose the safe option. */
-  assert(/event.key === "Escape"[\s\S]{0,80}onKeepEditing\(\)/.test(dialog), "Escape keeps editing.");
-  assert(/onMouseDown=\{onKeepEditing\}/.test(dialog), "The dialog's backdrop keeps editing rather than discarding.");
+  /* Escape and the dialog's own backdrop choose the safe option. USA-281
+     follow-up: the shell is now shared with the removal confirmation, so the
+     guarantee is checked where it is implemented, plus the wiring that carries
+     "keep editing" into it. */
+  assert(/event.key === "Escape"[\s\S]{0,80}onCancel\(\)/.test(dialog), "Escape takes the safe option.");
+  assert(/onMouseDown=\{onCancel\}/.test(dialog), "The dialog's backdrop takes the safe option rather than the destructive one.");
+  assert(/onCancel=\{onKeepEditing\}/.test(dialog), "For unsaved work the safe option is Keep editing.");
+  assert(/onConfirm=\{onDiscard\}/.test(dialog), "Discard stays the deliberate press.");
 
   /* Discard is the only thing that throws work away. */
   assert(/onDiscard=\{\(\) => \{[\s\S]{0,120}onExit\(\)/.test(guard), "Only Discard exits with unsaved changes.");

@@ -42,6 +42,10 @@ export type DosResourceShareRow = {
   primary_participant_name: string;
   primary_participant_role: string;
   primary_person_id: string;
+  /* USA-281: set when a workspace member takes this assessment off the
+     record. Present only once the removal migration is applied, so every read
+     that asks for it falls back to the old column list. */
+  removed_at?: string | null;
   requested_by_name: string | null;
   resource_slug: string;
   responses: Record<string, unknown> | null;
@@ -58,6 +62,19 @@ export type DosResourceShareRow = {
 };
 
 const shareColumns = "id, workspace_id, resource_slug, primary_person_id, secondary_person_id, primary_participant_name, secondary_participant_name, primary_participant_role, secondary_participant_role, requested_by_name, status, token, expires_at, opened_at, started_at, completed_at, revoked_at, responses, result_id, created_at, updated_at";
+
+/* USA-281: the same list plus the removal columns. Asked for first, so that a
+   removed assessment is refused everywhere; falls back to shareColumns when
+   the migration has not been applied yet, which is the pre-removal behaviour
+   and correct until then. */
+const shareColumnsWithRemoval = `${shareColumns}, removed_at, removed_by_user_id`;
+
+export function isMissingResourceShareRemovalColumn(error: SupabaseError) {
+  const message = error?.message?.toLowerCase() ?? "";
+
+  return (message.includes("removed_at") || message.includes("removed_by_user_id"))
+    && (message.includes("does not exist") || message.includes("schema cache") || message.includes("could not find"));
+}
 
 export function isMissingResourceShareTable(error: SupabaseError) {
   const message = error?.message?.toLowerCase() ?? "";
@@ -376,6 +393,164 @@ export async function revokeDosResourceShareAssignment({
     : { error: "That link is no longer active.", ok: false as const, status: 404 };
 }
 
+/* USA-281: taking a sent assessment off the record.
+
+   This is NOT revocation with a different name. Revoking kills a live link and
+   is refused on anything already finished. Removal has to work on a completed
+   assessment too, which is the case the deployed Journey control never
+   covered, and a completed row cannot be marked revoked at all: the table's
+   completed_check and revoked_check constraints contradict each other on one
+   row.
+
+   So removal always sets removed_at, and additionally revokes when there is a
+   live link to revoke. Answers, completed_at, result_id and the
+   dos_assessment_results row are never touched, in either shape. */
+type ShareRemovalTarget = Pick<DosResourceShareRow, "completed_at" | "id" | "result_id" | "status"> & { removed_at?: string | null };
+
+async function loadShareAssignmentForRemoval(assignmentId: string, workspaceId: string) {
+  const supabase = createSupabaseAdminClient();
+  const columns = "id, status, completed_at, result_id, removed_at";
+  const scoped = await supabase
+    .from(shareTable)
+    .select(columns)
+    .eq("id", assignmentId)
+    /* Workspace scoping is part of the lookup, so an id from another
+       workspace is a 404 before anything is read, not after. */
+    .eq("workspace_id", workspaceId)
+    .maybeSingle();
+
+  if (scoped.error && isMissingResourceShareRemovalColumn(scoped.error)) {
+    return supabase
+      .from(shareTable)
+      .select("id, status, completed_at, result_id")
+      .eq("id", assignmentId)
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+  }
+
+  return scoped;
+}
+
+export async function removeDosResourceShareAssignment({
+  assignmentId,
+  removedByUserId,
+  workspaceId,
+}: {
+  assignmentId: string;
+  removedByUserId: string | null;
+  workspaceId: string;
+}) {
+  if (!isUuidValue(assignmentId)) {
+    return { error: "Assessment is invalid.", ok: false as const, status: 400 };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const existing = await loadShareAssignmentForRemoval(assignmentId, workspaceId);
+
+  if (existing.error) {
+    if (isMissingResourceShareTable(existing.error)) {
+      return { error: "Resource sending is not installed yet.", ok: false as const, status: 503 };
+    }
+
+    return { error: existing.error.message, ok: false as const, status: 500 };
+  }
+
+  const row = existing.data as ShareRemovalTarget | null;
+
+  if (!row) {
+    return { error: "That assessment is not on this record.", ok: false as const, status: 404 };
+  }
+
+  if (row.removed_at) {
+    return { error: "That assessment has already been removed.", ok: false as const, status: 404 };
+  }
+
+  const now = new Date().toISOString();
+  const wasCompleted = row.status === "completed";
+  const hadLiveLink = row.status === "link_ready" || row.status === "in_progress";
+  const update: Record<string, unknown> = {
+    removed_at: now,
+    removed_by_user_id: removedByUserId,
+  };
+
+  /* A link someone may already be holding is revoked as part of removal, so
+     an unfinished assessment cannot be opened or answered afterwards. A
+     completed row keeps its status, and the token path refuses it on
+     removed_at instead. */
+  if (hadLiveLink) {
+    update.revoked_at = now;
+    update.status = "revoked";
+  }
+
+  const result = await supabase
+    .from(shareTable)
+    .update(update)
+    .eq("id", assignmentId)
+    .eq("workspace_id", workspaceId)
+    .is("removed_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (result.error) {
+    if (isMissingResourceShareRemovalColumn(result.error)) {
+      return { error: "Removing an assessment is not installed yet.", ok: false as const, status: 503 };
+    }
+
+    if (isMissingResourceShareTable(result.error)) {
+      return { error: "Resource sending is not installed yet.", ok: false as const, status: 503 };
+    }
+
+    return { error: result.error.message, ok: false as const, status: 500 };
+  }
+
+  return result.data?.id
+    ? { id: result.data.id, linkRevoked: hadLiveLink, ok: true as const, resultPreserved: wasCompleted && Boolean(row.result_id) }
+    : { error: "That assessment is not on this record.", ok: false as const, status: 404 };
+}
+
+/* The inverse, for a removal made by mistake. It clears removed_at and
+   nothing else. A link revoked as part of removing an unfinished assessment
+   stays revoked on purpose: a public URL that was withdrawn should not start
+   working again because someone pressed undo. Restoring a completed
+   assessment brings back the whole record, its answers and its result. */
+export async function restoreDosResourceShareAssignment({
+  assignmentId,
+  workspaceId,
+}: {
+  assignmentId: string;
+  workspaceId: string;
+}) {
+  if (!isUuidValue(assignmentId)) {
+    return { error: "Assessment is invalid.", ok: false as const, status: 400 };
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const result = await supabase
+    .from(shareTable)
+    .update({ removed_at: null, removed_by_user_id: null })
+    .eq("id", assignmentId)
+    .eq("workspace_id", workspaceId)
+    .not("removed_at", "is", null)
+    .select("id")
+    .maybeSingle();
+
+  if (result.error) {
+    if (isMissingResourceShareRemovalColumn(result.error)) {
+      return { error: "Removing an assessment is not installed yet.", ok: false as const, status: 503 };
+    }
+
+    if (isMissingResourceShareTable(result.error)) {
+      return { error: "Resource sending is not installed yet.", ok: false as const, status: 503 };
+    }
+
+    return { error: result.error.message, ok: false as const, status: 500 };
+  }
+
+  return result.data?.id
+    ? { id: result.data.id, ok: true as const }
+    : { error: "That assessment was not removed.", ok: false as const, status: 404 };
+}
+
 /* Linking a spouse's contact record after the fact. Responses are untouched:
    the entered participant name stays as the attribution, the People record is
    added beside it. */
@@ -481,12 +656,7 @@ export async function loadDosResourceShareLink(token: string): Promise<DosResour
     return { status: "invalid" };
   }
 
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from(shareTable)
-    .select(shareColumns)
-    .eq("token", token)
-    .maybeSingle();
+  const { data, error } = await selectShareRowByToken(token);
 
   if (error) {
     return isMissingResourceShareTable(error) ? { status: "not_configured" } : { status: "invalid" };
@@ -502,6 +672,13 @@ export async function loadDosResourceShareLink(token: string): Promise<DosResour
 
   if (!resource || !assessment || !isDosResourceShareEnabled(resource)) {
     return { status: "invalid" };
+  }
+
+  /* USA-281: a removed assessment is refused here, ahead of the completed
+     branch below. This is the check that stops a removed RESULT from staying
+     readable through a link the couple already has. */
+  if (row.removed_at) {
+    return { status: "revoked" };
   }
 
   if (row.status === "revoked") {
@@ -566,17 +743,34 @@ export async function loadDosResourceShareLink(token: string): Promise<DosResour
   };
 }
 
+/* Every token read goes through here, so that removal cuts off public access
+   in one place rather than in each caller. The removal columns are asked for
+   first and the old list is used when they are not there yet. */
+async function selectShareRowByToken(token: string) {
+  const supabase = createSupabaseAdminClient();
+  const withRemoval = await supabase
+    .from(shareTable)
+    .select(shareColumnsWithRemoval)
+    .eq("token", token)
+    .maybeSingle();
+
+  if (withRemoval.error && isMissingResourceShareRemovalColumn(withRemoval.error)) {
+    return supabase
+      .from(shareTable)
+      .select(shareColumns)
+      .eq("token", token)
+      .maybeSingle();
+  }
+
+  return withRemoval;
+}
+
 async function loadShareRowForToken(token: string) {
   if (!isValidDosResourceShareToken(token)) {
     return { error: "This link is not available.", status: 404 as const };
   }
 
-  const supabase = createSupabaseAdminClient();
-  const { data, error } = await supabase
-    .from(shareTable)
-    .select(shareColumns)
-    .eq("token", token)
-    .maybeSingle();
+  const { data, error } = await selectShareRowByToken(token);
 
   if (error) {
     return isMissingResourceShareTable(error)
@@ -589,6 +783,14 @@ async function loadShareRowForToken(token: string) {
   }
 
   const row = data as DosResourceShareRow;
+
+  /* USA-281: checked before status, so a removed assessment is refused in
+     every shape it can be in, including a completed one whose status is still
+     "completed". The recipient is told the link was withdrawn, which is what
+     happened, and is told nothing about the record it was withdrawn from. */
+  if (row.removed_at) {
+    return { error: "This link has been revoked.", status: 410 as const };
+  }
 
   if (row.status === "revoked") {
     return { error: "This link has been revoked.", status: 410 as const };

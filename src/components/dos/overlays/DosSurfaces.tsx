@@ -130,6 +130,50 @@ export function DiscardChangesDialog({
   onDiscard: () => void;
   onKeepEditing: () => void;
 }) {
+  return (
+    <DosConfirmDialog
+      cancelLabel={copy.cancel}
+      confirmLabel={copy.confirm}
+      description={copy.description}
+      onCancel={onKeepEditing}
+      onConfirm={onDiscard}
+      title={copy.title}
+    />
+  );
+}
+
+/* The confirmation shell both DOS confirmations use.
+ *
+ * DiscardChangesDialog above is the unsaved-work case; a destructive action
+ * such as removing an assessment from a record is the other. They are the same
+ * decision shape -- a question, what it will do, a safe way out and one
+ * deliberate press -- so they are one implementation rather than two that
+ * drift.
+ *
+ * The safe choice is first, is the filled button, and is what Escape and the
+ * backdrop do, because this dialog exists to catch accidents. The destructive
+ * choice is a plain text button in red: it should take a deliberate press.
+ *
+ * It renders above everything, including the sheet that raised it, at a
+ * z-index above Sheet's own 1000. */
+export function DosConfirmDialog({
+  cancelLabel = "Cancel",
+  confirmLabel,
+  description,
+  onCancel,
+  onConfirm,
+  title,
+}: {
+  cancelLabel?: string;
+  confirmLabel: string;
+  /* A node rather than a string: a removal confirmation names the assessment,
+     the people in it and its date, and those read better on their own line
+     than run together in one sentence. */
+  description: ReactNode;
+  onCancel: () => void;
+  onConfirm: () => void;
+  title: string;
+}) {
   const [isMounted, setIsMounted] = useState(false);
 
   useEffect(() => {
@@ -139,19 +183,19 @@ export function DiscardChangesDialog({
   useEffect(() => {
     function handleKeyDown(event: globalThis.KeyboardEvent) {
       if (event.key === "Escape") {
-        onKeepEditing();
+        onCancel();
       }
     }
 
     window.addEventListener("keydown", handleKeyDown);
 
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onKeepEditing]);
+  }, [onCancel]);
 
   const content = (
     <div
       className="fixed inset-0 z-[1100] flex items-center justify-center bg-[#0F172A]/35 px-5 backdrop-blur-sm"
-      onMouseDown={onKeepEditing}
+      onMouseDown={onCancel}
       role="presentation"
     >
       <div
@@ -160,22 +204,22 @@ export function DiscardChangesDialog({
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
       >
-        <h2 className="text-[19px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary">{copy.title}</h2>
-        <p className="mt-1.5 text-[14px] leading-[1.5] text-dos-body">{copy.description}</p>
+        <h2 className="text-[19px] font-bold leading-[1.2] tracking-[-0.015em] text-dos-primary">{title}</h2>
+        <div className="mt-1.5 grid gap-1.5 text-[14px] leading-[1.5] text-dos-body">{description}</div>
         <div className="mt-5 grid gap-2">
           <button
             className="flex min-h-11 w-full items-center justify-center rounded-full bg-dos-blue px-4 text-[14.5px] font-bold text-white transition-colors hover:bg-[#1D4ED8]"
-            onClick={onKeepEditing}
+            onClick={onCancel}
             type="button"
           >
-            {copy.cancel}
+            {cancelLabel}
           </button>
           <button
             className="flex min-h-11 w-full items-center justify-center rounded-full px-4 text-[14px] font-semibold text-[#B42318] transition-colors hover:bg-[#FEF3F2]"
-            onClick={onDiscard}
+            onClick={onConfirm}
             type="button"
           >
-            {copy.confirm}
+            {confirmLabel}
           </button>
         </div>
       </div>

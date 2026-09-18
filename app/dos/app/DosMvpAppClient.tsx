@@ -50,7 +50,7 @@ import {
   type CirclePlacementChange,
   type CircleTier,
 } from "@/src/lib/dos/circle-tiers";
-import { DosDetailSection, DosDetailSheet, DosWorkflowPage, MobileBottomSheet, Sheet, useEditableSurface } from "@/src/components/dos/overlays/DosSurfaces";
+import { DosConfirmDialog, DosDetailSection, DosDetailSheet, DosWorkflowPage, MobileBottomSheet, Sheet, useEditableSurface } from "@/src/components/dos/overlays/DosSurfaces";
 import { backdropMayDismiss, leaveWithoutSavingCopy, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
 import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption, type StatusTone } from "@/src/components/dos/ui";
@@ -1307,6 +1307,18 @@ type LeaderJourneyProgressState = {
   assignmentId?: string | null;
   personId: string;
   resourceSlug: string;
+} | null;
+/* USA-281 follow-up: one pending removal, either kind.
+ *
+ * A Journey assignment and a sent assessment are different rows in different
+ * tables with different consequences, so each carries its own confirmation
+ * copy. They share one piece of state because only one confirmation is ever
+ * open, and because both should look and behave identically when it is. */
+type PendingRemoval = {
+  confirmLabel: string;
+  lines: string[];
+  onConfirm: () => void;
+  title: string;
 } | null;
 type ResourceAssignmentNotice = {
   assignmentCount?: number;
@@ -32004,6 +32016,7 @@ function MyRecordOverviewPanel({
   onOpenSheet,
   onPauseResourceAssignment,
   onRemoveResourceAssignment,
+  onRemoveResourceShare,
   onScheduleMeeting,
   people,
   record,
@@ -32031,6 +32044,7 @@ function MyRecordOverviewPanel({
   onOpenSheet: (sheet: MyRecordSheetState) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onRemoveResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onRemoveResourceShare?: ((assignment: DosAppResourceShareAssignment) => void) | null;
   onScheduleMeeting: (personId: string | null) => void;
   people: DosAppPerson[];
   record: DosAppUserRecord;
@@ -32261,9 +32275,29 @@ function MyRecordOverviewPanel({
                         <span>{dosResourceShareDateLine(share)}</span>
                       </p>
                     </div>
-                    {share.status === "completed" && shareResult ? (
-                      <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
-                    ) : null}
+                    <span className="flex shrink-0 items-center gap-2">
+                      {share.status === "completed" && shareResult ? (
+                        <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
+                      ) : null}
+                      {/* USA-281 follow-up: every assessment row carries the
+                          same menu a Journey row does, completed ones
+                          included. A completed assessment was the one case
+                          with no way to take it off the record at all. */}
+                      {onRemoveResourceShare ? (
+                        <RowActionMenu
+                          items={[
+                            ...(share.status === "link_ready" || share.status === "in_progress"
+                              ? [{ label: "Copy link", onSelect: () => void navigator.clipboard?.writeText(`${window.location.origin}${share.shareUrl}`) }]
+                              : []),
+                            ...(share.status === "completed" && shareResult
+                              ? [{ label: "View results", onSelect: () => onOpenShareResult(shareResult.id) }]
+                              : []),
+                            { danger: true, label: "Remove", onSelect: () => onRemoveResourceShare(share) },
+                          ]}
+                          label={`More actions for ${shareResource?.title ?? "Library resource"}, ${resourceShareIdentityLabel(share)}`}
+                        />
+                      ) : null}
+                    </span>
                   </div>
                 );
               })}
@@ -32627,6 +32661,7 @@ function MyRecordWorkspace({
   onOpenScheduledMeeting,
   onPauseResourceAssignment,
   onRemoveResourceAssignment,
+  onRemoveResourceShare,
   onQuickTab,
   onSave,
   onScheduleMeeting,
@@ -32670,6 +32705,7 @@ function MyRecordWorkspace({
   onOpenScheduledMeeting: (meetingId: string) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onRemoveResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onRemoveResourceShare?: ((assignment: DosAppResourceShareAssignment) => void) | null;
   onQuickTab: (tab: MyRecordTab) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
   /* The Schedule action on an empty Upcoming meeting card. The Person is
@@ -33024,6 +33060,7 @@ function MyRecordWorkspace({
                   onOpenSheet={openMyRecordSheet}
                   onPauseResourceAssignment={onPauseResourceAssignment}
                   onRemoveResourceAssignment={onRemoveResourceAssignment}
+                  onRemoveResourceShare={onRemoveResourceShare}
                   onScheduleMeeting={onScheduleMeeting}
                   people={people}
                   record={record}
@@ -35066,6 +35103,48 @@ function dosResourceShareDateLine(assignment: DosAppResourceShareAssignment) {
   return `Created ${formatDate(assignment.createdAt ?? "")}`;
 }
 
+/* USA-281 follow-up: which assessment is about to be removed.
+ *
+ * A couple can hold more than one Marriage Assessment: an earlier completed
+ * one and a fresh link, or two attempts a month apart. "Remove Marriage
+ * Assessment?" does not say which, so the confirmation names the participants,
+ * the state and the date, which is the set that distinguishes them. */
+function resourceShareIdentityLabel(assignment: DosAppResourceShareAssignment) {
+  return [
+    shareParticipantSummary(assignment.participants),
+    dosResourceShareStatusLabel(assignment.status),
+    dosResourceShareDateLine(assignment),
+  ].filter(Boolean).join(" · ");
+}
+
+/* What removing this assessment will actually do, in the order it matters.
+ *
+ * A completed assessment and an unfinished one are genuinely different
+ * removals, so they say different things rather than sharing one vague
+ * sentence. Both say that it is a shared record, because it is: removing it
+ * takes it off BOTH participants' records, and someone removing it from their
+ * own record should know that before they press. */
+function resourceShareRemovalCopy(assignment: DosAppResourceShareAssignment, resourceTitle: string) {
+  const isCompleted = assignment.status === "completed";
+  const hasLiveLink = assignment.status === "link_ready" || assignment.status === "in_progress";
+
+  return {
+    confirmLabel: isCompleted ? "Remove results" : "Remove",
+    lines: [
+      `${resourceTitle} for ${shareParticipantSummary(assignment.participants)}.`,
+      `${dosResourceShareStatusLabel(assignment.status)} · ${dosResourceShareDateLine(assignment)}.`,
+      isCompleted
+        ? "The scores and every answer are kept and can be restored. They stop appearing on this record and the results link stops working."
+        : hasLiveLink
+          ? "The link stops working immediately. Any answers already entered are kept and are not deleted."
+          : "Any answers already entered are kept and are not deleted.",
+      "This is a shared assessment, so it comes off both participants' records.",
+      "You can send a new assessment afterwards. It will be its own record and will not overwrite these answers.",
+    ],
+    title: isCompleted ? "Remove these completed results?" : "Remove this assessment?",
+  };
+}
+
 /* Copy link and, where the browser offers it, the native share sheet. No new
    email or SMS service is introduced for this: the sender delivers the link
    the way they already talk to this couple. */
@@ -36341,6 +36420,7 @@ function PersonDetailOverlay({
   onMarkResourceAssignmentInProgress,
   onOpenGuidedResource,
   onRemoveResourceAssignment,
+  onRemoveResourceShare,
   onMarkPrayerAnswered,
   onOpenGathering,
   onOpenGroup,
@@ -36428,6 +36508,7 @@ function PersonDetailOverlay({
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
   onRemoveResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onRemoveResourceShare?: ((assignment: DosAppResourceShareAssignment) => void) | null;
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenGathering?: (groupId: string, gatheringId: string) => void;
   onOpenGroup: (groupId: string) => void;
@@ -37550,15 +37631,26 @@ function PersonDetailOverlay({
                                   <span>{dosResourceShareDateLine(share)}</span>
                                 </p>
                               </div>
-                              {share.status === "completed" && shareResult ? (
-                                /* USA-281: a completed row offers the result. Sending
-                                   another goes through Resources > + Add, which is the
-                                   one place a resource is chosen, so this row does not
-                                   need its own second action. */
-                                <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
-                              ) : share.status === "revoked" || share.status === "expired" ? null : (
-                                <PDButton onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}${share.shareUrl}`)}>Copy link</PDButton>
-                              )}
+                              <span className="flex shrink-0 items-center gap-2">
+                                {share.status === "completed" && shareResult ? (
+                                  /* USA-281: a completed row offers the result. Sending
+                                     another goes through Resources > + Add, which is the
+                                     one place a resource is chosen, so this row does not
+                                     need its own second action. */
+                                  <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
+                                ) : share.status === "revoked" || share.status === "expired" ? null : (
+                                  <PDButton onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}${share.shareUrl}`)}>Copy link</PDButton>
+                                )}
+                                {/* USA-281 follow-up: the same menu the Journey rows
+                                    above carry. Without it a sent assessment could be
+                                    created and never taken back off the record. */}
+                                {onRemoveResourceShare ? (
+                                  <RowActionMenu
+                                    items={[{ danger: true, label: "Remove", onSelect: () => onRemoveResourceShare(share) }]}
+                                    label={`More actions for ${shareResource?.title ?? "Library resource"}, ${resourceShareIdentityLabel(share)}`}
+                                  />
+                                ) : null}
+                              </span>
                             </div>
                           );
                         })}
@@ -39562,6 +39654,13 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   const [resourceAssignmentSheet, setResourceAssignmentSheet] = useState<ResourceAssignmentSheetState>(null);
   const [resourceAssignmentDuplicate, setResourceAssignmentDuplicate] = useState<ResourceAssignmentDuplicateState>(null);
   const [resourceAssignmentNotice, setResourceAssignmentNotice] = useState<ResourceAssignmentNotice>(null);
+  /* USA-281 follow-up: the pending removal, whichever kind it is.
+
+     Holding it in state rather than calling window.confirm is what lets the
+     app ask in its own dialog, with the assessment named and the consequences
+     spelled out. The browser prompt could show one unstyled line and could not
+     say any of it. */
+  const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval>(null);
   const [assignResourcePickerPersonId, setAssignResourcePickerPersonId] = useState<string | null>(null);
   /* USA-281: which person "+ Add" was pressed for. Holding the id here is what
      keeps them selected through the picker and into whichever setup follows. */
@@ -43031,22 +43130,32 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
    * reflection attached to it are preserved and a restore is one column away.
    * The confirmation says what removal does and, for an assignment that came
    * from a group, that it only affects this person's copy. */
-  async function removeResourceAssignment(assignment: DosAppResourceAssignment) {
+  function removeResourceAssignment(assignment: DosAppResourceAssignment) {
     const title = resourceAssignmentTitle(assignment);
     /* USA-281: a person can hold the same resource more than once, once per
        group. The confirmation names WHICH one is going, because "Remove
        Discipleship?" is ambiguous when there are two of them. */
     const identity = resourceAssignmentIdentityLabel(assignment, groups);
-    const sharedNote = assignment.assignmentContext === "group"
-      ? " This removes it from this record only. Everyone else assigned it in the group keeps theirs."
-      : "";
-    const progressNote = assignment.status === "not_started"
-      ? ""
-      : " Progress already recorded is kept and is not deleted.";
 
-    if (!window.confirm(`Remove "${title}" (${identity}) from this record?${sharedNote}${progressNote}`)) {
-      return;
-    }
+    setPendingRemoval({
+      confirmLabel: "Remove",
+      lines: [
+        `${title}.`,
+        `${identity}.`,
+        assignment.status === "not_started"
+          ? "Nothing has been recorded against it yet."
+          : "Progress already recorded is kept and is not deleted.",
+        ...(assignment.assignmentContext === "group"
+          ? ["This removes it from this record only. Everyone else assigned it in the group keeps theirs."]
+          : []),
+      ],
+      onConfirm: () => void confirmResourceAssignmentRemoval(assignment),
+      title: "Remove this from the record?",
+    });
+  }
+
+  async function confirmResourceAssignmentRemoval(assignment: DosAppResourceAssignment) {
+    setPendingRemoval(null);
 
     const result = await submitJson(
       "/api/dos/app/resource-assignments",
@@ -43058,6 +43167,42 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     if (result?.removed) {
       /* The list is server data, so the refresh is what makes the row stay
          gone after a reload rather than only disappearing in this tab. */
+      router.refresh();
+    }
+  }
+
+  /* USA-281 follow-up: removing a sent assessment.
+   *
+   * The deployed Remove control reached Journey assignments and stopped there,
+   * because a sent assessment is a different row in a different table. It has
+   * a public link two people may be holding, it belongs to both of their
+   * records, and when it is finished it owns a result. So it gets its own
+   * path rather than being squeezed through the Journey one. */
+  function removeResourceShare(assignment: DosAppResourceShareAssignment) {
+    const resourceTitle = getDosResourceBySlug(assignment.resourceSlug)?.title ?? "Library resource";
+    const copy = resourceShareRemovalCopy(assignment, resourceTitle);
+
+    setPendingRemoval({
+      confirmLabel: copy.confirmLabel,
+      lines: copy.lines,
+      onConfirm: () => void confirmResourceShareRemoval(assignment),
+      title: copy.title,
+    });
+  }
+
+  async function confirmResourceShareRemoval(assignment: DosAppResourceShareAssignment) {
+    setPendingRemoval(null);
+
+    const result = await submitJson(
+      "/api/dos/app/resource-share-assignments",
+      { action: "remove", assignmentId: assignment.id },
+      "PATCH",
+      false,
+    ) as { ok?: boolean } | null;
+
+    if (result?.ok) {
+      /* Server data again: the refresh is what makes it stay gone on both
+         records after a reload rather than only in this tab. */
       router.refresh();
     }
   }
@@ -47682,7 +47827,8 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onOpenPersonRecord={myRecordPerson ? openPersonDetail : null}
             onOpenScheduledMeeting={openMeetingDetail}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
-            onRemoveResourceAssignment={(assignment) => void removeResourceAssignment(assignment)}
+            onRemoveResourceAssignment={removeResourceAssignment}
+            onRemoveResourceShare={removeResourceShare}
             onQuickTab={setMyRecordTab}
             onSave={submitMyRecord}
             onScheduleMeeting={(personId) => openScheduleMeeting(personId ?? undefined)}
@@ -47767,7 +47913,8 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onRequestReview={(meeting, type) => setPendingMeetingSendAction({ meeting, type })}
             onPauseCommitment={(commitment) => void setCommitmentStatus(commitment, commitment.status === "paused" ? "active" : "paused")}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
-            onRemoveResourceAssignment={(assignment) => void removeResourceAssignment(assignment)}
+            onRemoveResourceAssignment={removeResourceAssignment}
+            onRemoveResourceShare={removeResourceShare}
             onScheduleMeeting={() => openScheduleMeeting(selectedPerson.id)}
             participantReviews={data.participantReviews}
               participantTestimonies={data.participantTestimonies}
@@ -48154,6 +48301,22 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             }}
             resourceAssignments={data.resourceAssignments}
             workspaceId={data.workspace.id}
+          />
+        ) : null}
+
+        {/* USA-281 follow-up: the app's own confirmation, not the browser's.
+            One dialog for both removals, so a Journey and an assessment ask
+            the same way, and so the question can name what is going and what
+            happens to it. It portals above every sheet, which is why it sits
+            here rather than inside either panel. */}
+        {pendingRemoval ? (
+          <DosConfirmDialog
+            cancelLabel="Cancel"
+            confirmLabel={pendingRemoval.confirmLabel}
+            description={pendingRemoval.lines.map((line) => <span key={line}>{line}</span>)}
+            onCancel={() => setPendingRemoval(null)}
+            onConfirm={pendingRemoval.onConfirm}
+            title={pendingRemoval.title}
           />
         ) : null}
 
