@@ -32139,9 +32139,12 @@ function MyRecordOverviewPanel({
                       <p className="mt-0.5 text-[12.5px] leading-[1.35] text-dos-secondary">
                         {[
                           resourceAssignmentTypeLabel(assignment),
-                          group.others.length
-                            ? resourceAssignmentIdentityLabel(assignment, groups)
-                            : resourceAssignmentStateLabel(assignment),
+                          /* USA-281: every assignment says where it came from
+                             and when it started, not only the ones that share
+                             a resource. The same study can be running in two
+                             groups, and which is which should not depend on
+                             whether the other one happens to be open. */
+                          resourceAssignmentIdentityLabel(assignment, groups),
                           assignment.status === "paused" ? null : resourceAssignmentDueLabel(assignment),
                         ].filter(Boolean).join(" · ")}
                       </p>
@@ -32198,9 +32201,7 @@ function MyRecordOverviewPanel({
                           { label: "Edit dates", onSelect: () => onEditResourceAssignment(assignment) },
                           { danger: true, label: "Remove", onSelect: () => onRemoveResourceAssignment(assignment) },
                         ]}
-                        label={group.others.length
-                          ? `More actions for ${resourceAssignmentTitle(assignment)}, ${resourceAssignmentIdentityLabel(assignment, groups)}`
-                          : `More actions for ${resourceAssignmentTitle(assignment)}`}
+                        label={`More actions for ${resourceAssignmentTitle(assignment)}, ${resourceAssignmentIdentityLabel(assignment, groups)}`}
                       />
                     </span>
                   </div>

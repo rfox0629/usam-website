@@ -675,4 +675,66 @@ assert.ok(
   "the index migration touches no data",
 );
 
+/* ---- USA-281: the index migration is transactional and narrowly scoped ---- */
+
+assert.ok(
+  /^begin;$/m.test(indexMigration) && /^commit;$/m.test(indexMigration),
+  "the index migration runs as one transaction, so a failure cannot leave the table with no unique index",
+);
+/* The word appears in the migration's own comment explaining why it is not
+   used, so this looks for an actual statement rather than the word. */
+const indexMigrationStatements = indexMigration
+  .split("\n")
+  .filter((line) => !line.trim().startsWith("--"))
+  .join("\n");
+
+assert.ok(
+  !/create\s+(unique\s+)?index\s+concurrently/i.test(indexMigrationStatements),
+  "CREATE INDEX CONCURRENTLY cannot run in a transaction, so it is not used here",
+);
+assert.ok(
+  indexMigration.includes("assignment_context") && indexMigration.includes("coalesce(source_group_id"),
+  "the rebuilt index keeps production's columns exactly",
+);
+
+const indexRollback = read("supabase/migrations/20260918140000_usa_281_active_assignment_index_rollback.sql");
+
+assert.ok(
+  /^begin;$/m.test(indexRollback) && /^commit;$/m.test(indexRollback),
+  "the rollback is transactional too",
+);
+assert.ok(
+  indexRollback.includes("raise exception"),
+  "the rollback reports conflicting slots and refuses rather than guessing",
+);
+assert.ok(
+  !/\bdelete\s+from\b/i.test(indexRollback) && !/\bdrop\s+table\b/i.test(indexRollback),
+  "the rollback never deletes an assignment or its history to make the index build",
+);
+assert.ok(
+  indexRollback.includes("do NOT clear its notes"),
+  "the rollback says plainly that history must not be destroyed to resolve a conflict",
+);
+const indexRollbackStatements = indexRollback
+  .split("\n")
+  .filter((line) => !line.trim().startsWith("--"))
+  .join("\n");
+
+assert.ok(
+  !indexRollbackStatements.includes("dos_resource_assignments_active_unique"),
+  "the rollback does not resurrect the stale repository index",
+);
+
+const correction = read("docs/dos-ui-refresh/phase-8/usa-281-assignment-model-correction.md");
+
+assert.ok(
+  correction.includes("They are not duplicates"),
+  "the earlier description of these assignments as duplicates is corrected in writing",
+);
+
+assert.ok(
+  appClient.includes("resourceAssignmentIdentityLabel(assignment, groups),"),
+  "every assignment shows its group and start date, not only the grouped ones",
+);
+
 console.log("DOS resource sharing (USA-278 / USA-279 / USA-280) regression passed.");

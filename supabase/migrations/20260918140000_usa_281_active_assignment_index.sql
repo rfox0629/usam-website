@@ -47,6 +47,18 @@
 -- index accepts is still accepted, because the new predicate matches a strict
 -- subset of rows. It cannot fail on existing data, and the guard below proves
 -- that before the index is created rather than trusting the claim.
+--
+-- TRANSACTIONAL. The whole file runs as one transaction, stated explicitly
+-- here rather than relying on the runner to wrap it. There is a window inside
+-- it where the unique index does not exist, so either every statement lands or
+-- none does: a failure cannot leave the table with its old index dropped and
+-- no replacement. CREATE INDEX CONCURRENTLY is deliberately NOT used, because
+-- it cannot run inside a transaction and would open exactly that window for
+-- real. The table is small enough that the brief lock this takes is not a
+-- concern; if that ever changes, the concurrent form needs its own migration
+-- with its own recovery story.
+
+begin;
 
 do $usa281$
 declare
@@ -94,3 +106,5 @@ create unique index dos_resource_assignments_active_context_unique
 
 comment on index public.dos_resource_assignments_active_context_unique is
   'USA-281: one active assignment per person per resource per context, and per group within a group context. Removed assignments are excluded so a soft delete does not block re-assigning the same resource.';
+
+commit;
