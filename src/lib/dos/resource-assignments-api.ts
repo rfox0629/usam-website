@@ -7,7 +7,7 @@ import {
   firstDefined,
   isMissingCommitmentsSchema,
 } from "@/src/lib/dos/commitments-accountability-api";
-import { getDosResourceBySlug, type DosResource } from "@/src/lib/dos/resource-catalog";
+import { getDosResourceBySlug, resolveDosResourceReference, type DosResource } from "@/src/lib/dos/resource-catalog";
 import {
   defaultResourceAssignmentDueDate,
   dosResourceAssignmentFollowUpCadences,
@@ -75,8 +75,11 @@ export function normalizeResourceAssignmentSharingLevel(value: unknown, fallback
 }
 
 export function resolveAssignableDosResource(value: unknown): DosResource | null {
-  const slug = asString(value);
-  const resource = getDosResourceBySlug(slug);
+  /* USA-281: accepts the canonical slug and the legacy catalog id. Rows
+     written before this carry the id form, and resolving only by slug meant
+     they could not be titled, opened or updated. Writes still store
+     `resource.slug`, so the id form stops being created. */
+  const resource = resolveDosResourceReference(asString(value));
 
   return resource?.assignable ? resource : null;
 }

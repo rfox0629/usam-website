@@ -462,6 +462,38 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Assigned Library resource is not available." }, { status: 400 });
   }
 
+  /* USA-281: removing an assignment somebody did not want.
+   *
+   * A soft delete, never a row delete: an assignment can carry guided-resource
+   * progress, reflections, action steps and prayer notes, and deleting it
+   * would take those with it. Clearing `removed_at` puts it back.
+   *
+   * The workspace scope is already enforced above: `existing` was selected
+   * with `.eq("workspace_id", ...)` against the workspace this caller is
+   * authorized for, so an id from another workspace is a 404 before reaching
+   * here. */
+  const action = asString(payload.action);
+
+  if (action === "remove" || action === "restore") {
+    const removal = action === "remove"
+      ? { removed_at: new Date().toISOString(), removed_by_user_id: authResult.authorization.userId ?? null }
+      : { removed_at: null, removed_by_user_id: null };
+
+    const removalResult = await supabase
+      .from("dos_resource_assignments")
+      .update(removal)
+      .eq("id", assignmentId)
+      .eq("workspace_id", workspaceResult.workspaceId)
+      .select(resourceAssignmentSelect)
+      .maybeSingle();
+
+    if (removalResult.error) {
+      return resourceAssignmentErrorResponse(removalResult.error);
+    }
+
+    return NextResponse.json({ assignment: mapResourceAssignmentRow(removalResult.data as Record<string, unknown>), removed: action === "remove" });
+  }
+
   const updates: Record<string, unknown> = {};
   const nextStatus = payload.status !== undefined ? normalizeResourceAssignmentStatus(payload.status, normalizeResourceAssignmentStatus(existing.status)) : null;
 

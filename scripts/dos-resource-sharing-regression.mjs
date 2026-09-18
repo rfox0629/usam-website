@@ -290,7 +290,23 @@ assert.ok(
 /* USA-280: the report is shared, scrollable, printable, and honest about the
    number it leads with. */
 const report = read("src/components/dos/assessments/AssessmentReport.tsx");
-assert.ok(report.includes("Print or save as PDF"), "the report can be printed");
+/* USA-281: "Print or save as PDF" handed the page to the browser, which
+   stamped its own header, footer and the workspace URL onto every sheet. Both
+   actions now hand over a generated document instead. */
+assert.ok(/onClick=\{handleDownload\}[\s\S]{0,160}Download PDF/.test(report), "the report can be downloaded as a document");
+assert.ok(/onClick=\{handlePrint\}[\s\S]{0,160}>\s*Print\s*</.test(report), "the report can still be printed");
+assert.ok(
+  report.includes("buildAssessmentReportPdf(data)"),
+  "both actions build the document from the same data the screen renders",
+);
+assert.ok(
+  report.includes("link.download = assessmentReportFileName"),
+  "the download carries a real filename rather than the page title",
+);
+assert.ok(
+  !/window\.print\(\)(?![\s\S]{0,400}refuses the generated file)/.test(report.slice(0, report.indexOf("return ("))),
+  "printing goes through the generated document, with window.print only as the fallback",
+);
 assert.ok(report.includes("@media print"), "the report has a print layout");
 assert.ok(report.includes("assessment-report-hide-on-print"), "app controls are hidden in print");
 assert.ok(report.includes("break-inside: avoid"), "print avoids splitting a section mid-answer");
@@ -334,7 +350,11 @@ assert.ok(
   "the Library detail no longer starts a questionnaire in place of establishing recipients",
 );
 assert.ok(dosApp.includes("mode=preview"), "preview opens the questions in preview mode");
-assert.ok(dosApp.includes("Preview shows every one."), "the detail page points at the preview");
+/* USA-281: the sample is labelled as a sample and the way to read all of them
+   is a link rather than a sentence. */
+assert.ok(dosApp.includes("Sample questions"), "the five questions on the detail page are labelled a sample");
+assert.ok(dosApp.includes("See all {total} questions"), "the detail page links to every question");
+assert.ok(dosApp.includes("{sample.length} of {total}"), "the detail page says how much of the assessment the sample covers");
 assert.ok(dosApp.includes("aria-label=\"Resources\""), "the Person Activity area has a Resources section");
 assert.ok(dosApp.includes("label: \"Send resource\""), "Send resource is on the Person floating plus menu");
 assert.ok(dosApp.includes("dosLinkedSpouseForPerson"), "the linked spouse comes from the household model");
@@ -525,15 +545,196 @@ assert.ok(
   /const report = \(\s*<div className="assessment-report-sheet[\s\S]{0,4000}return isMounted \? createPortal\(report, document\.body\) : null;/.test(appClient),
   "the report portals to the body, so z-dos-sheet outranks the quick-action button",
 );
+/* USA-281: a reassessment still never reuses a finished link, but the way to
+   start one is Resources > + Add, which is the single place a resource is
+   chosen. A completed row therefore offers its result and nothing else. */
 assert.ok(
-  appClient.includes("Send another"),
-  "a reassessment is an explicit action, not a reuse of the finished link",
+  !appClient.includes("Send another"),
+  "a completed row does not carry its own second send action",
+);
+assert.ok(
+  /share\.status === "completed" && shareResult \? \(\s*<PDButton onClick=\{\(\) => onOpenShareResult\(shareResult\.id\)\} tone="solid">View results<\/PDButton>/.test(appClient),
+  "a completed row offers View results",
 );
 
 const dosLayout = read("app/dos/app/layout.tsx");
 assert.ok(
   dosLayout.includes(".dos-app-route :where(p, li, dd)"),
   "DOS paragraphs inherit their container's colour instead of the dark site's grey",
+);
+
+/* ---- USA-281: the picker, and removal ----------------------------------- */
+
+assert.ok(
+  appClient.includes("function ResourceAddSheet"),
+  "+ Add opens a picker rather than assuming one resource",
+);
+assert.ok(
+  !/function openSendResourceForPerson\([^)]*\) \{\s*const marriageAssessment/.test(appClient),
+  "+ Add no longer hardcodes the Marriage Assessment",
+);
+assert.ok(
+  appClient.includes("setAddResourcePersonId(personId)"),
+  "the person + Add was pressed for is kept through the picker",
+);
+assert.ok(
+  appClient.includes("isDosResourceShareEnabled(resource)") && appClient.includes("dosAssignableResourceItems"),
+  "the picker offers only resources with a working share or assignment flow",
+);
+assert.ok(
+  /onSend=\{\(resource\) => \{[\s\S]{0,240}openSendResource\(resource, personId\)/.test(appClient)
+  && /onAssign=\{\(resource\) => \{[\s\S]{0,260}openResourceAssignmentCreate\(resource, personId/.test(appClient),
+  "each choice routes to that resource's own setup, carrying the person",
+);
+
+const removalMigration = read("supabase/migrations/20260918120000_usa_281_resource_assignment_removal.sql");
+
+assert.ok(
+  removalMigration.includes("add column if not exists removed_at timestamptz"),
+  "removal is a soft delete, so progress and reflections survive it",
+);
+assert.ok(
+  !/delete\s+from\s+public\.dos_resource_assignments/i.test(removalMigration),
+  "the removal migration never deletes an assignment row",
+);
+assert.ok(
+  loader.includes('.is("removed_at", null)'),
+  "a removed assignment is filtered out where assignments are read, so it stays gone after a refresh",
+);
+assert.ok(
+  loader.includes("isMissingColumnError(result.error)"),
+  "reads still work before the removal migration is applied",
+);
+
+const assignmentsRoute = read("app/api/dos/app/resource-assignments/route.ts");
+
+assert.ok(
+  assignmentsRoute.includes('action === "remove" || action === "restore"'),
+  "removal and restore are explicit actions on the assignment route",
+);
+assert.ok(
+  /removal[\s\S]{0,400}\.eq\("workspace_id", workspaceResult\.workspaceId\)/.test(assignmentsRoute),
+  "removal is scoped to the workspace the caller is authorized for",
+);
+assert.ok(
+  appClient.includes("window.confirm(`Remove \"${title}\" (${identity}) from this record?"),
+  "removal is confirmed rather than immediate, and names which assignment it acts on",
+);
+assert.ok(
+  appClient.includes("const identity = resourceAssignmentIdentityLabel(assignment, groups)"),
+  "the confirmation identifies the assignment by group and start date, because a person can hold one resource twice",
+);
+assert.ok(
+  appClient.includes("Everyone else assigned it in the group keeps theirs."),
+  "a shared assignment says what removal does to the other participants",
+);
+assert.ok(
+  appClient.includes("Progress already recorded is kept and is not deleted."),
+  "removal discloses that recorded progress survives",
+);
+assert.ok(
+  appClient.includes('{ danger: true, label: "Remove"'),
+  "Remove is reachable from the row menu in My Record and on a Person",
+);
+
+/* ---- USA-281: grouped assignments stay individually addressable --------- */
+
+assert.ok(
+  appClient.includes("function resourceAssignmentIdentityLabel"),
+  "an assignment is named by where it came from and when it started, not by a count",
+);
+assert.ok(
+  /group\.others\.map\(\(other\) =>/.test(appClient),
+  "every other assignment of a resource is listed in its own right",
+);
+assert.ok(
+  appClient.includes("onSelect: () => onRemoveResourceAssignment(other)"),
+  "each grouped assignment can be removed on its own",
+);
+assert.ok(
+  appClient.includes("label={`More actions for ${resourceAssignmentTitle(other)}, ${resourceAssignmentIdentityLabel(other, groups)}`}"),
+  "removal names which assignment it acts on",
+);
+
+const indexMigration = read("supabase/migrations/20260918140000_usa_281_active_assignment_index.sql");
+
+assert.ok(
+  indexMigration.includes("and removed_at is null"),
+  "a removed assignment stops reserving its unique slot",
+);
+assert.ok(
+  indexMigration.includes("assignment_context") && indexMigration.includes("coalesce(source_group_id"),
+  "the index keeps production's context and group terms, so one study can run in two groups",
+);
+assert.ok(
+  indexMigration.includes("raise exception"),
+  "the migration proves no existing row conflicts before it creates the index",
+);
+assert.ok(
+  !/\bdelete\s+from\b/i.test(indexMigration) && !/\bdrop\s+table\b/i.test(indexMigration),
+  "the index migration touches no data",
+);
+
+/* ---- USA-281: the index migration is transactional and narrowly scoped ---- */
+
+assert.ok(
+  /^begin;$/m.test(indexMigration) && /^commit;$/m.test(indexMigration),
+  "the index migration runs as one transaction, so a failure cannot leave the table with no unique index",
+);
+/* The word appears in the migration's own comment explaining why it is not
+   used, so this looks for an actual statement rather than the word. */
+const indexMigrationStatements = indexMigration
+  .split("\n")
+  .filter((line) => !line.trim().startsWith("--"))
+  .join("\n");
+
+assert.ok(
+  !/create\s+(unique\s+)?index\s+concurrently/i.test(indexMigrationStatements),
+  "CREATE INDEX CONCURRENTLY cannot run in a transaction, so it is not used here",
+);
+assert.ok(
+  indexMigration.includes("assignment_context") && indexMigration.includes("coalesce(source_group_id"),
+  "the rebuilt index keeps production's columns exactly",
+);
+
+const indexRollback = read("supabase/migrations/20260918140000_usa_281_active_assignment_index_rollback.sql");
+
+assert.ok(
+  /^begin;$/m.test(indexRollback) && /^commit;$/m.test(indexRollback),
+  "the rollback is transactional too",
+);
+assert.ok(
+  indexRollback.includes("raise exception"),
+  "the rollback reports conflicting slots and refuses rather than guessing",
+);
+assert.ok(
+  !/\bdelete\s+from\b/i.test(indexRollback) && !/\bdrop\s+table\b/i.test(indexRollback),
+  "the rollback never deletes an assignment or its history to make the index build",
+);
+assert.ok(
+  indexRollback.includes("do NOT clear its notes"),
+  "the rollback says plainly that history must not be destroyed to resolve a conflict",
+);
+const indexRollbackStatements = indexRollback
+  .split("\n")
+  .filter((line) => !line.trim().startsWith("--"))
+  .join("\n");
+
+assert.ok(
+  !indexRollbackStatements.includes("dos_resource_assignments_active_unique"),
+  "the rollback does not resurrect the stale repository index",
+);
+
+const correction = read("docs/dos-ui-refresh/phase-8/usa-281-assignment-model-correction.md");
+
+assert.ok(
+  correction.includes("They are not duplicates"),
+  "the earlier description of these assignments as duplicates is corrected in writing",
+);
+
+assert.ok(
+  appClient.includes("resourceAssignmentIdentityLabel(assignment, groups),"),
+  "every assignment shows its group and start date, not only the grouped ones",
 );
 
 console.log("DOS resource sharing (USA-278 / USA-279 / USA-280) regression passed.");

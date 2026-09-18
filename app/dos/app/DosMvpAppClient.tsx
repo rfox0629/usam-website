@@ -76,6 +76,7 @@ import {
   getDosResourceBySlug,
   getDosResourcesByCategory,
   getSendableDosResources,
+  resolveDosResourceReference,
   type DosGuidedResourceSession,
   type DosResource,
   type DosResourceIcon,
@@ -12747,7 +12748,153 @@ function commitmentDueLabel(commitment: DosAppPersonCommitment) {
 }
 
 function resourceAssignmentResource(assignment: DosAppResourceAssignment) {
-  return getDosResourceBySlug(assignment.resourceSlug);
+  /* Reads the slug form and the legacy id form, so an assignment written
+     before USA-281 still shows its real title instead of "Assigned Resource". */
+  return resolveDosResourceReference(assignment.resourceSlug);
+}
+
+/* USA-281: a compact row menu, so a row can offer one action and still reach
+   every other one. Nothing is removed to tidy a screen: Check-in, Pause,
+   Complete and Edit dates all live in here, one tap from where they were. */
+function RowActionMenu({
+  items,
+  label,
+}: {
+  items: ReadonlyArray<{ danger?: boolean; label: string; onSelect: () => void }>;
+  label: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!items.length) {
+    return null;
+  }
+
+  return (
+    <div
+      className="relative"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setIsOpen(false);
+        }
+      }}
+    >
+      <button
+        aria-expanded={isOpen}
+        aria-haspopup="menu"
+        aria-label={label}
+        className="flex h-11 w-11 items-center justify-center rounded-full text-dos-secondary transition-colors hover:bg-dos-blue50 hover:text-dos-primary"
+        onClick={() => setIsOpen((open) => !open)}
+        type="button"
+      >
+        <MoreHorizontal aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
+      </button>
+      {isOpen ? (
+        <div className="absolute right-0 z-dos-popover mt-1 w-44 rounded-2xl border border-dos-line bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]" role="menu">
+          {items.map((item) => (
+            <button
+              className={`flex min-h-11 w-full items-center rounded-xl px-3 text-left text-dos-label font-semibold hover:bg-dos-blue50 ${item.danger ? "text-[#B42318] hover:bg-[#FEF2F2]" : "text-dos-primary"}`}
+              key={item.label}
+              onClick={() => {
+                setIsOpen(false);
+                item.onSelect();
+              }}
+              role="menuitem"
+              type="button"
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/* USA-281: several assignments can exist for one resource. They are grouped
+   for DISPLAY only: nothing is merged, nothing is deleted, and each row keeps
+   its own dates, progress and notes. The furthest along leads, because that is
+   the one the person is actually working in.
+
+   An assignment whose resource cannot be resolved at all is grouped by its
+   raw stored reference, so two unresolvable rows for the same thing still
+   read as one entry rather than two anonymous ones. */
+const RESOURCE_ASSIGNMENT_STATE_ORDER: Record<string, number> = {
+  in_progress: 0,
+  paused: 1,
+  not_started: 2,
+};
+
+function groupResourceAssignmentsByResource(assignments: readonly DosAppResourceAssignment[]) {
+  const groups = new Map<string, DosAppResourceAssignment[]>();
+
+  for (const assignment of assignments) {
+    const key = resourceAssignmentResource(assignment)?.slug ?? `unresolved:${assignment.resourceSlug}`;
+    const existing = groups.get(key);
+
+    if (existing) {
+      existing.push(assignment);
+      continue;
+    }
+
+    groups.set(key, [assignment]);
+  }
+
+  return Array.from(groups.values()).map((members) => {
+    const ordered = [...members].sort((first, second) => {
+      const byState = (RESOURCE_ASSIGNMENT_STATE_ORDER[first.status] ?? 9) - (RESOURCE_ASSIGNMENT_STATE_ORDER[second.status] ?? 9);
+
+      return byState !== 0 ? byState : (second.updatedAt ?? "").localeCompare(first.updatedAt ?? "");
+    });
+
+    return { others: ordered.slice(1), primary: ordered[0] };
+  });
+}
+
+/* USA-281: what distinguishes one assignment of a resource from another.
+   Ryan holds "Discipleship" twice because it runs in two different groups,
+   each with its own start date and its own progress. A bare count hid that,
+   so every row says which one it is: where it came from, when it started and
+   what state it is in. */
+function resourceAssignmentIdentityLabel(
+  assignment: DosAppResourceAssignment,
+  groups: readonly DosAppGroup[],
+) {
+  const source = assignment.sourceGroupId
+    ? groups.find((group) => group.id === assignment.sourceGroupId)?.name ?? "Group"
+    : assignment.assignmentContext === "self"
+      ? "Personal"
+      : null;
+
+  return [
+    source,
+    assignment.startDate ? `Started ${formatShortDate(assignment.startDate)}` : null,
+    resourceAssignmentStateLabel(assignment),
+  ].filter(Boolean).join(" · ");
+}
+
+function resourceAssignmentStateLabel(assignment: DosAppResourceAssignment) {
+  if (assignment.status === "paused") {
+    return "Paused";
+  }
+
+  if (assignment.status === "in_progress") {
+    return "In progress";
+  }
+
+  return assignment.status === "not_started" ? "Not started" : null;
+}
+
+/* One action per row, chosen by the state the assignment is actually in. */
+function resourceAssignmentPrimaryAction(assignment: DosAppResourceAssignment, guided: boolean) {
+  if (assignment.status === "paused") {
+    return { kind: "resume" as const, label: "Resume" };
+  }
+
+  if (assignment.status === "not_started") {
+    return { kind: "start" as const, label: "Start" };
+  }
+
+  return guided ? { kind: "continue" as const, label: "Continue" } : { kind: "open" as const, label: "Open" };
 }
 
 function resourceAssignmentTitle(assignment: DosAppResourceAssignment) {
@@ -31844,6 +31991,7 @@ function MyRecordOverviewPanel({
   commitments,
   commitmentsEnabled,
   draftAssessments,
+  groups,
   meetings,
   onEditResourceAssignment,
   onLogResourceCheckIn,
@@ -31855,6 +32003,7 @@ function MyRecordOverviewPanel({
   onOpenScheduledMeeting,
   onOpenSheet,
   onPauseResourceAssignment,
+  onRemoveResourceAssignment,
   onScheduleMeeting,
   people,
   record,
@@ -31868,6 +32017,7 @@ function MyRecordOverviewPanel({
   resourceShares: DosAppResourceShareAssignment[];
   commitments: DosAppPersonCommitment[];
   commitmentsEnabled: boolean;
+  groups: DosAppGroup[];
   draftAssessments: MyRecordAssessmentLibraryItem[];
   meetings: DosAppMeeting[];
   onEditResourceAssignment: (assignment: DosAppResourceAssignment) => void;
@@ -31880,6 +32030,7 @@ function MyRecordOverviewPanel({
   onOpenScheduledMeeting: (meetingId: string) => void;
   onOpenSheet: (sheet: MyRecordSheetState) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onRemoveResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onScheduleMeeting: (personId: string | null) => void;
   people: DosAppPerson[];
   record: DosAppUserRecord;
@@ -31902,11 +32053,36 @@ function MyRecordOverviewPanel({
      canonical DOS commitment and were previously visible only on my Person.
      Accountability is a workspace capability, so when it is off those rows
      simply are not there and the section still reads correctly. */
+  /* USA-281: Current commitments listed the same activity more than once.
+     Three separate causes, each handled on its own evidence rather than by
+     collapsing anything that looks similar.
+
+     1. A commitment the workspace created FOR an assignment carries that
+        assignment's id in `linkedCommitmentId`. That is an established
+        relationship, not a guess, so the commitment is not listed a second
+        time under its own name. The Person record already worked this way;
+        My Record did not. A commitment somebody wrote themselves has no such
+        link and is never hidden.
+
+     2. Several assignments can point at one resource. Ryan has three for
+        "Discipleship": one not started and two in progress, each with its own
+        week-1 progress and its own notes. None may be deleted or silently
+        merged, so they are GROUPED: the furthest along leads the row and the
+        others are reachable from it. Every row and every note survives.
+
+     3. Each row now offers the one action its state calls for. Everything
+        else lives in the assignment's own detail view. */
+  const linkedCommitmentIds = new Set(
+    assignments.map((assignment) => assignment.linkedCommitmentId).filter((value): value is string => Boolean(value)),
+  );
   const activeCommitments = commitmentsEnabled
-    ? commitments.filter((commitment) => commitment.status === "active" || commitment.status === "paused")
+    ? commitments.filter((commitment) => (
+      (commitment.status === "active" || commitment.status === "paused") && !linkedCommitmentIds.has(commitment.id)
+    ))
     : [];
   const openAssignments = assignments.filter((assignment) => assignment.status !== "completed");
-  const currentCount = openAssignments.length + draftAssessments.length + activeCommitments.length;
+  const assignmentGroups = groupResourceAssignmentsByResource(openAssignments);
+  const currentCount = assignmentGroups.length + draftAssessments.length + activeCommitments.length;
 
   return (
     <>
@@ -31950,29 +32126,83 @@ function MyRecordOverviewPanel({
                   panel -- Continue, Start, Check-in, Pause, Complete, Edit
                   dates -- now in Person's own row-with-actions treatment
                   rather than a second card style. */}
-              {openAssignments.map((assignment) => {
+              {assignmentGroups.map((group) => {
+                const assignment = group.primary;
                 const resource = resourceAssignmentResource(assignment);
                 const guidedResource = resource && isGuidedResource(resource) ? resource : null;
+                const primary = resourceAssignmentPrimaryAction(assignment, Boolean(guidedResource));
 
                 return (
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 first:pt-1.5 last:pb-1.5" key={assignment.id}>
+                  <div className="flex items-start gap-3 py-3 first:pt-1.5 last:pb-1.5" key={assignment.id}>
                     <div className="min-w-0 flex-1">
                       <p className="text-[15.5px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">{resourceAssignmentTitle(assignment)}</p>
-                      <p className="mt-0.5 text-[12.5px] text-dos-secondary">
-                        {[resourceAssignmentTypeLabel(assignment), assignment.status === "paused" ? "Paused" : resourceAssignmentDueLabel(assignment)].filter(Boolean).join(" · ")}
+                      <p className="mt-0.5 text-[12.5px] leading-[1.35] text-dos-secondary">
+                        {[
+                          resourceAssignmentTypeLabel(assignment),
+                          /* USA-281: every assignment says where it came from
+                             and when it started, not only the ones that share
+                             a resource. The same study can be running in two
+                             groups, and which is which should not depend on
+                             whether the other one happens to be open. */
+                          resourceAssignmentIdentityLabel(assignment, groups),
+                          assignment.status === "paused" ? null : resourceAssignmentDueLabel(assignment),
+                        ].filter(Boolean).join(" · ")}
                       </p>
-                    </div>
-                    <span className="flex shrink-0 flex-wrap gap-2">
-                      {guidedResource ? (
-                        <PDButton onClick={() => onOpenGuidedResource(guidedResource, assignment.personId, assignment.id)} tone="solid">Continue</PDButton>
-                      ) : resource ? (
-                        <PDButton href={resource.path}>Open</PDButton>
+                      {group.others.length ? (
+                        /* USA-281: each other assignment of this resource is
+                           listed in its own right, named by where it came
+                           from and when it started, because they are separate
+                           studies with separate histories and not copies of
+                           each other. Each one opens and removes on its own. */
+                        <ul className="mt-1.5 grid gap-1">
+                          {group.others.map((other) => (
+                            <li className="flex items-center gap-2" key={other.id}>
+                              <button
+                                className="min-w-0 flex-1 text-left text-[12.5px] font-semibold leading-[1.35] text-dos-blue"
+                                onClick={() => onEditResourceAssignment(other)}
+                                type="button"
+                              >
+                                {resourceAssignmentIdentityLabel(other, groups)}
+                              </button>
+                              <RowActionMenu
+                                items={[
+                                  { label: "Edit dates", onSelect: () => onEditResourceAssignment(other) },
+                                  {
+                                    danger: true,
+                                    label: "Remove",
+                                    onSelect: () => onRemoveResourceAssignment(other),
+                                  },
+                                ]}
+                                label={`More actions for ${resourceAssignmentTitle(other)}, ${resourceAssignmentIdentityLabel(other, groups)}`}
+                              />
+                            </li>
+                          ))}
+                        </ul>
                       ) : null}
-                      {assignment.status === "not_started" ? <PDButton onClick={() => onMarkResourceAssignmentInProgress(assignment)}>Start</PDButton> : null}
-                      <PDButton onClick={() => onLogResourceCheckIn(assignment)}>Check-in</PDButton>
-                      <PDButton onClick={() => onPauseResourceAssignment(assignment)}>{assignment.status === "paused" ? "Resume" : "Pause"}</PDButton>
-                      <PDButton onClick={() => onMarkResourceAssignmentComplete(assignment)}>Complete</PDButton>
-                      <PDButton onClick={() => onEditResourceAssignment(assignment)}>Edit dates</PDButton>
+                    </div>
+                    <span className="flex shrink-0 items-center gap-2">
+                      {primary.kind === "continue" && guidedResource ? (
+                        <PDButton onClick={() => onOpenGuidedResource(guidedResource, assignment.personId, assignment.id)} tone="solid">{primary.label}</PDButton>
+                      ) : primary.kind === "open" && resource ? (
+                        <PDButton href={resource.path} tone="solid">{primary.label}</PDButton>
+                      ) : primary.kind === "start" ? (
+                        <PDButton onClick={() => onMarkResourceAssignmentInProgress(assignment)} tone="solid">{primary.label}</PDButton>
+                      ) : primary.kind === "resume" ? (
+                        <PDButton onClick={() => onPauseResourceAssignment(assignment)} tone="solid">{primary.label}</PDButton>
+                      ) : null}
+                      {/* Every action the retired Growth panel had is still
+                          here. Five buttons ran off the side of a phone, so
+                          the four secondary ones moved into this menu. */}
+                      <RowActionMenu
+                        items={[
+                          ...(assignment.status === "not_started" ? [] : [{ label: "Check-in", onSelect: () => onLogResourceCheckIn(assignment) }]),
+                          { label: assignment.status === "paused" ? "Resume" : "Pause", onSelect: () => onPauseResourceAssignment(assignment) },
+                          { label: "Complete", onSelect: () => onMarkResourceAssignmentComplete(assignment) },
+                          { label: "Edit dates", onSelect: () => onEditResourceAssignment(assignment) },
+                          { danger: true, label: "Remove", onSelect: () => onRemoveResourceAssignment(assignment) },
+                        ]}
+                        label={`More actions for ${resourceAssignmentTitle(assignment)}, ${resourceAssignmentIdentityLabel(assignment, groups)}`}
+                      />
                     </span>
                   </div>
                 );
@@ -32032,17 +32262,7 @@ function MyRecordOverviewPanel({
                       </p>
                     </div>
                     {share.status === "completed" && shareResult ? (
-                      <div className="flex shrink-0 flex-col items-end gap-1.5">
-                        <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
-                        {onSendResource ? (
-                          <PDButton
-                            ariaLabel={`Send another ${shareResource?.title ?? "assessment"}`}
-                            onClick={onSendResource}
-                          >
-                            Send another
-                          </PDButton>
-                        ) : null}
-                      </div>
+                      <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
                     ) : null}
                   </div>
                 );
@@ -32392,6 +32612,7 @@ function MyRecordWorkspace({
   commitmentsEnabled,
   errorMessage,
   fruit,
+  groups,
   isSubmitting,
   launchAction,
   meetings,
@@ -32405,6 +32626,7 @@ function MyRecordWorkspace({
   onOpenPersonRecord,
   onOpenScheduledMeeting,
   onPauseResourceAssignment,
+  onRemoveResourceAssignment,
   onQuickTab,
   onSave,
   onScheduleMeeting,
@@ -32431,6 +32653,7 @@ function MyRecordWorkspace({
   commitmentsEnabled: boolean;
   errorMessage: string;
   fruit: DosAppFruit[];
+  groups: DosAppGroup[];
   isSubmitting: boolean;
   launchAction?: MyRecordLaunchAction | null;
   meetings: DosAppMeeting[];
@@ -32446,6 +32669,7 @@ function MyRecordWorkspace({
      Next meeting card opens it. My Record does not keep a second copy. */
   onOpenScheduledMeeting: (meetingId: string) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onRemoveResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onQuickTab: (tab: MyRecordTab) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
   /* The Schedule action on an empty Upcoming meeting card. The Person is
@@ -32779,6 +33003,7 @@ function MyRecordWorkspace({
             <div className="min-w-0 lg:flex-1">
               {activeMyRecordTab === "overview" ? (
                 <MyRecordOverviewPanel
+                  groups={groups}
                   assessmentResults={assessmentResults}
                   assignments={resourceAssignments}
                   onOpenShareResult={onOpenShareResult}
@@ -32798,6 +33023,7 @@ function MyRecordWorkspace({
                   onOpenScheduledMeeting={onOpenScheduledMeeting}
                   onOpenSheet={openMyRecordSheet}
                   onPauseResourceAssignment={onPauseResourceAssignment}
+                  onRemoveResourceAssignment={onRemoveResourceAssignment}
                   onScheduleMeeting={onScheduleMeeting}
                   people={people}
                   record={record}
@@ -34072,7 +34298,7 @@ function CirclesDetailOverlay({
   const hiddenCount = Math.max(0, circleContent.items.length - visiblePeople.length);
 
   return (
-    <div className="absolute inset-0 z-dos-overlay overflow-y-auto bg-white px-4 pb-dos-nav-clearance pt-6 [scrollbar-width:none]">
+    <div className="absolute inset-0 z-dos-overlay overflow-y-auto bg-white px-4 pb-dos-fab-clearance pt-6 [scrollbar-width:none]">
       <header className="flex items-center justify-between gap-3">
         <button className="flex h-10 w-10 items-center justify-center rounded-full text-[#0F172A] transition-colors hover:bg-white" onClick={onBack} type="button" aria-label="Back to home">
           <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -34460,21 +34686,29 @@ function LibraryResourceShell({
   typeLabel: string;
 }) {
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-3">
       <LibraryResourceBackButton label={backLabel} onClick={onBack} />
-      {/* Resource header (spec §5.9): blue eyebrow for the type, the display
-          title, the description in ink, then the primary action. The type
-          colour lives only in the icon tile. */}
-      <header className="flex min-w-0 items-start gap-3">
-        <IconTile>{icon}</IconTile>
-        <div className="min-w-0 flex-1">
-          <p className="text-dos-eyebrow uppercase text-dos-eyebrowSection">{typeLabel}</p>
-          <h1 className="mt-1.5 text-dos-display text-dos-primary">{title}</h1>
-          <p className="mt-2 text-dos-body text-dos-primary">{description}</p>
-          {action ? <div className="mt-3">{action}</div> : null}
-        </div>
-      </header>
-      {children}
+      {/* USA-281: the detail page is a white reading surface, not the app
+          shell's gradient. It is the first screen of a flow that continues
+          into the preview, the questionnaire and the report, and those are all
+          white; the gradient made the first step look like another product.
+
+          The title also stops being indented beside the icon. The icon and the
+          type label share one quiet line, then the title runs the full width
+          with the description under it and the actions across the bottom, so
+          the name of the thing is the largest thing on the screen. */}
+      <section className="overflow-hidden rounded-[20px] border border-[#EAF2FF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.045)]">
+        <header className="min-w-0 px-4 pb-5 pt-5">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <IconTile>{icon}</IconTile>
+            <p className="text-dos-eyebrow uppercase text-dos-eyebrowSection">{typeLabel}</p>
+          </div>
+          <h1 className="mt-3 text-[26px] font-bold leading-[1.1] tracking-[-0.03em] text-dos-primary">{title}</h1>
+          <p className="mt-2.5 text-[15px] leading-[1.55] text-dos-body">{description}</p>
+          {action ? <div className="mt-4">{action}</div> : null}
+        </header>
+        <div className="px-3 pb-3">{children}</div>
+      </section>
     </div>
   );
 }
@@ -34567,6 +34801,14 @@ function TeachingResourceContent({ resource }: { resource: DosResource }) {
 /* USA-279: the assessment's two actions, in the book study's button
    treatment. Sending establishes who the assessment is for; previewing is the
    leader reading it for themselves. */
+/* One definition of where "see the whole thing" goes, used by the action row
+   and by the sample list underneath it. */
+function assessmentPreviewHref(resource: DosResource) {
+  return resource.slug === "marriage-assessment"
+    ? `${resource.path}?from=dos-library&mode=preview`
+    : resource.path;
+}
+
 function AssessmentResourceActions({
   onSend,
   resource,
@@ -34574,9 +34816,7 @@ function AssessmentResourceActions({
   onSend?: (resource: DosResource) => void;
   resource: DosResource;
 }) {
-  const previewHref = resource.slug === "marriage-assessment"
-    ? `${resource.path}?from=dos-library&mode=preview`
-    : resource.path;
+  const previewHref = assessmentPreviewHref(resource);
   const actions = dosResourceActionLabels(resource);
   const canSend = actions.canSend && Boolean(onSend);
 
@@ -34603,52 +34843,58 @@ function AssessmentResourceActions({
   );
 }
 
-/* The detail body: three plain facts and the questions, on hairlines rather
-   than a stack of tinted introduction cards. */
-function AssessmentResourceContent({ resource }: { resource: DosResource }) {
+/* The detail body: what the assessment asks of a couple, then a sample of the
+   questions with the way to read all of them. */
+function AssessmentResourceContent({ previewHref, resource }: { previewHref?: string | null; resource: DosResource }) {
   const assessment = resource.content?.assessment ?? null;
 
   if (!assessment) {
     return resource.content?.body
-      ? <p className="px-1 text-[15.5px] leading-[1.62] text-[#475569]">{resource.content.body}</p>
+      ? <p className="px-1 text-[15.5px] leading-[1.62] text-dos-body">{resource.content.body}</p>
       : null;
   }
 
   const [firstRole, secondRole] = assessment.participants;
+  const total = assessment.questions.length;
+  const sample = assessment.questions.slice(0, 5);
 
-  /* USA-280: the assessment's own content sits on white rather than letting
-     the app shell's gradient show through it. The shell itself is untouched;
-     this is one resource's reading surface, the same white the preview, the
-     questionnaire and the report use. */
+  /* USA-281: white, like the preview, the questionnaire and the report. The
+     app shell's gradient used to show through here, so the one flow a couple
+     moves through looked like two different products. */
   return (
-    <div className="-mx-1 overflow-hidden rounded-[14px] border border-[#EAF2FF] bg-white">
-      <section className="border-b border-[#EAF2FF] bg-white px-4 py-5" aria-label="How this works">
-        <ul className="grid gap-2.5">
-          {[
-            `A couple answers ${assessment.questions.length} questions together.`,
-            `Each spouse gives their own scores, as ${firstRole} and ${secondRole}.`,
-            "Their results return to the linked People records.",
-          ].map((item) => (
-            <li className="flex gap-2.5 text-[14.5px] leading-[1.55] text-[#475569]" key={item}>
-              <span aria-hidden="true" className="mt-[9px] h-1 w-1 shrink-0 rounded-full bg-[#1D4ED8]" />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
+    <div className="-mx-1 overflow-hidden rounded-[16px] border border-[#EAF2FF] bg-white">
+      {/* Three bullets restating each other became one sentence that says the
+          same thing and reads faster. */}
+      <section className="border-b border-[#EAF2FF] px-4 py-5" aria-label="How this works">
+        <p className="text-[14.5px] leading-[1.6] text-dos-body">
+          {total} questions, answered together in one sitting. Each of you scores every question from 0 to 10 as{" "}
+          {firstRole} and {secondRole}, and the results return to both People records.
+        </p>
       </section>
 
-      <section className="px-4 pt-6" aria-label="Questions">
-        <h2 className="text-[17px] font-bold tracking-[-0.015em] text-[#0F172A]">Questions</h2>
+      <section className="px-4 pb-5 pt-5" aria-label="Sample questions">
+        <div className="flex items-baseline justify-between gap-3">
+          <h2 className="text-[16px] font-bold tracking-[-0.015em] text-dos-primary">Sample questions</h2>
+          <span className="shrink-0 text-[12.5px] font-semibold text-dos-secondary">{sample.length} of {total}</span>
+        </div>
         <div className="mt-3 border-t border-[#EAF2FF]">
-          {assessment.questions.slice(0, 5).map((question) => (
-            <p className="border-b border-[#EAF2FF] py-3 text-[14.5px] leading-[1.5] text-[#475569]" key={question.id}>
-              {question.prompt}
+          {sample.map((question, index) => (
+            <p className="flex gap-3 border-b border-[#EAF2FF] py-3 text-[14.5px] leading-[1.5] text-dos-body" key={question.id}>
+              <span className="shrink-0 tabular-nums font-semibold text-dos-secondary">{index + 1}</span>
+              <span>{question.prompt}</span>
             </p>
           ))}
         </div>
-        <p className="mt-3 pb-5 text-[13px] font-semibold text-[#334E68]">
-          {assessment.questions.length} questions in total. Preview shows every one.
-        </p>
+        {previewHref ? (
+          <a
+            className="mt-4 inline-flex min-h-[44px] items-center text-[14.5px] font-semibold text-dos-blue"
+            href={previewHref}
+          >
+            See all {total} questions
+          </a>
+        ) : (
+          <p className="mt-3 text-[13px] font-semibold text-dos-secondary">Preview shows all {total}.</p>
+        )}
       </section>
     </div>
   );
@@ -35344,8 +35590,99 @@ function LibraryCatalogResourcePage({
       title={resource.title}
       typeLabel={resourceTypeLabel(resource)}
     >
-      {resource.type === "assessment" ? <AssessmentResourceContent resource={resource} /> : <TeachingResourceContent resource={resource} />}
+      {resource.type === "assessment"
+        ? <AssessmentResourceContent previewHref={assessmentPreviewHref(resource)} resource={resource} />
+        : <TeachingResourceContent resource={resource} />}
     </LibraryResourceShell>
+  );
+}
+
+/* USA-281: "+ Add" under Resources used to assume the Marriage Assessment.
+ * It now asks which resource, then hands off to that resource's own setup.
+ *
+ * Only resources with a working flow are listed, and they are grouped by what
+ * that flow actually does:
+ *   - "Send a link" is the share-link flow, which today is the Marriage
+ *     Assessment (dosShareableResourceSlugs).
+ *   - "Assign a journey" is the assignment flow (resource.assignable).
+ * Everything else in the Library is real but has neither flow yet, so it is
+ * not offered here; showing it would be offering something that does nothing.
+ *
+ * Choosing here creates NOTHING. It opens the setup for the chosen resource,
+ * and that setup is what writes, only when the person confirms it. */
+function ResourceAddSheet({
+  onAssign,
+  onClose,
+  onSend,
+  personName,
+}: {
+  onAssign: (resource: DosResource) => void;
+  onClose: () => void;
+  onSend: (resource: DosResource) => void;
+  personName: string;
+}) {
+  const sendable = dosResourceCatalog.filter((resource) => isDosResourceShareEnabled(resource));
+  const assignable = dosAssignableResourceItems;
+
+  return (
+    <Sheet
+      description={`Choose what to set up for ${personName}. Nothing is created until you confirm it.`}
+      onClose={onClose}
+      showEyebrow={false}
+      title="Add a resource"
+    >
+      <div className="max-h-[68dvh] space-y-5 overflow-y-auto pr-1 [scrollbar-width:none]">
+        {sendable.length ? (
+          <section aria-label="Send a link">
+            <p className="text-dos-eyebrow uppercase text-dos-eyebrowSection">Send a link</p>
+            <p className="mt-1 text-[13.5px] leading-[1.5] text-dos-secondary">
+              DOS prepares a link the two of them open together.
+            </p>
+            <div className="mt-2.5 divide-y divide-dos-rule overflow-hidden rounded-[16px] border border-dos-line bg-white">
+              {sendable.map((resource) => (
+                <button
+                  className="flex w-full min-h-[56px] items-center gap-3 px-3.5 py-3 text-left hover:bg-dos-blue50"
+                  key={resource.id}
+                  onClick={() => onSend(resource)}
+                  type="button"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-bold leading-[1.3] text-dos-primary">{resource.title}</span>
+                    <span className="mt-0.5 block text-[12.5px] leading-[1.4] text-dos-secondary">{resource.description}</span>
+                  </span>
+                  <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {assignable.length ? (
+          <section aria-label="Assign a journey">
+            <p className="text-dos-eyebrow uppercase text-dos-eyebrowSection">Assign a journey</p>
+            <p className="mt-1 text-[13.5px] leading-[1.5] text-dos-secondary">
+              A reading plan or guided resource, with its own dates and progress.
+            </p>
+            <div className="mt-2.5 divide-y divide-dos-rule overflow-hidden rounded-[16px] border border-dos-line bg-white">
+              {assignable.map((resource) => (
+                <button
+                  className="flex w-full min-h-[56px] items-center gap-3 px-3.5 py-3 text-left hover:bg-dos-blue50"
+                  key={resource.id}
+                  onClick={() => onAssign(resource)}
+                  type="button"
+                >
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[15px] font-bold leading-[1.3] text-dos-primary">{resource.title}</span>
+                    <span className="mt-0.5 block text-[12.5px] leading-[1.4] text-dos-secondary">{resource.description}</span>
+                  </span>
+                  <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </div>
+    </Sheet>
   );
 }
 
@@ -36003,6 +36340,7 @@ function PersonDetailOverlay({
   onMarkResourceAssignmentComplete,
   onMarkResourceAssignmentInProgress,
   onOpenGuidedResource,
+  onRemoveResourceAssignment,
   onMarkPrayerAnswered,
   onOpenGathering,
   onOpenGroup,
@@ -36089,6 +36427,7 @@ function PersonDetailOverlay({
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
+  onRemoveResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenGathering?: (groupId: string, gatheringId: string) => void;
   onOpenGroup: (groupId: string) => void;
@@ -37113,12 +37452,21 @@ function PersonDetailOverlay({
                                 </span>
                               ) : null}
                             </div>
-                            {/* Continue is the one filled action on the page. */}
-                            {journey.isInAppJourney && journey.resource ? (
-                              <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
-                            ) : journey.resource ? (
-                              <PDButton href={journey.resource.path}>Open</PDButton>
-                            ) : null}
+                            {/* Continue is the one filled action on the page.
+                                USA-281: Remove sits beside it so a Journey
+                                assigned by mistake can be taken off this
+                                record without asking anyone. */}
+                            <span className="flex shrink-0 items-center gap-1">
+                              {journey.isInAppJourney && journey.resource ? (
+                                <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
+                              ) : journey.resource ? (
+                                <PDButton href={journey.resource.path}>Open</PDButton>
+                              ) : null}
+                              <RowActionMenu
+                                items={[{ danger: true, label: "Remove", onSelect: () => onRemoveResourceAssignment(journey.assignment) }]}
+                                label={`More actions for ${journey.title}`}
+                              />
+                            </span>
                           </div>
                         ))}
                       </div>
@@ -37203,18 +37551,11 @@ function PersonDetailOverlay({
                                 </p>
                               </div>
                               {share.status === "completed" && shareResult ? (
-                                /* USA-280: a reassessment is an explicit action, and it
-                                   sends a new link rather than reopening the finished
-                                   one. The completed result stays exactly as it is. */
-                                <div className="flex shrink-0 flex-col items-end gap-1.5">
-                                  <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
-                                  <PDButton
-                                    ariaLabel={`Send another ${shareResource?.title ?? "assessment"}`}
-                                    onClick={() => onSendResource(person.id)}
-                                  >
-                                    Send another
-                                  </PDButton>
-                                </div>
+                                /* USA-281: a completed row offers the result. Sending
+                                   another goes through Resources > + Add, which is the
+                                   one place a resource is chosen, so this row does not
+                                   need its own second action. */
+                                <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
                               ) : share.status === "revoked" || share.status === "expired" ? null : (
                                 <PDButton onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}${share.shareUrl}`)}>Copy link</PDButton>
                               )}
@@ -38544,7 +38885,7 @@ function MeetingDetailOverlay({
 
   if (showPostMeetingFollowUp && isLoggedTableMeeting && roleAllowsFruitReviews) {
     return (
-      <div className="absolute inset-0 z-dos-overlay overflow-y-auto bg-white px-4 pb-dos-nav-clearance pt-7 [scrollbar-width:none]">
+      <div className="absolute inset-0 z-dos-overlay overflow-y-auto bg-white px-4 pb-dos-fab-clearance pt-7 [scrollbar-width:none]">
         <header className="flex items-center justify-between gap-3">
           <button className="flex h-10 w-10 items-center justify-center rounded-full border border-[#E2E8F0] bg-white text-[#0F172A]" onClick={onBack} type="button" aria-label="Back to table">
             <ArrowLeft className="h-4 w-4" aria-hidden="true" strokeWidth={1.8} />
@@ -38639,7 +38980,7 @@ function MeetingDetailOverlay({
     .join(" · ");
 
   return (
-    <div className="absolute inset-0 z-dos-overlay overflow-y-auto bg-white px-4 pb-dos-nav-clearance pt-6 [scrollbar-width:none] md:px-10 md:pb-16 md:pt-8 lg:px-14">
+    <div className="absolute inset-0 z-dos-overlay overflow-y-auto bg-white px-4 pb-dos-fab-clearance pt-6 [scrollbar-width:none] md:px-10 md:pb-16 md:pt-8 lg:px-14">
       <div className="mx-auto w-full max-w-[880px]">
         {/* Chrome: back to the person, deeper actions behind the overflow. */}
         <header className="-mx-1 flex items-center justify-between">
@@ -39222,6 +39563,9 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   const [resourceAssignmentDuplicate, setResourceAssignmentDuplicate] = useState<ResourceAssignmentDuplicateState>(null);
   const [resourceAssignmentNotice, setResourceAssignmentNotice] = useState<ResourceAssignmentNotice>(null);
   const [assignResourcePickerPersonId, setAssignResourcePickerPersonId] = useState<string | null>(null);
+  /* USA-281: which person "+ Add" was pressed for. Holding the id here is what
+     keeps them selected through the picker and into whichever setup follows. */
+  const [addResourcePersonId, setAddResourcePersonId] = useState<string | null>(null);
   const [assignTargetPicker, setAssignTargetPicker] = useState<AssignTargetPickerState>(null);
   const [groupJourneyAssign, setGroupJourneyAssign] = useState<GroupJourneyAssignState>(null);
   const [guidedResourceDetail, setGuidedResourceDetail] = useState<GuidedResourceDetailState>(null);
@@ -42270,12 +42614,11 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     setSendResourceTarget({ personId: personId ?? null, slug: resource.slug });
   }
 
+  /* USA-281: was hardcoded to the Marriage Assessment, so "+ Add" under
+     Resources could only ever set up that one thing. It now asks. */
   function openSendResourceForPerson(personId: string) {
-    const marriageAssessment = getDosResourceBySlug("marriage-assessment");
-
-    if (marriageAssessment) {
-      openSendResource(marriageAssessment, personId);
-    }
+    setErrorMessage("");
+    setAddResourcePersonId(personId);
   }
 
   async function createResourceShare(input: { personId: string; personRole: string; resourceSlug: string; spouseName: string; spousePersonId: string | null }) {
@@ -42679,6 +43022,43 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
         startDate: result.assignment.startDate,
         text: status === "completed" ? "Resource completed." : status === "paused" ? "Resource paused." : "Resource updated.",
       });
+    }
+  }
+
+  /* USA-281: remove an assignment somebody did not want.
+   *
+   * A soft delete server side, so the row, its dates and every guided-resource
+   * reflection attached to it are preserved and a restore is one column away.
+   * The confirmation says what removal does and, for an assignment that came
+   * from a group, that it only affects this person's copy. */
+  async function removeResourceAssignment(assignment: DosAppResourceAssignment) {
+    const title = resourceAssignmentTitle(assignment);
+    /* USA-281: a person can hold the same resource more than once, once per
+       group. The confirmation names WHICH one is going, because "Remove
+       Discipleship?" is ambiguous when there are two of them. */
+    const identity = resourceAssignmentIdentityLabel(assignment, groups);
+    const sharedNote = assignment.assignmentContext === "group"
+      ? " This removes it from this record only. Everyone else assigned it in the group keeps theirs."
+      : "";
+    const progressNote = assignment.status === "not_started"
+      ? ""
+      : " Progress already recorded is kept and is not deleted.";
+
+    if (!window.confirm(`Remove "${title}" (${identity}) from this record?${sharedNote}${progressNote}`)) {
+      return;
+    }
+
+    const result = await submitJson(
+      "/api/dos/app/resource-assignments",
+      { action: "remove", id: assignment.id },
+      "PATCH",
+      false,
+    ) as { removed?: boolean } | null;
+
+    if (result?.removed) {
+      /* The list is server data, so the refresh is what makes the row stay
+         gone after a reload rather than only disappearing in this tab. */
+      router.refresh();
     }
   }
 
@@ -46185,7 +46565,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
           profileName={profileName}
           workspaceName={workspaceName}
         />
-        <div ref={appScrollRef} className={`h-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-transparent px-4 pt-11 [scrollbar-width:none] md:bg-transparent md:px-8 md:pb-10 md:pt-6 xl:px-10 pb-dos-nav-clearance`}>
+        <div ref={appScrollRef} className={`h-full min-w-0 flex-1 overflow-x-hidden overflow-y-auto bg-transparent px-4 pt-11 [scrollbar-width:none] md:bg-transparent md:px-8 md:pb-10 md:pt-6 xl:px-10 pb-dos-fab-clearance`}>
           {activeTab === "home" ? (
             <header className="relative md:hidden">
               <div className="min-w-0 pr-16">
@@ -47284,6 +47664,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             list keeps its search, circle filter and scroll for the way back. */}
         {activeTab === "people" && isMyRecordOpen && !selectedPerson ? (
           <MyRecordWorkspace
+            groups={groups}
             commitments={myRecordCommitments}
             commitmentsEnabled={commitmentsEnabled}
             errorMessage={errorMessage}
@@ -47301,6 +47682,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onOpenPersonRecord={myRecordPerson ? openPersonDetail : null}
             onOpenScheduledMeeting={openMeetingDetail}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
+            onRemoveResourceAssignment={(assignment) => void removeResourceAssignment(assignment)}
             onQuickTab={setMyRecordTab}
             onSave={submitMyRecord}
             onScheduleMeeting={(personId) => openScheduleMeeting(personId ?? undefined)}
@@ -47385,6 +47767,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onRequestReview={(meeting, type) => setPendingMeetingSendAction({ meeting, type })}
             onPauseCommitment={(commitment) => void setCommitmentStatus(commitment, commitment.status === "paused" ? "active" : "paused")}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
+            onRemoveResourceAssignment={(assignment) => void removeResourceAssignment(assignment)}
             onScheduleMeeting={() => openScheduleMeeting(selectedPerson.id)}
             participantReviews={data.participantReviews}
               participantTestimonies={data.participantTestimonies}
@@ -47857,6 +48240,23 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             isSubmitting={isSubmitting}
             onClose={() => setResourceAssignmentSheet(null)}
             onSubmit={handleResourceAssignmentCheckInSubmit}
+          />
+        ) : null}
+
+        {addResourcePersonId ? (
+          <ResourceAddSheet
+            onAssign={(resource) => {
+              const personId = addResourcePersonId;
+              setAddResourcePersonId(null);
+              openResourceAssignmentCreate(resource, personId, { assignmentContext: "person" });
+            }}
+            onClose={() => setAddResourcePersonId(null)}
+            onSend={(resource) => {
+              const personId = addResourcePersonId;
+              setAddResourcePersonId(null);
+              openSendResource(resource, personId);
+            }}
+            personName={people.find((person) => person.id === addResourcePersonId)?.name ?? "this person"}
           />
         ) : null}
 
