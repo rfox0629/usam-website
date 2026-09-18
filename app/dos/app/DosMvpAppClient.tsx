@@ -12850,6 +12850,28 @@ function groupResourceAssignmentsByResource(assignments: readonly DosAppResource
   });
 }
 
+/* USA-281: what distinguishes one assignment of a resource from another.
+   Ryan holds "Discipleship" twice because it runs in two different groups,
+   each with its own start date and its own progress. A bare count hid that,
+   so every row says which one it is: where it came from, when it started and
+   what state it is in. */
+function resourceAssignmentIdentityLabel(
+  assignment: DosAppResourceAssignment,
+  groups: readonly DosAppGroup[],
+) {
+  const source = assignment.sourceGroupId
+    ? groups.find((group) => group.id === assignment.sourceGroupId)?.name ?? "Group"
+    : assignment.assignmentContext === "self"
+      ? "Personal"
+      : null;
+
+  return [
+    source,
+    assignment.startDate ? `Started ${formatShortDate(assignment.startDate)}` : null,
+    resourceAssignmentStateLabel(assignment),
+  ].filter(Boolean).join(" · ");
+}
+
 function resourceAssignmentStateLabel(assignment: DosAppResourceAssignment) {
   if (assignment.status === "paused") {
     return "Paused";
@@ -31969,6 +31991,7 @@ function MyRecordOverviewPanel({
   commitments,
   commitmentsEnabled,
   draftAssessments,
+  groups,
   meetings,
   onEditResourceAssignment,
   onLogResourceCheckIn,
@@ -31994,6 +32017,7 @@ function MyRecordOverviewPanel({
   resourceShares: DosAppResourceShareAssignment[];
   commitments: DosAppPersonCommitment[];
   commitmentsEnabled: boolean;
+  groups: DosAppGroup[];
   draftAssessments: MyRecordAssessmentLibraryItem[];
   meetings: DosAppMeeting[];
   onEditResourceAssignment: (assignment: DosAppResourceAssignment) => void;
@@ -32115,20 +32139,42 @@ function MyRecordOverviewPanel({
                       <p className="mt-0.5 text-[12.5px] leading-[1.35] text-dos-secondary">
                         {[
                           resourceAssignmentTypeLabel(assignment),
-                          resourceAssignmentStateLabel(assignment),
+                          group.others.length
+                            ? resourceAssignmentIdentityLabel(assignment, groups)
+                            : resourceAssignmentStateLabel(assignment),
                           assignment.status === "paused" ? null : resourceAssignmentDueLabel(assignment),
                         ].filter(Boolean).join(" · ")}
                       </p>
                       {group.others.length ? (
-                        <button
-                          className="mt-1 text-left text-[12.5px] font-semibold text-dos-blue"
-                          onClick={() => onEditResourceAssignment(group.others[0])}
-                          type="button"
-                        >
-                          {group.others.length === 1
-                            ? "1 more assignment for this resource"
-                            : `${group.others.length} more assignments for this resource`}
-                        </button>
+                        /* USA-281: each other assignment of this resource is
+                           listed in its own right, named by where it came
+                           from and when it started, because they are separate
+                           studies with separate histories and not copies of
+                           each other. Each one opens and removes on its own. */
+                        <ul className="mt-1.5 grid gap-1">
+                          {group.others.map((other) => (
+                            <li className="flex items-center gap-2" key={other.id}>
+                              <button
+                                className="min-w-0 flex-1 text-left text-[12.5px] font-semibold leading-[1.35] text-dos-blue"
+                                onClick={() => onEditResourceAssignment(other)}
+                                type="button"
+                              >
+                                {resourceAssignmentIdentityLabel(other, groups)}
+                              </button>
+                              <RowActionMenu
+                                items={[
+                                  { label: "Edit dates", onSelect: () => onEditResourceAssignment(other) },
+                                  {
+                                    danger: true,
+                                    label: "Remove",
+                                    onSelect: () => onRemoveResourceAssignment(other),
+                                  },
+                                ]}
+                                label={`More actions for ${resourceAssignmentTitle(other)}, ${resourceAssignmentIdentityLabel(other, groups)}`}
+                              />
+                            </li>
+                          ))}
+                        </ul>
                       ) : null}
                     </div>
                     <span className="flex shrink-0 items-center gap-2">
@@ -32152,7 +32198,9 @@ function MyRecordOverviewPanel({
                           { label: "Edit dates", onSelect: () => onEditResourceAssignment(assignment) },
                           { danger: true, label: "Remove", onSelect: () => onRemoveResourceAssignment(assignment) },
                         ]}
-                        label={`More actions for ${resourceAssignmentTitle(assignment)}`}
+                        label={group.others.length
+                          ? `More actions for ${resourceAssignmentTitle(assignment)}, ${resourceAssignmentIdentityLabel(assignment, groups)}`
+                          : `More actions for ${resourceAssignmentTitle(assignment)}`}
                       />
                     </span>
                   </div>
@@ -32563,6 +32611,7 @@ function MyRecordWorkspace({
   commitmentsEnabled,
   errorMessage,
   fruit,
+  groups,
   isSubmitting,
   launchAction,
   meetings,
@@ -32603,6 +32652,7 @@ function MyRecordWorkspace({
   commitmentsEnabled: boolean;
   errorMessage: string;
   fruit: DosAppFruit[];
+  groups: DosAppGroup[];
   isSubmitting: boolean;
   launchAction?: MyRecordLaunchAction | null;
   meetings: DosAppMeeting[];
@@ -32952,6 +33002,7 @@ function MyRecordWorkspace({
             <div className="min-w-0 lg:flex-1">
               {activeMyRecordTab === "overview" ? (
                 <MyRecordOverviewPanel
+                  groups={groups}
                   assessmentResults={assessmentResults}
                   assignments={resourceAssignments}
                   onOpenShareResult={onOpenShareResult}
@@ -42981,6 +43032,10 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
    * from a group, that it only affects this person's copy. */
   async function removeResourceAssignment(assignment: DosAppResourceAssignment) {
     const title = resourceAssignmentTitle(assignment);
+    /* USA-281: a person can hold the same resource more than once, once per
+       group. The confirmation names WHICH one is going, because "Remove
+       Discipleship?" is ambiguous when there are two of them. */
+    const identity = resourceAssignmentIdentityLabel(assignment, groups);
     const sharedNote = assignment.assignmentContext === "group"
       ? " This removes it from this record only. Everyone else assigned it in the group keeps theirs."
       : "";
@@ -42988,7 +43043,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
       ? ""
       : " Progress already recorded is kept and is not deleted.";
 
-    if (!window.confirm(`Remove "${title}" from this record?${sharedNote}${progressNote}`)) {
+    if (!window.confirm(`Remove "${title}" (${identity}) from this record?${sharedNote}${progressNote}`)) {
       return;
     }
 
@@ -47608,6 +47663,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             list keeps its search, circle filter and scroll for the way back. */}
         {activeTab === "people" && isMyRecordOpen && !selectedPerson ? (
           <MyRecordWorkspace
+            groups={groups}
             commitments={myRecordCommitments}
             commitmentsEnabled={commitmentsEnabled}
             errorMessage={errorMessage}

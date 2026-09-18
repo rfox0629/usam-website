@@ -617,8 +617,12 @@ assert.ok(
   "removal is scoped to the workspace the caller is authorized for",
 );
 assert.ok(
-  appClient.includes("window.confirm(`Remove \"${title}\" from this record?"),
-  "removal is confirmed rather than immediate",
+  appClient.includes("window.confirm(`Remove \"${title}\" (${identity}) from this record?"),
+  "removal is confirmed rather than immediate, and names which assignment it acts on",
+);
+assert.ok(
+  appClient.includes("const identity = resourceAssignmentIdentityLabel(assignment, groups)"),
+  "the confirmation identifies the assignment by group and start date, because a person can hold one resource twice",
 );
 assert.ok(
   appClient.includes("Everyone else assigned it in the group keeps theirs."),
@@ -631,6 +635,44 @@ assert.ok(
 assert.ok(
   appClient.includes('{ danger: true, label: "Remove"'),
   "Remove is reachable from the row menu in My Record and on a Person",
+);
+
+/* ---- USA-281: grouped assignments stay individually addressable --------- */
+
+assert.ok(
+  appClient.includes("function resourceAssignmentIdentityLabel"),
+  "an assignment is named by where it came from and when it started, not by a count",
+);
+assert.ok(
+  /group\.others\.map\(\(other\) =>/.test(appClient),
+  "every other assignment of a resource is listed in its own right",
+);
+assert.ok(
+  appClient.includes("onSelect: () => onRemoveResourceAssignment(other)"),
+  "each grouped assignment can be removed on its own",
+);
+assert.ok(
+  appClient.includes("label={`More actions for ${resourceAssignmentTitle(other)}, ${resourceAssignmentIdentityLabel(other, groups)}`}"),
+  "removal names which assignment it acts on",
+);
+
+const indexMigration = read("supabase/migrations/20260918140000_usa_281_active_assignment_index.sql");
+
+assert.ok(
+  indexMigration.includes("and removed_at is null"),
+  "a removed assignment stops reserving its unique slot",
+);
+assert.ok(
+  indexMigration.includes("assignment_context") && indexMigration.includes("coalesce(source_group_id"),
+  "the index keeps production's context and group terms, so one study can run in two groups",
+);
+assert.ok(
+  indexMigration.includes("raise exception"),
+  "the migration proves no existing row conflicts before it creates the index",
+);
+assert.ok(
+  !/\bdelete\s+from\b/i.test(indexMigration) && !/\bdrop\s+table\b/i.test(indexMigration),
+  "the index migration touches no data",
 );
 
 console.log("DOS resource sharing (USA-278 / USA-279 / USA-280) regression passed.");
