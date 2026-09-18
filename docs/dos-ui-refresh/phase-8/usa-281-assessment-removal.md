@@ -112,3 +112,70 @@ unfinished confirmation, the record after, the record after a refresh, My
 Record before, its row menu showing View results and Remove on a completed
 assessment, the completed confirmation, My Record after, and the spouse's
 record afterwards.
+
+---
+
+# USA-281 follow-up, part two: one Resources section, one Add
+
+## What was overlapping
+
+A journey and an assessment are both a Library resource someone is working
+through, and the app split them across two places with two ways in.
+
+| | before | after |
+|---|---|---|
+| Person record | JOURNEY section, then a separate RESOURCES section | one RESOURCES section: journeys, then assessments |
+| My Record | journeys under Current commitments, assessments under Resources | one Resources section; Current commitments is accountability only |
+| Add, on a record | two `+ Add` buttons | one |
+| Add, floating menu | "Assign journey" and "Send resource" | "Add resource" |
+| Person-level pickers | two | one |
+
+The floating menu asked the user to know which internal flow a resource
+happens to use before they had chosen a resource. The picker's own groups had
+the same problem, so "Send a link" and "Assign a journey" became "Journeys"
+and "Assessments": what the thing is, not how it is wired. A group with no
+supported resources is not rendered, so no empty category appears, and nothing
+that lacks a working flow is offered.
+
+Both entry points open the same sheet, carrying the person it was opened for
+all the way into whichever setup follows. On Brooke's record neither path asks
+who it is for. Couple wording stays inside the Marriage Assessment setup, and
+creating a link still says "Link ready".
+
+This is a presentation change. Every assignment keeps its own group, start
+date, progress and notes, and each one opens and removes on its own.
+
+## A collision the browser run found
+
+With Resources holding both kinds of row, the last row on a Person record sat
+under the floating action button with no way to scroll it clear: the overlay's
+bottom padding was 24px short of the button and the page was not scrollable
+past it. Both the Person record and My Record now use the shared
+`pb-dos-fab-clearance` token rather than their own ad-hoc values.
+
+A floating button over a scrolling list will cover something at some scroll
+offset; that is what floating means. What is checked is that no control is
+permanently under it. At 320, 390 and 430, every Resources control on both
+surfaces is clear of the button at some reachable scroll position, and at the
+bottom of the scroll nothing is covered at all.
+
+## Verified by clicking it
+
+72 of 72 browser checks, plus 8 re-checking that removal still works now the
+rows have moved. Both floating buttons are found and measured rather than
+assumed; an earlier version of this run reported "no floating button" and
+passed vacuously, which was fixed rather than accepted.
+
+Covered: both entry points open the same picker with the same person; the
+picker groups by Journeys and Assessments with no empty category and no
+Friendship Assessment; cancelling the picker, journey setup and assessment
+setup each leave the row count unchanged; journeys appear before assessments
+and appear once, with Current commitments reading "Nothing open right now";
+the two group journeys are listed separately with their own group, start date
+and menu, and removing one names which; unfinished and completed assessments
+both still remove; no horizontal overflow at any of the three widths.
+
+After the run, the database showed the completed assessment removed with its
+15 answers and its result intact, the unfinished one revoked, both links
+returning "Link no longer active", a fresh assessment created with
+`reused: false`, and all three journey assignments untouched.

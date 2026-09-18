@@ -356,11 +356,65 @@ assert.ok(dosApp.includes("Sample questions"), "the five questions on the detail
 assert.ok(dosApp.includes("See all {total} questions"), "the detail page links to every question");
 assert.ok(dosApp.includes("{sample.length} of {total}"), "the detail page says how much of the assessment the sample covers");
 assert.ok(dosApp.includes("aria-label=\"Resources\""), "the Person Activity area has a Resources section");
-assert.ok(dosApp.includes("label: \"Send resource\""), "Send resource is on the Person floating plus menu");
+/* USA-281 follow-up: ONE entry, not two. "Assign journey" and "Send resource"
+   made the user pick an internal flow before picking a resource. */
+assert.ok(dosApp.includes("label: \"Add resource\""), "Add resource is on the Person floating plus menu");
+assert.ok(!dosApp.includes("label: \"Send resource\"") && !dosApp.includes("label: \"Assign journey\""),
+  "the two old entries are gone rather than left beside the new one");
+/* One PERSON-level picker. Assigning a journey to a whole group is a
+   different flow and keeps its own sheet. */
+assert.ok(!dosApp.includes("assignResourcePickerPersonId"),
+  "the second person-level journey picker is gone, not merely unreachable");
+assert.ok(/label: "Add resource", onClick: \(\) => onSendResource\(person\.id\)/.test(dosApp),
+  "the floating entry opens the same picker as Resources + Add, with this person already chosen");
 assert.ok(dosApp.includes("dosLinkedSpouseForPerson"), "the linked spouse comes from the household model");
 assert.ok(dosApp.includes("Copy link"), "a resource row offers Copy link");
 assert.ok(dosApp.includes("View results"), "a completed resource row opens the results");
 assert.ok(dosApp.includes("sharedResultIds"), "one completion is one timeline entry, not two");
+
+const addSheet = dosApp.slice(dosApp.indexOf("function ResourceAddSheet("), dosApp.indexOf("function ResourcePickerSheet("));
+
+assert.ok(/label: "Journeys"/.test(addSheet) && /label: "Assessments"/.test(addSheet),
+  "the picker groups by what the resource is, not by which flow it uses");
+assert.ok(!/"Send a link"|"Assign a journey"/.test(addSheet),
+  "the old flow-shaped group names are gone");
+assert.ok(addSheet.includes('].filter((group) => group.resources.length);'),
+  "a group with no supported resources is not rendered at all");
+assert.ok(addSheet.includes("const journeys = dosAssignableResourceItems.filter((resource) => !assessmentSlugs.has(resource.slug));"),
+  "a resource that supports both flows is listed once, under what it is");
+assert.ok(addSheet.includes("Nothing is created until you confirm it."),
+  "choosing in the picker creates nothing");
+
+/* The person chosen for + Add is carried into whichever setup follows, so a
+   record never asks who this is for. */
+assert.ok(/onAssign=\{\(resource\) => \{\s*const personId = addResourcePersonId;[\s\S]{0,200}openResourceAssignmentCreate\(resource, personId/.test(dosApp),
+  "journey setup opens for the person the picker was opened for");
+assert.ok(/onSend=\{\(resource\) => \{\s*const personId = addResourcePersonId;[\s\S]{0,160}openSendResource\(resource, personId\)/.test(dosApp),
+  "assessment setup opens for the person the picker was opened for");
+
+/* One Resources section: journeys then assessments, under one + Add. */
+assert.ok(!dosApp.includes('<section aria-label="Journey" '),
+  "the Person record no longer has a Journey section separate from Resources");
+assert.ok(dosApp.includes("{conceptJourneys.length || personResourceShares.length ? ("),
+  "the Person Resources section holds journeys and assessments together");
+assert.ok(dosApp.includes("{assignmentGroups.length || resourceShares.length ? ("),
+  "My Record's Resources section holds journeys and assessments together");
+assert.ok(dosApp.includes("const currentCount = draftAssessments.length + activeCommitments.length;"),
+  "a journey is no longer counted under Current commitments as well, so nothing is listed twice");
+assert.ok(dosApp.includes("function ResourceAssessmentRow("),
+  "an assessment row is drawn once and used by both panels");
+
+/* The Person record overlay reserves the same floating-button clearance My
+   Record already had. Without it the last Resources row sat under the button
+   with no way to scroll it clear, which the browser run caught. */
+assert.ok(
+  !dosApp.includes("pb-[calc(env(safe-area-inset-bottom)+9.5rem)]"),
+  "the Person overlay no longer carries its own ad-hoc bottom padding",
+);
+assert.ok(
+  (dosApp.match(/pb-dos-fab-clearance/g) ?? []).length >= 5,
+  "every surface that carries a floating button reserves the shared clearance",
+);
 
 const sendSheet = dosApp.slice(dosApp.indexOf("function SendResourceSheet"), dosApp.indexOf("function ResourceShareResultSheet"));
 assert.ok(sendSheet.includes("A first name is enough. No contact is created."));
@@ -552,8 +606,10 @@ assert.ok(
   !appClient.includes("Send another"),
   "a completed row does not carry its own second send action",
 );
+/* USA-281 follow-up: the row is drawn once now, so the check reads the shared
+   component rather than one panel's copy of it. */
 assert.ok(
-  /share\.status === "completed" && shareResult \? \(\s*<PDButton onClick=\{\(\) => onOpenShareResult\(shareResult\.id\)\} tone="solid">View results<\/PDButton>/.test(appClient),
+  /share\.status === "completed" && result \? \(\s*<PDButton onClick=\{\(\) => onOpenShareResult\(result\.id\)\} tone="solid">View results<\/PDButton>/.test(appClient),
   "a completed row offers View results",
 );
 
@@ -744,17 +800,27 @@ assert.ok(
   appClient.includes("It will be its own record and will not overwrite these answers."),
   "the confirmation states that a new assessment can follow without overwriting",
 );
+/* The row is shared now, so Remove is checked once, in the component, and
+   both panels are checked for passing the handler into it. */
+const assessmentRow = appClient.slice(
+  appClient.indexOf("function ResourceAssessmentRow("),
+  appClient.indexOf("/* Copy link and, where the browser offers it"),
+);
 assert.ok(
-  appClient.includes("onSelect: () => onRemoveResourceShare(share)"),
+  assessmentRow.includes('{ danger: true, label: "Remove", onSelect: () => onRemove(share) }'),
   "Remove is reachable from the assessment row menu",
+);
+assert.ok(
+  assessmentRow.includes('label: "Copy link", onSelect: copyLink') && assessmentRow.includes('label: "View results"'),
+  "the same menu also carries Copy link and View results, so the row's actions are all in one place",
 );
 assert.ok(
   (appClient.match(/onRemoveResourceShare=\{removeResourceShare\}/g) ?? []).length === 2,
   "both People and My Record get the control, not one of them",
 );
 assert.ok(
-  (appClient.match(/onRemoveResourceShare \? \(/g) ?? []).length === 2,
-  "the menu renders on the assessment rows in both panels",
+  (appClient.match(/onRemove=\{onRemoveResourceShare\}/g) ?? []).length === 2,
+  "both panels pass the handler into the shared row",
 );
 
 const surfaces = read("src/components/dos/overlays/DosSurfaces.tsx");

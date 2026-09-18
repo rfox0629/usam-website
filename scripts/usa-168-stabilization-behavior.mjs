@@ -2453,7 +2453,12 @@ await check("Person polish keeps fixed tabs centered and section hierarchy blue"
   assert(person.includes('<Segmented') && person.includes('label={`${firstName} views`}'), "Person's three fixed views use the centered segmented control.");
   assert(!person.includes("<Eyebrow>Right now</Eyebrow>"), "The redundant Right now umbrella heading stays removed.");
   assert(person.includes('const eyebrowClass = "text-dos-eyebrow uppercase text-dos-eyebrowSection"'), "Last and Next meeting card eyebrows are blue.");
-  for (const section of ["Journey", "Accountability", "Prayer", "Fruit", "Feedback", "Groups", "Reminder", "Group gathering"]) {
+  /* USA-281 follow-up: "Journey" is no longer a section of its own. Journeys
+     and assessments are one Library, so they are listed together under
+     Resources with one + Add. The guarantee here is unchanged, that each named
+     section stays named and carries the blue section eyebrow; only the name of
+     the section a journey lives in has changed. */
+  for (const section of ["Resources", "Accountability", "Prayer", "Fruit", "Feedback", "Groups", "Reminder", "Group gathering"]) {
     assert(person.includes(`aria-label="${section}"`) || person.includes(`<Eyebrow>${section}</Eyebrow>`), `${section} remains a named Person section.`);
   }
   assert(!person.includes('tone="sub"'), "Person's named overview sections use the blue section eyebrow treatment.");
