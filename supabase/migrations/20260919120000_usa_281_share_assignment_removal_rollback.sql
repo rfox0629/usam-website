@@ -6,10 +6,11 @@
 -- What it does change, stated plainly:
 --
 --   A COMPLETED assessment that was removed becomes visible again on both
---   participants' records, and its public link becomes reachable again,
---   because removed_at was the only thing hiding it. If that matters, revoke
---   those links through the product before rolling back. Do not delete the
---   rows: the answers are the couple's.
+--   participants' records, and its public link becomes reachable again.
+--   Dropping public_access_revoked_at drops the only record that the link was
+--   ever withdrawn, so every such link reopens. If that matters, revoke those
+--   links through the product before rolling back. Do not delete the rows:
+--   the answers are the couple's.
 --
 --   An UNFINISHED assessment that was removed stays gone and its link stays
 --   dead, because removal also set status = 'revoked' and revoked_at, and this
@@ -40,9 +41,11 @@ begin
   end if;
 end $$;
 
+drop index if exists public.dos_resource_share_assignments_public_access_idx;
 drop index if exists public.dos_resource_share_assignments_secondary_active_idx;
 drop index if exists public.dos_resource_share_assignments_primary_active_idx;
 
 alter table public.dos_resource_share_assignments
+  drop column if exists public_access_revoked_at,
   drop column if exists removed_by_user_id,
   drop column if exists removed_at;

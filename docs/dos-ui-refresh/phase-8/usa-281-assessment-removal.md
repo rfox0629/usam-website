@@ -100,9 +100,67 @@ credentials returned 404 and left that row untouched; an unauthenticated
 removal returned 401; a second removal of an already-removed assessment
 returned 404.
 
-Restore was exercised on the completed assessment: `{"ok":true}`, the row came
-back with `status=completed`, its result and all 15 answers, and its results
-link served the report again.
+## Restore recovers the record, not the URL
+
+Restoring a removal and republishing results to whoever holds the old address
+are two different decisions, and one must never silently perform the other. So
+public access has a column of its own, `public_access_revoked_at`:
+
+| | `removed_at` | `public_access_revoked_at` |
+|---|---|---|
+| asks | is this on the record? | does the link still open? |
+| set by removal | yes | yes, in both shapes |
+| cleared by restore | yes | **no** |
+| cleared by | restore | the explicit enable-sharing action only |
+
+The token path refuses any row where `public_access_revoked_at` is set,
+whatever its status, so a restored assessment is readable from the record and
+unreachable through the link the couple already has.
+
+`enable_sharing` is the only thing that clears it, and it refuses rather than
+overriding anything that closed the link in its own right:
+
+| situation | result |
+|---|---|
+| still removed | 409, restore it first |
+| independently revoked | 409, send a new assessment |
+| expired | 409, the 90 days are not extended |
+| already shared | 409 |
+| another workspace | 404 |
+| restored completed assessment | 200, link opens again |
+
+An unfinished assessment that was removed is `revoked`, so undoing its removal
+never reopens a half-answered questionnaire.
+
+### Verified
+
+Both assessments removed, then restored, with the links probed at each step:
+
+```
+            before removal   after removal   after restore
+completed   REPORT VISIBLE   LINK OFF        LINK OFF
+            save 200         save 410        save 410
+            submit 200       submit 410      submit 410
+unfinished  questionnaire    LINK OFF        LINK OFF
+            save 200         save 410        save 410
+            submit 200       submit 410      submit 410
+```
+
+Restore returned `{"ok":true,"publicAccessRestored":false}` for both. After it:
+
+```
+Brooke Fox + Ryan Fox    completed  back on record  link withdrawn  15 answers  result kept
+Dana Reed + Marcus Reed  revoked    back on record  link withdrawn   1 answer   no result
+dos_assessment_results   123/150, 82%, 15 answers
+```
+
+Through the UI: removing the completed assessment took it off My Record,
+restore put it back with its Completed status and View results, and the
+results sheet opened from the record showing `123 of 150`, `82%`, all five
+category figures, every answer and the Download PDF action, while its public
+link stayed off. 9 of 9 checks.
+
+Every guard on `enable_sharing` was exercised and returned the codes above.
 
 ## Screenshots
 

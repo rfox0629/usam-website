@@ -728,16 +728,81 @@ assert.ok(
   "a completed assessment keeps its completed status, because the table's own check constraints forbid marking it revoked",
 );
 assert.ok(
-  /if \(row\.removed_at\) \{\s*return \{ status: "revoked" \};/.test(shareLib),
+  /if \(row\.public_access_revoked_at \|\| row\.removed_at\) \{\s*return \{ status: "revoked" \};/.test(shareLib),
   "a removed result is not reachable through a link the couple already has",
 );
 assert.ok(
-  /if \(row\.removed_at\) \{\s*return \{ error: "This link has been revoked\.", status: 410 as const \};/.test(shareLib),
+  /if \(row\.public_access_revoked_at \|\| row\.removed_at\) \{\s*return \{ error: "This link has been revoked\.", status: 410 as const \};/.test(shareLib),
   "a removed assessment cannot be opened, answered or submitted through its token",
 );
 assert.ok(
   shareLib.includes("export async function restoreDosResourceShareAssignment"),
   "removal is recoverable, which is what makes preserving the result meaningful",
+);
+
+/* Restore recovers the RECORD, not the URL. The two are different decisions
+   and one must never silently perform the other. */
+assert.ok(
+  /Removal always withdraws the link[\s\S]{0,240}public_access_revoked_at: now,/.test(shareLib),
+  "removal always withdraws public access, in both shapes",
+);
+const restoreBody = shareLib.slice(
+  shareLib.indexOf("export async function restoreDosResourceShareAssignment"),
+  shareLib.indexOf("export async function enableDosResourceSharePublicAccess"),
+);
+assert.ok(
+  restoreBody.includes('.update({ removed_at: null, removed_by_user_id: null })'),
+  "restore clears the removal and nothing else",
+);
+assert.ok(
+  !/public_access_revoked_at: null/.test(restoreBody),
+  "restore never reopens the public link",
+);
+assert.ok(
+  shareLib.includes("export async function enableDosResourceSharePublicAccess"),
+  "re-enabling sharing is its own explicit action",
+);
+const enableBody = shareLib.slice(
+  shareLib.indexOf("export async function enableDosResourceSharePublicAccess"),
+  shareLib.indexOf("/* Linking a spouse's contact record"),
+);
+for (const [guard, why] of [
+  ['row.removed_at', "a still-removed assessment cannot be shared again"],
+  ['row.status === "revoked"', "an independently revoked link is never silently overridden"],
+  ['row.status === "expired" || isExpired(row)', "an expired link is never silently extended"],
+]) {
+  assert.ok(enableBody.includes(guard), `enable_sharing refuses when ${why}`);
+}
+assert.ok(
+  enableBody.includes('.update({ public_access_revoked_at: null })'),
+  "enable_sharing is the only thing that clears the public-access flag",
+);
+assert.ok(
+  (shareLib.match(/public_access_revoked_at: null/g) ?? []).length === 1,
+  "nothing else anywhere clears it",
+);
+assert.ok(
+  /if \(row\.public_access_revoked_at \|\| row\.removed_at\)/.test(shareLib)
+  && (shareLib.match(/if \(row\.public_access_revoked_at \|\| row\.removed_at\)/g) ?? []).length === 2,
+  "both token readers refuse a withdrawn link, so a restored record stays unreachable through the old URL",
+);
+assert.ok(
+  shareRoute.includes('action === "enable_sharing"'),
+  "the route exposes re-enabling as its own action",
+);
+assert.ok(
+  shareRoute.includes("publicAccessRestored: false"),
+  "restore says plainly that it did not reopen the link",
+);
+
+const shareMigration = read("supabase/migrations/20260919120000_usa_281_share_assignment_removal.sql");
+assert.ok(
+  shareMigration.includes("add column if not exists public_access_revoked_at timestamptz"),
+  "the migration adds the public-access column",
+);
+assert.ok(
+  !/drop\s+table|delete\s+from/i.test(shareMigration),
+  "the migration never deletes anything",
 );
 
 assert.ok(

@@ -5,6 +5,7 @@ import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { asString } from "@/src/lib/dos/review-requests";
 import {
   createDosResourceShareAssignment,
+  enableDosResourceSharePublicAccess,
   linkDosResourceShareSpouse,
   removeDosResourceShareAssignment,
   restoreDosResourceShareAssignment,
@@ -161,8 +162,18 @@ export async function PATCH(request: Request) {
         : NextResponse.json({ error: result.error }, { status: result.status });
     }
 
+    /* Restore brings the record back. It never reopens the link: that is a
+       separate, deliberate decision, below. */
     if (action === "restore") {
       const result = await restoreDosResourceShareAssignment({ assignmentId, workspaceId });
+
+      return result.ok
+        ? NextResponse.json({ ok: true, publicAccessRestored: false })
+        : NextResponse.json({ error: result.error }, { status: result.status });
+    }
+
+    if (action === "enable_sharing") {
+      const result = await enableDosResourceSharePublicAccess({ assignmentId, workspaceId });
 
       return result.ok
         ? NextResponse.json({ ok: true })
