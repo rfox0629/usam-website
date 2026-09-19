@@ -21140,6 +21140,7 @@ function MinistryTeamSelector({
   const selectedPeople = selectedPersonIds
     .map((personId) => allPeople.find((person) => person.id === personId))
     .filter((person): person is DosAppPerson => Boolean(person));
+  const searchRef = useRef<HTMLInputElement>(null);
   const hasSearch = query.trim().length > 0;
   const normalizedQuery = query.trim().toLowerCase();
   const visibleMembers = activeMembers.filter((member) => (
@@ -21195,6 +21196,7 @@ function MinistryTeamSelector({
           className="min-h-11 w-full rounded-full border border-[#D6E4F7] bg-white pl-9 pr-4 text-sm text-[#0F172A] outline-none transition placeholder:text-[#94A3B8] focus:border-[#2563EB] focus:ring-4 focus:ring-[#2563EB]/10"
           onChange={(event) => onPersonQueryChange(event.target.value)}
           placeholder="Search team or field"
+          ref={searchRef}
           type="search"
           value={query}
         />
@@ -21215,6 +21217,7 @@ function MinistryTeamSelector({
                 }
 
                 onPersonQueryChange("");
+                searchRef.current?.focus();
               }}
               type="button"
             >
@@ -21235,6 +21238,7 @@ function MinistryTeamSelector({
                 }
 
                 onPersonQueryChange("");
+                searchRef.current?.focus();
               }}
               type="button"
             >
@@ -22245,7 +22249,7 @@ function MeetingFormContent({
         summary={morePeopleSummary}
         title="More people"
       >
-        <DosFormField label="Ministry Team" labelVariant="sentence">
+        <DosFormField control="group" label="Ministry Team" labelVariant="sentence">
           <MinistryTeamSelector
             allPeople={allPeople}
             householdMembers={householdMembers}
@@ -22258,7 +22262,7 @@ function MeetingFormContent({
             selectedPersonIds={selectedMinistryTeamPersonIds}
           />
         </DosFormField>
-        <DosFormField label="Supporting Attendees" labelVariant="sentence">
+        <DosFormField control="group" label="Supporting Attendees" labelVariant="sentence">
           <SupportingAttendeeSelector
             allPeople={allPeople}
             disabledPersonIds={selectedPersonIds}

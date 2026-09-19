@@ -1,7 +1,7 @@
 "use client";
 
 import { ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { ReactNode } from "react";
 import { Icon, type IconName } from "@/src/components/dos/Icon";
 
@@ -9,9 +9,9 @@ import { Icon, type IconName } from "@/src/components/dos/Icon";
  * USA-211 (spec §3). `font.rajdhani` is the same value the client uses. */
 const font = { rajdhani: "'Inter', sans-serif" };
 
-export function FieldLabel({ children, srOnly = false }: { children: ReactNode; srOnly?: boolean }) {
+export function FieldLabel({ children, id, srOnly = false }: { children: ReactNode; id?: string; srOnly?: boolean }) {
   return (
-    <span className={`${srOnly ? "sr-only" : ""} text-[10px] font-bold uppercase tracking-[0.16em] text-[#475569]`} style={{ fontFamily: font.rajdhani }}>
+    <span className={`${srOnly ? "sr-only" : ""} text-[10px] font-bold uppercase tracking-[0.16em] text-[#475569]`} id={id} style={{ fontFamily: font.rajdhani }}>
       {children}
     </span>
   );
@@ -97,21 +97,52 @@ export function DosFormSection({
 export function DosFormField({
   children,
   className = "",
+  control = "input",
   helper,
   label,
   labelVariant = "caps",
 }: {
   children: ReactNode;
   className?: string;
+  /**
+   * `input` wraps the field in a `<label>`, so a tap anywhere on it reaches
+   * the one control inside (the default, and right for every plain field).
+   *
+   * `group` is for a composite control -- a picker that holds its own search
+   * field, result rows and removable chips. Those must never sit inside a
+   * `<label>`: when a result row is clicked, the handler re-renders the field
+   * and the clicked row leaves the DOM, so the browser can no longer see that
+   * the click began on interactive content and runs the label's activation
+   * behavior anyway. The second, synthetic click it fires lands on whatever
+   * now occupies that spot -- the chip that was just added -- and removes the
+   * person again, so the tap appears to do nothing at all -- which is why a
+   * valid Ministry Team result on Log Meeting added nobody. A labelled
+   * `role="group"` says the same thing to assistive technology without
+   * bringing the activation behavior with it.
+   */
+  control?: "group" | "input";
   helper?: string;
   label?: ReactNode;
   /** `caps` is the original tracked-caps FieldLabel (default). `sentence` is the spec §3 13.5/600 sentence-case label; screens opt in one at a time. */
   labelVariant?: "caps" | "sentence";
 }) {
+  const labelId = useId();
+  const helperNode = helper ? <span className="mt-1 block text-xs leading-5 text-[#64748B]">{helper}</span> : null;
+
+  if (control === "group") {
+    return (
+      <div aria-labelledby={label ? labelId : undefined} className={`block min-w-0 ${className}`} role="group">
+        {label ? (labelVariant === "sentence" ? <span className="text-dos-label text-dos-secondary" id={labelId}>{label}</span> : <FieldLabel id={labelId}>{label}</FieldLabel>) : null}
+        {helperNode}
+        {children}
+      </div>
+    );
+  }
+
   return (
     <label className={`block min-w-0 ${className}`}>
       {label ? (labelVariant === "sentence" ? <span className="text-dos-label text-dos-secondary">{label}</span> : <FieldLabel>{label}</FieldLabel>) : null}
-      {helper ? <span className="mt-1 block text-xs leading-5 text-[#64748B]">{helper}</span> : null}
+      {helperNode}
       {children}
     </label>
   );

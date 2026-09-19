@@ -575,6 +575,30 @@ assert(
   "Selecting a ministry team result must add the person once, clear the search query and leave the field ready for the next name.",
 );
 
+/* The same founder review asks the field to be left empty *and focused*, so a
+   second name can be typed without reaching for the field again. The focus
+   used to arrive by accident, from the <label> the field sat inside; it is
+   explicit now that the label is gone (see below). */
+assert(
+  (ministrySelector.match(/searchRef\.current\?\.focus\(\);/g) ?? []).length === 2
+    && ministrySelector.includes("const searchRef = useRef<HTMLInputElement>(null);")
+    && ministrySelector.includes("ref={searchRef}"),
+  "Choosing a ministry team result must leave the search field focused for the next name.",
+);
+
+/* The Ministry Team and Supporting Attendees pickers are composite controls --
+   search field, result rows and removable chips -- and must never render inside
+   a <label>. Choosing a result re-renders the field and removes the clicked row
+   from the DOM, so the browser stops recognising the click as one that began on
+   interactive content and runs the label's activation behavior: a second,
+   synthetic click that lands on the chip just added and removes the person
+   again. That is why tapping a valid Ministry Team result added nobody. */
+assert(
+  appClient.includes('<DosFormField control="group" label="Ministry Team" labelVariant="sentence">')
+    && appClient.includes('<DosFormField control="group" label="Supporting Attendees" labelVariant="sentence">'),
+  "Ministry Team and Supporting Attendees must render as labelled groups, never inside a <label> that would undo the selection with a second synthetic click.",
+);
+
 // USA-238 founder review: outcomes live with the meeting and never touch Fruit.
 const guideSection = appClient.slice(appClient.indexOf("function DiscussionGuideResponsesSection"), appClient.indexOf("function ConversationQuestionCard"));
 const questionSection = kitchenTableFlow.sections[0];

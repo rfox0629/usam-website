@@ -113,6 +113,35 @@ assert(field.includes('className="ml-0.5 text-dos-red"'), "Required renders a re
 assert(field.includes('optional ? "optional" : hint'), "Optional renders the word optional on the right.");
 assert(field.includes('tone="error"'), "An error replaces the helper with a red instruction.");
 
+/* A composite picker must not sit inside a <label>. When a result row is
+   clicked the field re-renders and that row leaves the DOM, so the browser no
+   longer sees that the click began on interactive content and runs the label's
+   activation behavior anyway; the second, synthetic click it fires lands on the
+   chip that was just added and removes the person again, which is why tapping a
+   Ministry Team result appeared to do nothing. DosFormField keeps the <label>
+   for plain fields and offers a labelled role="group" for composite ones. */
+const formField = formPrimitives.slice(formPrimitives.indexOf("export function DosFormField("), formPrimitives.indexOf("export function DosFormGrid("));
+
+assert(
+  formField.includes('control = "input"')
+    && formField.includes('control?: "group" | "input"')
+    && formField.includes('if (control === "group") {')
+    && formField.includes('role="group"')
+    && formField.includes("aria-labelledby={label ? labelId : undefined}"),
+  "DosFormField must keep the <label> for a plain field and render a labelled role=\"group\" for a composite control.",
+);
+
+assert(
+  formField.indexOf("<label className=") > formField.indexOf('if (control === "group") {'),
+  "The group branch must return before the <label> branch, so a composite control never renders inside a label.",
+);
+
+assert(
+  formPrimitives.includes("export function FieldLabel({ children, id, srOnly = false }")
+    && formPrimitives.includes("<FieldLabel id={labelId}>"),
+  "FieldLabel must accept the id that names a composite field's group.",
+);
+
 // No retired colors in the new primitives; tokens only.
 assert(!/#[0-9A-Fa-f]{6}\b/.test(primitives), "New primitives use tokens, not hex literals.");
 
