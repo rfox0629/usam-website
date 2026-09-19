@@ -26,10 +26,19 @@ export type AssessmentParticipantScore = {
 };
 
 export type AssessmentCategoryScore = {
+  /* Both spouses' answers added together, and the maximum that pair could
+     have reached. These are what the percentage is taken from. */
+  combinedMaxScore: number;
+  combinedScore: number;
+  /* Unrounded, for ranking categories against each other without display
+     rounding deciding the order. */
+  exactPercentage: number;
   husbandScore: number;
+  /* One spouse's maximum for this category, which is what `score` is out of. */
   maxScore: number;
   name: string;
   percentage: number;
+  /* The rounded average of the two spouses, out of `maxScore`. */
   score: number;
   wifeScore: number;
 };
@@ -118,6 +127,30 @@ export function assessmentPercentage(score: number, maxScore: number) {
   return Math.round((score / maxScore) * 100);
 }
 
+/* USA-282: a percentage for a pair, taken from what they actually answered.
+ *
+ * The bug this replaces: the category percentage was computed from the
+ * ROUNDED average of the two spouses rather than from their combined answers,
+ * so the figure was rounded twice against the wrong denominator. Connection
+ * on 22 and 17 out of 30 reported 67% when the pair scored 39 out of 60,
+ * which is 65%. Family & Community on 27 and 28 reported 93% for 55 out of
+ * 60, which is 92%. Affection & Intimacy on 19 and 18 out of 20 reported 95%
+ * for 37 out of 40, which is 93%.
+ *
+ * The combined total over the combined maximum is the only figure that
+ * answers "how did the two of them score here", and it is rounded once, for
+ * display. `exactPairPercentage` keeps the unrounded value for comparisons
+ * that must not inherit display rounding. */
+export function pairPercentage(combinedScore: number, maxScorePerParticipant: number, participantCount: number) {
+  return Math.round(exactPairPercentage(combinedScore, maxScorePerParticipant, participantCount));
+}
+
+export function exactPairPercentage(combinedScore: number, maxScorePerParticipant: number, participantCount: number) {
+  const combinedMax = maxScorePerParticipant * Math.max(participantCount, 1);
+
+  return combinedMax <= 0 ? 0 : (combinedScore / combinedMax) * 100;
+}
+
 export function scoreAssessmentParticipant(
   answers: AssessmentAnswerMap,
   questions: readonly DosAssessmentQuestion[],
@@ -151,13 +184,20 @@ export function scoreAssessmentCategory(
   const husbandRole = participants.includes("Husband") ? "Husband" : participants[0];
   const wifeRole = participants.includes("Wife") ? "Wife" : participants[1];
   const participantTotal = participants.reduce((total, participant) => total + groupTotalFor(participant), 0);
+  /* `score` stays the rounded average out of one spouse's maximum, because
+     that is the figure the category row has always displayed beside
+     "x of maxScore". The PERCENTAGE no longer derives from it: it comes from
+     the combined answers over the combined maximum, rounded once. */
   const score = Math.round(participantTotal / Math.max(participants.length, 1));
 
   return {
+    combinedMaxScore: maxScore * Math.max(participants.length, 1),
+    combinedScore: participantTotal,
+    exactPercentage: exactPairPercentage(participantTotal, maxScore, participants.length),
     husbandScore: groupTotalFor(husbandRole),
     maxScore,
     name: group.name,
-    percentage: assessmentPercentage(score, maxScore),
+    percentage: pairPercentage(participantTotal, maxScore, participants.length),
     score,
     wifeScore: groupTotalFor(wifeRole),
   };
@@ -261,7 +301,13 @@ export function summarizeAssessment({
     groups,
     overallScore,
     participantScores,
-    percentage: assessmentPercentage(overallScore, maxScore),
+    /* Same correction as the categories: the couple's percentage comes from
+       what they both answered, not from the rounded average. */
+    percentage: pairPercentage(
+      participantScores.reduce((total, participant) => total + participant.score, 0),
+      maxScore,
+      participantScores.length,
+    ),
     range: assessmentHealthRange(overallScore),
   };
 }

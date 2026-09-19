@@ -17,7 +17,7 @@
  */
 
 import { PdfDocument, measureText, wrapText, type PdfRgb } from "@/src/lib/pdf/pdf-document";
-import type { AssessmentReportData } from "@/src/components/dos/assessments/AssessmentReport";
+import { formatAssessmentReportDate, type AssessmentDiscussionItem, type AssessmentReportData } from "@/src/lib/dos/assessment-report-data";
 
 export const assessmentReportDocumentTitle = "Marriage Assessment Results";
 export const assessmentReportFileName = `${assessmentReportDocumentTitle}.pdf`;
@@ -29,7 +29,6 @@ const QUIET: PdfRgb = [0.353, 0.392, 0.451];
 const BLUE: PdfRgb = [0.133, 0.318, 0.909];
 const GREEN: PdfRgb = [0.016, 0.471, 0.341];
 const RULE: PdfRgb = [0.898, 0.910, 0.937];
-const BAND: PdfRgb = [0.969, 0.973, 0.984];
 
 const MARGIN = 54;
 const PAGE_WIDTH = 612;
@@ -38,18 +37,22 @@ const CONTENT = PAGE_WIDTH - MARGIN * 2;
 const FOOTER_BASELINE = PAGE_HEIGHT - 32;
 const CONTENT_BOTTOM = FOOTER_BASELINE - 22;
 
-function formatReportDate(value: string | null) {
-  if (!value) {
-    return "Date not recorded";
+/* The same four labels the screen prints, so a reader moving between the page
+   and the file meets the same words. */
+function discussionLabel(item: AssessmentDiscussionItem) {
+  if (item.kind === "strength") {
+    return "You both scored this highly";
   }
 
-  const parsed = new Date(value);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return "Date not recorded";
+  if (item.kind === "difference") {
+    return "You saw this differently";
   }
 
-  return parsed.toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" });
+  if (item.kind === "hidden_low_answer") {
+    return "A low answer inside a strong area";
+  }
+
+  return "Lowest in this assessment";
 }
 
 type Flow = {
@@ -64,12 +67,21 @@ function startPage(flow: Flow, { first = false }: { first?: boolean } = {}) {
   flow.y = first ? 72 : 62;
 }
 
-function ensureRoom(flow: Flow, needed: number) {
+/* USA-282: a section that runs past the page reprints its own heading, so a
+   reader who turns over never meets a column of numbers with no title. The
+   heading is repeated verbatim with "(continued)" appended, which is the
+   convention a printed report is read with. */
+function ensureRoom(flow: Flow, needed: number, continuationHeading?: string) {
   if (flow.y + needed <= CONTENT_BOTTOM) {
     return;
   }
 
   startPage(flow);
+
+  if (continuationHeading) {
+    flow.doc.text(`${continuationHeading} (continued)`, { color: INK, font: "bold", size: 13.5, x: MARGIN, y: flow.y });
+    flow.y += 18;
+  }
 }
 
 function sectionHeading(flow: Flow, heading: string) {
@@ -94,14 +106,25 @@ function paragraph(flow: Flow, text: string, { color = BODY, size = 10, width = 
   }
 }
 
+/* A white card: a hairline border and a coloured edge, no fill. The page is
+   the surface, which is what keeps a printed copy from laying down bands of
+   grey ink behind the numbers a reader is trying to read. */
+function card(flow: Flow, { accent, height, width, x, y }: {
+  accent: PdfRgb; height: number; width: number; x: number; y: number;
+}) {
+  flow.doc.rect({ color: RULE, height: 0.5, width, x, y });
+  flow.doc.rect({ color: RULE, height: 0.5, width, x, y: y + height });
+  flow.doc.rect({ color: RULE, height, width: 0.5, x: x + width, y });
+  flow.doc.rect({ color: accent, height, width: 2.5, x, y });
+}
+
 /** One participant's own total, with the person's name doing the work. */
 function scoreCard(flow: Flow, { accent, label, max, name, score, x, width }: {
   accent: PdfRgb; label: string; max: number; name: string; score: number; width: number; x: number;
 }) {
   const top = flow.y;
 
-  flow.doc.rect({ color: BAND, height: 58, width, x, y: top });
-  flow.doc.rect({ color: accent, height: 58, width: 3, x, y: top });
+  card(flow, { accent, height: 58, width, x, y: top });
   flow.doc.text(name, { color: INK, font: "bold", size: 10.5, x: x + 14, y: top + 18 });
   flow.doc.text(label, { color: QUIET, size: 9, x: x + 14, y: top + 32 });
 
@@ -177,12 +200,17 @@ function categoryHeader(flow: Flow, firstName: string, secondName: string) {
   flow.y += 14;
 }
 
-function categoryRow(flow: Flow, { combined, firstValue, max, name, secondValue }: {
-  combined: string; firstValue: number; max: number; name: string; secondValue: number;
+function categoryRow(flow: Flow, { combined, firstValue, max, name, onBreak, secondValue }: {
+  combined: string; firstValue: number; max: number; name: string; onBreak?: () => void; secondValue: number;
 }) {
   const { combinedRight, firstX, secondX } = categoryColumns();
 
-  ensureRoom(flow, 24);
+  /* A table that runs over reprints its heading AND its column names, so the
+     second page is not four unlabelled columns of numbers. */
+  if (flow.y + 24 > CONTENT_BOTTOM) {
+    startPage(flow);
+    onBreak?.();
+  }
 
   for (const line of wrapText(name, 9.5, "bold", CATEGORY_NAME_WIDTH - 10)) {
     flow.doc.text(line, { color: INK, font: "bold", size: 9.5, x: MARGIN, y: flow.y });
@@ -219,7 +247,19 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
 
   const header = participants.map((entry) => `${entry.name} (${entry.role})`).join(" and ");
   paragraph(flow, header, { color: BODY, size: 10.5 });
-  paragraph(flow, `Completed ${formatReportDate(data.completedAt)}`, { color: QUIET, size: 9.5 });
+  paragraph(flow, `Completed ${formatAssessmentReportDate(data.completedAt)}`, { color: QUIET, size: 9.5 });
+
+  /* The sender, and the organization only when the affiliation is verified.
+     A report must not print an organization's name under someone who is not
+     part of it, so there is no default and no hard-coded ministry here. */
+  if (data.requestedBy?.name) {
+    const affiliation = data.requestedBy.organization
+      ? `Requested by ${data.requestedBy.name}, ${data.requestedBy.organization}`
+      : `Requested by ${data.requestedBy.name}`;
+
+    paragraph(flow, affiliation, { color: QUIET, size: 9.5 });
+  }
+
   flow.y += 12;
 
   /* Scores. Each person's own total first, then the couple figure, labelled
@@ -244,11 +284,11 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
     });
   }
 
-  flow.y += 70;
+  flow.y += 80;
 
   const average = `${data.overallScore} of ${data.maxScore}`;
 
-  doc.text("Both answers together", { color: INK, font: "bold", size: 10.5, x: MARGIN, y: flow.y });
+  doc.text("Average score", { color: INK, font: "bold", size: 10.5, x: MARGIN, y: flow.y });
   doc.text(`${average}   ${data.percentage}%`, {
     color: INK, font: "bold", size: 10.5,
     x: MARGIN + CONTENT - measureText(`${average}   ${data.percentage}%`, 10.5, "bold"),
@@ -258,14 +298,73 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
 
   paragraph(
     flow,
-    `Each of you answers fifteen questions on a 0 to 10 scale, so each of you has a score out of ${data.maxScore}. `
-    + "The figure above is the average of your two scores. It is a summary of what you each said on one day, "
-    + "not a measure of your marriage.",
+    `Each of you answers ${data.questions.length} questions on a 0 to 10 scale, so each of you has a score out of ${data.maxScore}. `
+    + "The average above is your two scores added together and halved. The percentage is your two scores as a share of "
+    + "everything you could both have scored. It summarises what you each said on one day. It is not a measure of your "
+    + "marriage and it is not a diagnosis.",
     { color: QUIET, size: 9 },
   );
   flow.y += 6;
 
-  /* By category. */
+  /* Worth talking about, chosen by the documented rules in
+     assessment-report-data.ts. Each entry names its category, prints the
+     figures it was chosen from and points at the question by number, which is
+     how a reader checks it on paper where there is nothing to click. */
+  sectionHeading(flow, "Worth talking about");
+
+  if (data.discussion.length) {
+    for (const item of data.discussion) {
+      const label = discussionLabel(item);
+      const titleLines = wrapText(item.title, 10.5, "bold", CONTENT - 16);
+      const scoreLines = wrapText(item.scoreLine, 9, "regular", CONTENT - 16);
+      const promptLines = wrapText(item.discussionPrompt, 9.5, "regular", CONTENT - 16);
+      const reference = item.questionNumber ? `See question ${item.questionNumber}` : "";
+      /* How far the cursor travels while the card is written, and how far the
+         last of those lines advanced. The card is drawn from the two, so the
+         border sits clear of the descenders instead of through them. */
+      const written = 12 + titleLines.length * 13 + scoreLines.length * 11 + promptLines.length * 12
+        + (reference ? 12 : 0);
+      const lastAdvance = reference ? 12 : promptLines.length ? 12 : scoreLines.length ? 11 : 13;
+      const height = written - lastAdvance + 22;
+
+      ensureRoom(flow, height + 8, "Worth talking about");
+
+      const top = flow.y - 11;
+      const accent = item.kind === "strength" ? GREEN : BLUE;
+
+      card(flow, { accent, height, width: CONTENT, x: MARGIN, y: top });
+      flow.doc.text(label.toUpperCase(), { color: accent, font: "bold", size: 7.5, x: MARGIN + 14, y: flow.y });
+      flow.y += 12;
+
+      for (const line of titleLines) {
+        flow.doc.text(line, { color: INK, font: "bold", size: 10.5, x: MARGIN + 14, y: flow.y });
+        flow.y += 13;
+      }
+
+      for (const line of scoreLines) {
+        flow.doc.text(line, { color: BODY, font: "bold", size: 9, x: MARGIN + 14, y: flow.y });
+        flow.y += 11;
+      }
+
+      for (const line of promptLines) {
+        flow.doc.text(line, { color: BODY, size: 9.5, x: MARGIN + 14, y: flow.y });
+        flow.y += 12;
+      }
+
+      if (reference) {
+        flow.doc.text(reference, { color: QUIET, font: "bold", size: 8.5, x: MARGIN + 14, y: flow.y });
+        flow.y += 12;
+      }
+
+      flow.y += 30 - lastAdvance;
+    }
+  } else {
+    paragraph(flow, "Not enough answers yet to pick anything out.");
+  }
+
+  /* By category. The heading, the column names and two rows travel together;
+     a heading alone at the foot of a page is worse than a shorter page. */
+  ensureRoom(flow, 46 + 28 + 48);
   sectionHeading(flow, "By category");
 
   const firstRole = first?.role ?? "";
@@ -278,57 +377,30 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
     const secondValue = secondRole === "Wife" ? category.wifeScore ?? 0 : category.husbandScore ?? 0;
 
     categoryRow(flow, {
-      combined: `${category.percentage}%`,
+      combined: `${category.combinedScore}/${category.combinedMaxScore}  ${category.percentage}%`,
       firstValue,
       max: category.maxScore,
       name: category.name,
+      onBreak: () => {
+        flow.doc.text("By category (continued)", { color: INK, font: "bold", size: 13.5, x: MARGIN, y: flow.y });
+        flow.y += 18;
+        categoryHeader(flow, nameForRole(firstRole), nameForRole(secondRole));
+      },
       secondValue,
     });
   }
 
-  /* Worth talking about. Arithmetic only, never a verdict. */
-  const ranked = [...data.categories].sort((a, b) => b.percentage - a.percentage);
-  const gaps = data.categories
-    .map((category) => ({
-      difference: Math.abs((category.husbandScore ?? 0) - (category.wifeScore ?? 0)),
-      name: category.name,
-    }))
-    .filter((entry) => entry.difference > 0)
-    .sort((a, b) => b.difference - a.difference);
-
-  sectionHeading(flow, "Worth talking about");
-  paragraph(flow, `You both scored these highest: ${ranked.slice(0, 2).map((entry) => entry.name).join(", ")}.`);
-  paragraph(flow, `You both scored these lowest: ${[...ranked].reverse().slice(0, 2).map((entry) => entry.name).join(", ")}.`);
-  paragraph(
-    flow,
-    gaps.length
-      ? `Where your answers differed most: ${gaps.slice(0, 3).map((entry) => `${entry.name} (${entry.difference} points apart)`).join(", ")}.`
-      : "You answered every category the same.",
-  );
-
-  /* Every answer, in full. */
-  sectionHeading(flow, "Every answer");
+  /* Every answer, in full, starting on a fresh page. The overview is a page
+     someone reads; the answers are a reference they look things up in, and
+     running the two together is what made the old file feel like a dump. */
+  startPage(flow);
+  flow.doc.text("Every answer", { color: INK, font: "bold", size: 13.5, x: MARGIN, y: flow.y });
+  flow.y += 20;
 
   data.questions.forEach((question, index) => {
-    const eyebrow = [`Question ${index + 1}`, question.group].filter(Boolean).join("  ·  ");
+    const eyebrow = [`Question ${question.number}`, question.group].filter(Boolean).join("  ·  ");
     const promptLines = wrapText(question.prompt, 10, "bold", CONTENT);
     const noteLines = question.note ? wrapText(question.note, 8.5, "regular", CONTENT) : [];
-    const blockHeight = 11 + promptLines.length * 13 + noteLines.length * 11 + 36;
-
-    ensureRoom(flow, blockHeight);
-
-    flow.doc.text(eyebrow, { color: QUIET, size: 8, x: MARGIN, y: flow.y });
-    flow.y += 11;
-
-    for (const line of promptLines) {
-      flow.doc.text(line, { color: INK, font: "bold", size: 10, x: MARGIN, y: flow.y });
-      flow.y += 13;
-    }
-
-    for (const line of noteLines) {
-      flow.doc.text(line, { color: QUIET, size: 8.5, x: MARGIN, y: flow.y });
-      flow.y += 11;
-    }
 
     const firstScore = firstRole ? question.scores?.[firstRole] : undefined;
     const secondScore = secondRole ? question.scores?.[secondRole] : undefined;
@@ -337,27 +409,49 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
 
     /* Side by side when both fit, stacked when a name is long. Neither
        arrangement is allowed to overlap the other. */
-    flow.y += 2;
-
     const firstWidth = measureText(firstText, 9.5, "bold");
     const secondWidth = measureText(secondText, 9.5, "bold");
     const secondX = Math.max(firstWidth + 28, CONTENT / 2);
     const sideBySide = secondX + secondWidth <= CONTENT;
 
+    /* The block is the eyebrow, the prompt, any note, BOTH answers and the
+       rule under them. Reserving exactly that keeps a question with what the
+       couple said about it without ending a page early on space it never
+       needed. */
+    const blockHeight = 10 + promptLines.length * 13 + noteLines.length * 10
+      + 1 + (sideBySide ? 10 : 21) + 7;
+
+    ensureRoom(flow, blockHeight, "Every answer");
+
+    flow.doc.text(eyebrow, { color: QUIET, size: 8, x: MARGIN, y: flow.y });
+    flow.y += 10;
+
+    for (const line of promptLines) {
+      flow.doc.text(line, { color: INK, font: "bold", size: 10, x: MARGIN, y: flow.y });
+      flow.y += 13;
+    }
+
+    for (const line of noteLines) {
+      flow.doc.text(line, { color: QUIET, size: 8.5, x: MARGIN, y: flow.y });
+      flow.y += 10;
+    }
+
+    flow.y += 1;
+
     flow.doc.text(firstText, { color: BLUE, font: "bold", size: 9.5, x: MARGIN, y: flow.y });
 
     if (sideBySide) {
       flow.doc.text(secondText, { color: GREEN, font: "bold", size: 9.5, x: MARGIN + secondX, y: flow.y });
-      flow.y += 11;
+      flow.y += 10;
     } else {
-      flow.y += 12;
-      flow.doc.text(secondText, { color: GREEN, font: "bold", size: 9.5, x: MARGIN, y: flow.y });
       flow.y += 11;
+      flow.doc.text(secondText, { color: GREEN, font: "bold", size: 9.5, x: MARGIN, y: flow.y });
+      flow.y += 10;
     }
 
     if (index < data.questions.length - 1) {
       flow.doc.line({ color: RULE, thickness: 0.4, x1: MARGIN, x2: MARGIN + CONTENT, y: flow.y });
-      flow.y += 9;
+      flow.y += 7;
     }
   });
 
@@ -368,6 +462,15 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
     doc.setFooter(page, ({ text, line }) => {
       line({ color: RULE, thickness: 0.4, x1: MARGIN, x2: MARGIN + CONTENT, y: FOOTER_BASELINE - 12 });
       text(assessmentReportDocumentTitle, { color: QUIET, size: 8, x: MARGIN, y: FOOTER_BASELINE });
+      /* Provenance, quietly. No workspace slug, no personal URL, no token:
+         the reader is told which product made the file and nothing that
+         identifies the account it came from. */
+      const provenance = "Powered by Discipleship Operating System";
+      text(provenance, {
+        color: QUIET, size: 7.5,
+        x: MARGIN + (CONTENT - measureText(provenance, 7.5, "regular")) / 2,
+        y: FOOTER_BASELINE,
+      });
       const label = `Page ${page} of ${total}`;
       text(label, { color: QUIET, size: 8, x: MARGIN + CONTENT - measureText(label, 8, "regular"), y: FOOTER_BASELINE });
     });

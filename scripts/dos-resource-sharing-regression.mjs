@@ -310,8 +310,18 @@ assert.ok(
 assert.ok(report.includes("@media print"), "the report has a print layout");
 assert.ok(report.includes("assessment-report-hide-on-print"), "app controls are hidden in print");
 assert.ok(report.includes("break-inside: avoid"), "print avoids splitting a section mid-answer");
-assert.ok(report.includes("the average of your two scores"), "the headline figure is labelled as an average");
-assert.ok(/not a\s+measure of your marriage/.test(report), "the report refuses to read as a diagnosis");
+/* USA-282 reworded this, the guarantee is unchanged: the headline figure is
+   named as an average and the reader is told how it was arrived at. */
+assert.ok(report.includes("Average score"), "the headline figure is labelled as an average");
+assert.ok(
+  report.includes("your two scores added together and halved"),
+  "the report says how the average was arrived at",
+);
+/* Same guarantee, read across the line breaks JSX puts in the sentence. */
+assert.ok(
+  /not a\s+measure\s+of your\s+marriage/.test(report) && /not a diagnosis/.test(report),
+  "the report refuses to read as a diagnosis",
+);
 assert.ok(report.includes("Every answer"), "every answer is in the report");
 assert.ok(!report.includes("\u2014"), "the report uses no em dashes");
 
@@ -337,7 +347,21 @@ assert.ok(
 );
 assert.ok(recipientForm.includes("intent: \"save\""), "progress persists to the server, not to this browser");
 assert.ok(recipientForm.includes("intent: \"submit\""));
-assert.ok(recipientForm.includes("Assessment complete"), "completion is confirmed");
+/* USA-282 replaced the "Assessment complete" dead end with the results
+   themselves. The guarantee is the same one, kept stronger: submitting has to
+   end somewhere that confirms the answers landed. */
+assert.ok(
+  recipientForm.includes("<DosSharedAssessmentReport shareLink={completedReport} />"),
+  "completion is confirmed by showing the couple their own results",
+);
+assert.ok(
+  recipientForm.includes("Answers received"),
+  "and by a confirmation screen when the report itself could not be read back",
+);
+assert.ok(
+  !recipientForm.includes("Assessment complete"),
+  "the dead end that confirmed nothing must not come back",
+);
 
 /* ---- Library and People ------------------------------------------------- */
 
@@ -576,9 +600,17 @@ assert.ok(
 
 const reportSource = read("src/components/dos/assessments/AssessmentReport.tsx");
 
+/* USA-282: the same guarantee, by a rule that does not also defeat the
+   report's own colours. The first version inherited the page colour from a
+   class selector, which outranked every text class in the report and painted
+   it pale grey on white. */
 assert.ok(
-  reportSource.includes(".assessment-report :where(p, li, dd) { color: inherit; }"),
+  reportSource.includes(":where(.assessment-report) :where(p, li, dd) { color: #1E3A5F; }"),
   "the site's pale-grey <p> default must not win inside the report",
+);
+assert.ok(
+  !reportSource.includes(".assessment-report :where(p, li, dd) { color: inherit; }"),
+  "and the report must not inherit the page colour, which is the pale grey it is escaping",
 );
 assert.ok(
   reportSource.includes("body:has(> .assessment-report-sheet) > *:not(.assessment-report-sheet) { display: none !important; }"),

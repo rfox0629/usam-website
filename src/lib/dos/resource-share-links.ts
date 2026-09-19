@@ -733,6 +733,7 @@ export type DosResourceShareLinkState =
     participants: Array<{ name: string; role: string }>;
     report: AssessmentSummary;
     requestedByName: string;
+    requestedByOrganization: string | null;
     resourceSlug: string;
     responses: AssessmentAnswerMap;
     status: "completed";
@@ -740,6 +741,52 @@ export type DosResourceShareLinkState =
     questions: readonly DosAssessmentQuestion[];
   }
   | { status: "expired" | "invalid" | "not_configured" | "revoked" };
+
+/* USA-282: the organization a report may name under the sender.
+ *
+ * Only a real owning organization counts. loadOrganizationForWorkspace in the
+ * app loader falls back to the USAM name so the connections list has something
+ * to show; that fallback is a display convenience and must not reach a report,
+ * because branding every workspace's assessment "USA Missionaries" would put
+ * an organization's name under people who are not part of it. So this resolves
+ * the chain itself and returns null wherever it breaks. */
+export async function loadVerifiedSenderOrganization(workspaceId: string) {
+  if (!isUuidValue(workspaceId)) {
+    return null;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const household = await supabase
+    .from("missionary_households")
+    .select("slug")
+    .eq("id", workspaceId)
+    .maybeSingle();
+  const slug = household.error ? null : household.data?.slug;
+
+  if (!slug) {
+    return null;
+  }
+
+  const collective = await supabase
+    .from("collectives")
+    .select("owner_organization_id")
+    .eq("slug", slug)
+    .maybeSingle();
+  const owner = collective.error ? null : collective.data?.owner_organization_id;
+
+  if (!owner) {
+    return null;
+  }
+
+  const organization = await supabase
+    .from("organizations")
+    .select("name")
+    .eq("id", owner)
+    .maybeSingle();
+  const name = organization.error ? null : organization.data?.name;
+
+  return typeof name === "string" && name.trim() ? name.trim() : null;
+}
 
 /* Everything the recipient page is allowed to know. Only the two participant
    names and one requester display name cross the token boundary: no contact
@@ -808,6 +855,7 @@ export async function loadDosResourceShareLink(token: string): Promise<DosResour
         questions: assessment.questions,
       }),
       requestedByName: shareRequesterDisplayName(row.requested_by_name),
+      requestedByOrganization: await loadVerifiedSenderOrganization(row.workspace_id),
       resourceSlug: row.resource_slug,
       responses: completedAnswers,
       status: "completed",
@@ -1041,8 +1089,29 @@ export async function submitDosResourceShareAssessment(token: string, responses:
 
     const settled = await supabase.from(shareTable).select("result_id").eq("id", row.id).maybeSingle();
 
-    return { alreadyCompleted: true as const, ok: true as const, resultId: settled.data?.result_id ?? null };
+    return {
+      alreadyCompleted: true as const,
+      ok: true as const,
+      report: await completedReportForToken(token),
+      resultId: settled.data?.result_id ?? null,
+    };
   }
 
-  return { ok: true as const, resultId: resultInsert.data.id };
+  /* USA-282: the couple see their results in the same breath as pressing
+     Finish and send.
+     
+     Before this the recipient got "Assessment complete" and nothing else. The
+     results existed and reopening the link showed them, which is exactly why
+     the gap went unnoticed: the reopen path was tested and the submit path was
+     not. Returning the report here means no refresh, no reopening and no DOS
+     account, and it is the SAME payload the reopen path builds, so the two
+     cannot drift and every expiry, removal and revocation guard in
+     loadDosResourceShareLink applies to both. */
+  return { ok: true as const, report: await completedReportForToken(token), resultId: resultInsert.data.id };
+}
+
+async function completedReportForToken(token: string) {
+  const state = await loadDosResourceShareLink(token);
+
+  return state.status === "completed" ? state : null;
 }
