@@ -170,15 +170,23 @@ const stripComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, "").replac
   assert.ok(groups.every((index) => index > 0) && groups[0] < groups[1] && groups[1] < groups[2], "MULTIPLICATION, then ACTIVITY, then FRUIT & FEEDBACK.");
   assert.ok(overview.includes('label="Multiplication"'));
   const activity = overview.slice(groups[1], groups[2]);
-  const subsections = ['aria-label="Journey"', 'aria-label="Accountability"', 'aria-label="Groups"', 'aria-label="Prayer"'].map((label) => activity.indexOf(label));
-  assert.ok(subsections.every((index, position) => index > 0 && (position === 0 || index > subsections[position - 1])), "ACTIVITY holds Journey, Accountability, Groups, Prayer in that order.");
+  /* USA-281 follow-up: Resources takes the position Journey held, because a
+     journey is now listed there alongside the assessments rather than in a
+     section of its own. Accountability, Groups and Prayer are untouched and
+     still follow it in the same order. */
+  const subsections = ['aria-label="Resources"', 'aria-label="Accountability"', 'aria-label="Groups"', 'aria-label="Prayer"'].map((label) => activity.indexOf(label));
+  assert.ok(subsections.every((index, position) => index > 0 && (position === 0 || index > subsections[position - 1])), "ACTIVITY holds Resources, Accountability, Groups, Prayer in that order.");
   const fruitAndFeedback = overview.slice(groups[2]);
   assert.ok(fruitAndFeedback.indexOf('aria-label="Fruit"') > 0 && fruitAndFeedback.indexOf('aria-label="Fruit"') < fruitAndFeedback.indexOf('aria-label="Feedback"'), "FRUIT & FEEDBACK holds Fruit then Feedback.");
   assert.ok(!overview.includes("<details"), "No group accordions.");
   const cardsEnd = overview.indexOf("{renderMeetingCards()}");
   assert.ok(cardsEnd > 0 && cardsEnd < groups[0] && !overview.slice(cardsEnd, groups[0]).includes("<div") && !overview.slice(cardsEnd, groups[0]).includes("<section"), "MULTIPLICATION follows the meeting cards directly.");
   assert.ok(overview.indexOf('data-overview-followups="true"') > groups[2], "Mobile follow-ups stay after the three groups.");
-  assert.equal((overview.match(/<Eyebrow>Journey<\/Eyebrow>/g) ?? []).length, 1);
+  /* USA-281 follow-up: exactly one Resources heading in the overview, and no
+     Journey heading beside it. One heading is the point: a journey listed
+     under both would be the duplication this consolidation removes. */
+  assert.equal((overview.match(/aria-label="Resources"/g) ?? []).length, 1);
+  assert.equal((overview.match(/<Eyebrow>Journey<\/Eyebrow>/g) ?? []).length, 0);
 
   const group = client.slice(client.indexOf("function PersonOverviewGroup("), client.indexOf("type PersonMultiplicationProps"));
   assert.ok(group.includes('text-[14px] font-bold uppercase') && group.includes("text-dos-eyebrowSection"), "Group headings are DOS blue, uppercase, bold, 14px: above the 11.5px eyebrows and far below the 25px name.");

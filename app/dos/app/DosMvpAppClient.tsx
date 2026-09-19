@@ -50,7 +50,7 @@ import {
   type CirclePlacementChange,
   type CircleTier,
 } from "@/src/lib/dos/circle-tiers";
-import { DosDetailSection, DosDetailSheet, DosWorkflowPage, MobileBottomSheet, Sheet, useEditableSurface } from "@/src/components/dos/overlays/DosSurfaces";
+import { DosConfirmDialog, DosDetailSection, DosDetailSheet, DosWorkflowPage, MobileBottomSheet, Sheet, useEditableSurface } from "@/src/components/dos/overlays/DosSurfaces";
 import { backdropMayDismiss, leaveWithoutSavingCopy, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
 import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption, type StatusTone } from "@/src/components/dos/ui";
@@ -1307,6 +1307,18 @@ type LeaderJourneyProgressState = {
   assignmentId?: string | null;
   personId: string;
   resourceSlug: string;
+} | null;
+/* USA-281 follow-up: one pending removal, either kind.
+ *
+ * A Journey assignment and a sent assessment are different rows in different
+ * tables with different consequences, so each carries its own confirmation
+ * copy. They share one piece of state because only one confirmation is ever
+ * open, and because both should look and behave identically when it is. */
+type PendingRemoval = {
+  confirmLabel: string;
+  lines: string[];
+  onConfirm: () => void;
+  title: string;
 } | null;
 type ResourceAssignmentNotice = {
   assignmentCount?: number;
@@ -32004,6 +32016,7 @@ function MyRecordOverviewPanel({
   onOpenSheet,
   onPauseResourceAssignment,
   onRemoveResourceAssignment,
+  onRemoveResourceShare,
   onScheduleMeeting,
   people,
   record,
@@ -32031,6 +32044,7 @@ function MyRecordOverviewPanel({
   onOpenSheet: (sheet: MyRecordSheetState) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onRemoveResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onRemoveResourceShare?: ((assignment: DosAppResourceShareAssignment) => void) | null;
   onScheduleMeeting: (personId: string | null) => void;
   people: DosAppPerson[];
   record: DosAppUserRecord;
@@ -32082,7 +32096,10 @@ function MyRecordOverviewPanel({
     : [];
   const openAssignments = assignments.filter((assignment) => assignment.status !== "completed");
   const assignmentGroups = groupResourceAssignmentsByResource(openAssignments);
-  const currentCount = assignmentGroups.length + draftAssessments.length + activeCommitments.length;
+  /* USA-281 follow-up: journeys moved to Resources, so they are no longer
+     counted here. Listing the same assignment under two headings was the
+     duplication this consolidation exists to remove. */
+  const currentCount = draftAssessments.length + activeCommitments.length;
 
   return (
     <>
@@ -32121,6 +32138,53 @@ function MyRecordOverviewPanel({
         <MyRecordSurfaceSection label="Current commitments">
           <Eyebrow count={currentCount || undefined}>Current commitments</Eyebrow>
           {currentCount ? (
+            <div className="divide-y divide-dos-rule">
+              {draftAssessments.map((item) => (
+                <MyRecordSectionRow
+                  key={`assessment-${item.id}`}
+                  meta="Assessment · In progress"
+                  onOpen={() => onOpenSheet(item.kind === "external" && item.result && "assessmentName" in item.result
+                    ? { assessmentResult: item.result as DosAppUserExternalAssessmentResult, kind: "external_assessment", mode: "view" }
+                    : { item, kind: "assessment_detail", mode: "view" })}
+                  primary={item.name}
+                />
+              ))}
+              {activeCommitments.map((commitment) => (
+                <MyRecordSectionRow
+                  key={commitment.id}
+                  meta={[commitment.status === "paused" ? "Paused" : "Active", commitment.targetDate ? `Due ${formatShortDate(commitment.targetDate)}` : null].filter(Boolean).join(" · ")}
+                  onOpen={() => onOpenPersonRecord?.(commitment.personId)}
+                  primary={commitment.title}
+                  secondary={commitment.description}
+                />
+              ))}
+            </div>
+          ) : (
+            <MyRecordSectionEmpty>Nothing open right now.</MyRecordSectionEmpty>
+          )}
+        </MyRecordSurfaceSection>
+
+        {/* USA-281 follow-up: ONE Resources section, the same shape the
+            People record uses.
+            
+            Journeys used to sit under Current commitments and assessments
+            under Resources, so one Library was split across two headings with
+            two + Add actions. They are one list now: journeys first because
+            they are ongoing work, then the assessments this account holder is
+            a participant in. Those assessment rows are read from the same
+            source the spouse's People record reads, so a couple assessment
+            appears on both records without being stored twice.
+            
+            Current commitments keeps accountability only. Nothing here is
+            listed there as well. */}
+        <MyRecordSurfaceSection label="Resources">
+          <Eyebrow
+            action={onSendResource ? <MyRecordSectionAction onClick={onSendResource}>+ Add</MyRecordSectionAction> : undefined}
+            count={(assignmentGroups.length + resourceShares.length) || undefined}
+          >
+            Resources
+          </Eyebrow>
+          {assignmentGroups.length || resourceShares.length ? (
             <div className="divide-y divide-dos-rule">
               {/* A journey keeps every action it had on the retired Growth
                   panel -- Continue, Start, Check-in, Pause, Complete, Edit
@@ -32207,69 +32271,18 @@ function MyRecordOverviewPanel({
                   </div>
                 );
               })}
-              {draftAssessments.map((item) => (
-                <MyRecordSectionRow
-                  key={`assessment-${item.id}`}
-                  meta="Assessment · In progress"
-                  onOpen={() => onOpenSheet(item.kind === "external" && item.result && "assessmentName" in item.result
-                    ? { assessmentResult: item.result as DosAppUserExternalAssessmentResult, kind: "external_assessment", mode: "view" }
-                    : { item, kind: "assessment_detail", mode: "view" })}
-                  primary={item.name}
-                />
-              ))}
-              {activeCommitments.map((commitment) => (
-                <MyRecordSectionRow
-                  key={commitment.id}
-                  meta={[commitment.status === "paused" ? "Paused" : "Active", commitment.targetDate ? `Due ${formatShortDate(commitment.targetDate)}` : null].filter(Boolean).join(" · ")}
-                  onOpen={() => onOpenPersonRecord?.(commitment.personId)}
-                  primary={commitment.title}
-                  secondary={commitment.description}
+              {resourceShares.map((share) => (
+                <ResourceAssessmentRow
+                  key={share.id}
+                  onOpenShareResult={onOpenShareResult}
+                  onRemove={onRemoveResourceShare}
+                  result={share.resultId ? assessmentResults.find((result) => result.id === share.resultId) ?? null : null}
+                  share={share}
                 />
               ))}
             </div>
           ) : (
-            <MyRecordSectionEmpty>Nothing open right now.</MyRecordSectionEmpty>
-          )}
-        </MyRecordSurfaceSection>
-
-        {/* USA-280: assessments this account holder is a participant in. The
-            same rows the spouse's People record shows, read from one source,
-            so a couple assessment appears on both records without being
-            stored twice. */}
-        <MyRecordSurfaceSection label="Resources">
-          <Eyebrow
-            action={onSendResource ? <MyRecordSectionAction onClick={onSendResource}>+ Add</MyRecordSectionAction> : undefined}
-            count={resourceShares.length || undefined}
-          >
-            Resources
-          </Eyebrow>
-          {resourceShares.length ? (
-            <div className="divide-y divide-dos-rule">
-              {resourceShares.map((share) => {
-                const shareResource = getDosResourceBySlug(share.resourceSlug);
-                const shareResult = share.resultId
-                  ? assessmentResults.find((result) => result.id === share.resultId) ?? null
-                  : null;
-
-                return (
-                  <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={share.id}>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{shareResource?.title ?? "Library resource"}</p>
-                      <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{shareParticipantSummary(share.participants)}</p>
-                      <p className="mt-1 flex items-center gap-2 text-[12.5px] text-dos-eyebrow">
-                        <StatusPill tone={dosResourceShareStatusTone(share.status)}>{dosResourceShareStatusLabel(share.status)}</StatusPill>
-                        <span>{dosResourceShareDateLine(share)}</span>
-                      </p>
-                    </div>
-                    {share.status === "completed" && shareResult ? (
-                      <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <MyRecordSectionEmpty>No assessments yet.</MyRecordSectionEmpty>
+            <MyRecordSectionEmpty>Nothing from the Library yet.</MyRecordSectionEmpty>
           )}
         </MyRecordSurfaceSection>
 
@@ -32627,6 +32640,7 @@ function MyRecordWorkspace({
   onOpenScheduledMeeting,
   onPauseResourceAssignment,
   onRemoveResourceAssignment,
+  onRemoveResourceShare,
   onQuickTab,
   onSave,
   onScheduleMeeting,
@@ -32670,6 +32684,7 @@ function MyRecordWorkspace({
   onOpenScheduledMeeting: (meetingId: string) => void;
   onPauseResourceAssignment: (assignment: DosAppResourceAssignment) => void;
   onRemoveResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onRemoveResourceShare?: ((assignment: DosAppResourceShareAssignment) => void) | null;
   onQuickTab: (tab: MyRecordTab) => void;
   onSave: (payload: MyRecordSavePayload, nextTab?: MyRecordTab) => Promise<boolean>;
   /* The Schedule action on an empty Upcoming meeting card. The Person is
@@ -32929,7 +32944,7 @@ function MyRecordWorkspace({
        search, the circle filter and the scroll position without My Record
        having to remember any of them. */
     <div
-      className={`absolute inset-0 overflow-y-auto px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${dosAppBackgroundClassName} pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:px-10 md:pb-24 lg:px-14`}
+      className={`absolute inset-0 overflow-y-auto px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${dosAppBackgroundClassName} pb-dos-fab-clearance md:px-10 md:pb-24 lg:px-14`}
       ref={recordScrollRef}
     >
       <div className="mx-auto w-full max-w-[1080px]">
@@ -33024,6 +33039,7 @@ function MyRecordWorkspace({
                   onOpenSheet={openMyRecordSheet}
                   onPauseResourceAssignment={onPauseResourceAssignment}
                   onRemoveResourceAssignment={onRemoveResourceAssignment}
+                  onRemoveResourceShare={onRemoveResourceShare}
                   onScheduleMeeting={onScheduleMeeting}
                   people={people}
                   record={record}
@@ -35066,6 +35082,108 @@ function dosResourceShareDateLine(assignment: DosAppResourceShareAssignment) {
   return `Created ${formatDate(assignment.createdAt ?? "")}`;
 }
 
+/* USA-281 follow-up: which assessment is about to be removed.
+ *
+ * A couple can hold more than one Marriage Assessment: an earlier completed
+ * one and a fresh link, or two attempts a month apart. "Remove Marriage
+ * Assessment?" does not say which, so the confirmation names the participants,
+ * the state and the date, which is the set that distinguishes them. */
+function resourceShareIdentityLabel(assignment: DosAppResourceShareAssignment) {
+  return [
+    shareParticipantSummary(assignment.participants),
+    dosResourceShareStatusLabel(assignment.status),
+    dosResourceShareDateLine(assignment),
+  ].filter(Boolean).join(" · ");
+}
+
+/* What removing this assessment will actually do, in the order it matters.
+ *
+ * A completed assessment and an unfinished one are genuinely different
+ * removals, so they say different things rather than sharing one vague
+ * sentence. Both say that it is a shared record, because it is: removing it
+ * takes it off BOTH participants' records, and someone removing it from their
+ * own record should know that before they press. */
+function resourceShareRemovalCopy(assignment: DosAppResourceShareAssignment, resourceTitle: string) {
+  const isCompleted = assignment.status === "completed";
+  const hasLiveLink = assignment.status === "link_ready" || assignment.status === "in_progress";
+
+  return {
+    confirmLabel: isCompleted ? "Remove results" : "Remove",
+    lines: [
+      `${resourceTitle} for ${shareParticipantSummary(assignment.participants)}.`,
+      `${dosResourceShareStatusLabel(assignment.status)} · ${dosResourceShareDateLine(assignment)}.`,
+      isCompleted
+        ? "The scores and every answer are kept and can be restored. They stop appearing on this record and the results link stops working."
+        : hasLiveLink
+          ? "The link stops working immediately. Any answers already entered are kept and are not deleted."
+          : "Any answers already entered are kept and are not deleted.",
+      "This is a shared assessment, so it comes off both participants' records.",
+      "You can send a new assessment afterwards. It will be its own record and will not overwrite these answers.",
+    ],
+    title: isCompleted ? "Remove these completed results?" : "Remove this assessment?",
+  };
+}
+
+/* USA-281 follow-up: one assessment row, rendered by both the Person record
+ * and My Record.
+ *
+ * The two panels drew their own copy of this and had already drifted: one
+ * offered Copy link, the other did not, and only one of them ever grew a
+ * menu. A sent assessment is the same object wherever it is listed, so it is
+ * drawn once. The journey rows above it stay per-panel on purpose, because My
+ * Record is the owner's view and carries actions a Person record should not. */
+function ResourceAssessmentRow({
+  onOpenShareResult,
+  onRemove,
+  result,
+  share,
+}: {
+  onOpenShareResult: (resultId: string) => void;
+  onRemove?: ((assignment: DosAppResourceShareAssignment) => void) | null;
+  result: DosAppAssessmentResult | null;
+  share: DosAppResourceShareAssignment;
+}) {
+  const resource = getDosResourceBySlug(share.resourceSlug);
+  const title = resource?.title ?? "Library resource";
+  /* A finished or withdrawn assessment has no link worth copying. */
+  const hasLiveLink = share.status === "link_ready" || share.status === "in_progress";
+  const copyLink = () => void navigator.clipboard?.writeText(`${window.location.origin}${share.shareUrl}`);
+
+  return (
+    <div className="flex items-center gap-3 py-3 first:pt-1.5 last:pb-1.5">
+      <div className="min-w-0 flex-1">
+        <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{title}</p>
+        <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{shareParticipantSummary(share.participants)}</p>
+        {/* Wraps rather than overflowing: at 320 the pill and the date do not
+            fit on one line. */}
+        <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-dos-eyebrow">
+          <StatusPill tone={dosResourceShareStatusTone(share.status)}>{dosResourceShareStatusLabel(share.status)}</StatusPill>
+          <span>{dosResourceShareDateLine(share)}</span>
+        </p>
+      </div>
+      <span className="flex shrink-0 items-center gap-1">
+        {share.status === "completed" && result ? (
+          <PDButton onClick={() => onOpenShareResult(result.id)} tone="solid">View results</PDButton>
+        ) : hasLiveLink ? (
+          <PDButton onClick={copyLink}>Copy link</PDButton>
+        ) : null}
+        {onRemove ? (
+          <RowActionMenu
+            items={[
+              ...(hasLiveLink ? [{ label: "Copy link", onSelect: copyLink }] : []),
+              ...(share.status === "completed" && result
+                ? [{ label: "View results", onSelect: () => onOpenShareResult(result.id) }]
+                : []),
+              { danger: true, label: "Remove", onSelect: () => onRemove(share) },
+            ]}
+            label={`More actions for ${title}, ${resourceShareIdentityLabel(share)}`}
+          />
+        ) : null}
+      </span>
+    </div>
+  );
+}
+
 /* Copy link and, where the browser offers it, the native share sheet. No new
    email or SMS service is introduced for this: the sender delivers the link
    the way they already talk to this couple. */
@@ -35600,13 +35718,16 @@ function LibraryCatalogResourcePage({
 /* USA-281: "+ Add" under Resources used to assume the Marriage Assessment.
  * It now asks which resource, then hands off to that resource's own setup.
  *
- * Only resources with a working flow are listed, and they are grouped by what
- * that flow actually does:
- *   - "Send a link" is the share-link flow, which today is the Marriage
- *     Assessment (dosShareableResourceSlugs).
- *   - "Assign a journey" is the assignment flow (resource.assignable).
- * Everything else in the Library is real but has neither flow yet, so it is
- * not offered here; showing it would be offering something that does nothing.
+ * USA-281 follow-up: the groups are now what the resource IS, not which
+ * internal flow it happens to use. "Journeys" and "Assessments" are what
+ * someone is choosing between; "Send a link" and "Assign a journey" asked
+ * them to know the plumbing first. The plumbing still decides what opens
+ * next, it just stops being the menu.
+ *
+ * Only resources with a working flow are listed. Everything else in the
+ * Library is real but has neither flow yet, so it is not offered here;
+ * showing it would be offering something that does nothing. A group with no
+ * supported resources is not rendered at all rather than shown empty.
  *
  * Choosing here creates NOTHING. It opens the setup for the chosen resource,
  * and that setup is what writes, only when the person confirms it. */
@@ -35621,8 +35742,25 @@ function ResourceAddSheet({
   onSend: (resource: DosResource) => void;
   personName: string;
 }) {
-  const sendable = dosResourceCatalog.filter((resource) => isDosResourceShareEnabled(resource));
-  const assignable = dosAssignableResourceItems;
+  /* Grouped by what the resource is. A resource that supports both flows is
+     listed once, under what it is, and its own setup is what opens. */
+  const assessments = dosResourceCatalog.filter((resource) => isDosResourceShareEnabled(resource));
+  const assessmentSlugs = new Set(assessments.map((resource) => resource.slug));
+  const journeys = dosAssignableResourceItems.filter((resource) => !assessmentSlugs.has(resource.slug));
+  const groups = [
+    {
+      description: "A reading plan or guided resource, with its own dates and progress.",
+      label: "Journeys",
+      onSelect: onAssign,
+      resources: journeys,
+    },
+    {
+      description: "DOS prepares a link the two of them open together.",
+      label: "Assessments",
+      onSelect: onSend,
+      resources: assessments,
+    },
+  ].filter((group) => group.resources.length);
 
   return (
     <Sheet
@@ -35632,18 +35770,16 @@ function ResourceAddSheet({
       title="Add a resource"
     >
       <div className="max-h-[68dvh] space-y-5 overflow-y-auto pr-1 [scrollbar-width:none]">
-        {sendable.length ? (
-          <section aria-label="Send a link">
-            <p className="text-dos-eyebrow uppercase text-dos-eyebrowSection">Send a link</p>
-            <p className="mt-1 text-[13.5px] leading-[1.5] text-dos-secondary">
-              DOS prepares a link the two of them open together.
-            </p>
+        {groups.map((group) => (
+          <section aria-label={group.label} key={group.label}>
+            <p className="text-dos-eyebrow uppercase text-dos-eyebrowSection">{group.label}</p>
+            <p className="mt-1 text-[13.5px] leading-[1.5] text-dos-secondary">{group.description}</p>
             <div className="mt-2.5 divide-y divide-dos-rule overflow-hidden rounded-[16px] border border-dos-line bg-white">
-              {sendable.map((resource) => (
+              {group.resources.map((resource) => (
                 <button
                   className="flex w-full min-h-[56px] items-center gap-3 px-3.5 py-3 text-left hover:bg-dos-blue50"
                   key={resource.id}
-                  onClick={() => onSend(resource)}
+                  onClick={() => group.onSelect(resource)}
                   type="button"
                 >
                   <span className="min-w-0 flex-1">
@@ -35655,32 +35791,7 @@ function ResourceAddSheet({
               ))}
             </div>
           </section>
-        ) : null}
-
-        {assignable.length ? (
-          <section aria-label="Assign a journey">
-            <p className="text-dos-eyebrow uppercase text-dos-eyebrowSection">Assign a journey</p>
-            <p className="mt-1 text-[13.5px] leading-[1.5] text-dos-secondary">
-              A reading plan or guided resource, with its own dates and progress.
-            </p>
-            <div className="mt-2.5 divide-y divide-dos-rule overflow-hidden rounded-[16px] border border-dos-line bg-white">
-              {assignable.map((resource) => (
-                <button
-                  className="flex w-full min-h-[56px] items-center gap-3 px-3.5 py-3 text-left hover:bg-dos-blue50"
-                  key={resource.id}
-                  onClick={() => onAssign(resource)}
-                  type="button"
-                >
-                  <span className="min-w-0 flex-1">
-                    <span className="block text-[15px] font-bold leading-[1.3] text-dos-primary">{resource.title}</span>
-                    <span className="mt-0.5 block text-[12.5px] leading-[1.4] text-dos-secondary">{resource.description}</span>
-                  </span>
-                  <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
+        ))}
       </div>
     </Sheet>
   );
@@ -36329,7 +36440,6 @@ function PersonDetailOverlay({
   onSavePrayerRequest,
   prayerHouseholdMembers,
   prayerPeople,
-  onAssignResource,
   onCompleteCommitment,
   onConfirmCircleMove,
   onEditReminder,
@@ -36341,6 +36451,7 @@ function PersonDetailOverlay({
   onMarkResourceAssignmentInProgress,
   onOpenGuidedResource,
   onRemoveResourceAssignment,
+  onRemoveResourceShare,
   onMarkPrayerAnswered,
   onOpenGathering,
   onOpenGroup,
@@ -36416,7 +36527,6 @@ function PersonDetailOverlay({
   onSavePrayerRequest: (id: string, patch: DosPrayerRequestPatch) => Promise<DosAppPrayerRequest>;
   prayerHouseholdMembers: DosAppHouseholdMember[];
   prayerPeople: DosAppPerson[];
-  onAssignResource: (personId: string) => void;
   onCompleteCommitment: (commitment: DosAppPersonCommitment) => void;
   onConfirmCircleMove: (personId: string, circle: CircleKey) => Promise<boolean>;
   onEditReminder: (reminderId: string) => void;
@@ -36428,6 +36538,7 @@ function PersonDetailOverlay({
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
   onRemoveResourceAssignment: (assignment: DosAppResourceAssignment) => void;
+  onRemoveResourceShare?: ((assignment: DosAppResourceShareAssignment) => void) | null;
   onMarkPrayerAnswered: (reminderId: string) => void;
   onOpenGathering?: (groupId: string, gatheringId: string) => void;
   onOpenGroup: (groupId: string) => void;
@@ -37024,10 +37135,12 @@ function PersonDetailOverlay({
     { group: "walk", icon: "commitment", label: "Add accountability", onClick: onAddAccountabilitySchedule },
     { group: "walk", icon: "prayer", label: "Add prayer request", onClick: onAddPrayerRequest },
     { group: "walk", icon: "arrow", label: "Add reminder", onClick: onAddReminder },
-    { group: "walk", icon: "library", label: "Assign journey", onClick: () => onAssignResource(person.id) },
-    /* USA-278: sending a resource is its own act. It opens the same flow the
-       Library opens, with this person already chosen. */
-    { group: "walk", icon: "send", label: "Send resource", onClick: () => onSendResource(person.id) },
+    /* USA-281 follow-up: ONE entry. "Assign journey" and "Send resource"
+       asked the user to know which internal flow their resource happens to
+       use before they had chosen a resource. This opens the same picker that
+       Resources > + Add opens, with this person already chosen, and the
+       picker hands off to whichever setup the chosen resource needs. */
+    { group: "walk", icon: "library", label: "Add resource", onClick: () => onSendResource(person.id) },
     /* Observed Fruit is deliberately absent: Fruit should carry provenance
        from an actual logged interaction, so its path is Log Meeting ->
        Observed Fruit. Legacy and backend-created Fruit records are untouched;
@@ -37228,7 +37341,7 @@ function PersonDetailOverlay({
       /* The Person page carries the SAME background as Home and Meetings, from
          the same constant -- opaque, because it overlays the Field list.
          Sections sit on restrained white. */
-      className={`absolute inset-0 overflow-y-auto px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? `${dosAppBackgroundClassName} pb-[calc(env(safe-area-inset-bottom)+9.5rem)] md:px-10 md:pb-24 lg:px-14` : `${dosSurfaceBaseClassName} pb-28 md:px-6`}`}
+      className={`absolute inset-0 overflow-y-auto px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${conceptMode ? `${dosAppBackgroundClassName} pb-dos-fab-clearance md:px-10 md:pb-24 lg:px-14` : `${dosSurfaceBaseClassName} pb-dos-fab-clearance md:px-6`}`}
     >
       <div className={conceptMode
         ? "mx-auto w-full max-w-[1080px]"
@@ -37437,15 +37550,37 @@ function PersonDetailOverlay({
                 </PersonOverviewGroup>
 
                 <PersonOverviewGroup label="Activity">
-                  <section aria-label="Journey" className="border-b border-dos-rule py-3 first:pt-1 last:border-b-0">
-                    <Eyebrow>Journey</Eyebrow>
-                    {conceptJourneys.length ? (
+                  {/* USA-281 follow-up: ONE Resources section.
+                      
+                      A journey and an assessment are both "a Library resource
+                      this person is working through", and splitting them
+                      across two sections with two + Add actions made the
+                      record read as two half-features. They are one list now,
+                      journeys first because they are ongoing work, then the
+                      assessments with their status.
+                      
+                      One + Add for both, opening the picker that asks which
+                      resource. A row never says "Sent": DOS creates a link,
+                      the leader delivers it. */}
+                  <section aria-label="Resources" className="border-b border-dos-rule py-3 first:pt-1 last:border-b-0">
+                    <Eyebrow
+                      action={<button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={() => onSendResource(person.id)} type="button">+ Add</button>}
+                    >
+                      Resources
+                    </Eyebrow>
+                    {conceptJourneys.length || personResourceShares.length ? (
                       <div className="divide-y divide-dos-rule">
                         {conceptJourneys.map((journey) => (
-                          <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
+                          <div className="flex items-center gap-3 py-3 first:pt-1.5 last:pb-1.5" key={journey.assignment.id}>
                             <div className="min-w-0 flex-1">
                               <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{journey.title}</p>
                               <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">{journey.stageLabel}</p>
+                              {/* Each assignment keeps its own group and start
+                                  date. Two group journeys for one resource are
+                                  two studies, not one listed twice. */}
+                              <p className="mt-1 text-[12.5px] leading-[1.35] text-dos-eyebrow">
+                                {resourceAssignmentIdentityLabel(journey.assignment, groups)}
+                              </p>
                               {journey.completion && journey.completion.total > 0 ? (
                                 <span className="mt-2 block h-[3px] max-w-[168px] overflow-hidden rounded-full bg-[#DCE4F2]">
                                   <span className="block h-full rounded-full bg-dos-blue" style={{ width: `${Math.max(3, journey.percent)}%` }} />
@@ -37464,14 +37599,23 @@ function PersonDetailOverlay({
                               ) : null}
                               <RowActionMenu
                                 items={[{ danger: true, label: "Remove", onSelect: () => onRemoveResourceAssignment(journey.assignment) }]}
-                                label={`More actions for ${journey.title}`}
+                                label={`More actions for ${journey.title}, ${resourceAssignmentIdentityLabel(journey.assignment, groups)}`}
                               />
                             </span>
                           </div>
                         ))}
+                        {personResourceShares.map((share) => (
+                          <ResourceAssessmentRow
+                            key={share.id}
+                            onOpenShareResult={onOpenShareResult}
+                            onRemove={onRemoveResourceShare}
+                            result={share.resultId ? assessmentResults.find((result) => result.id === share.resultId) ?? null : null}
+                            share={share}
+                          />
+                        ))}
                       </div>
                     ) : (
-                      <p className="text-[14.5px] leading-[1.5] text-dos-body">No Journey yet.</p>
+                      <p className="text-[14.5px] leading-[1.5] text-dos-body">Nothing from the Library yet.</p>
                     )}
                   </section>
 
@@ -37517,55 +37661,6 @@ function PersonDetailOverlay({
                       )}
                     </div>
                     {renderViewAll("accountability", accountabilityTopics.length)}
-                  </section>
-
-                  {/* USA-278: RESOURCES. What has been sent to this person
-                      from the Library and where it got to. "+ Add" opens the
-                      same send flow the Library opens, with this person
-                      already chosen. A row never says "Sent": DOS creates a
-                      link, the leader delivers it. */}
-                  <section aria-label="Resources" className="border-b border-dos-rule py-3 last:border-b-0">
-                    <Eyebrow
-                      action={<button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={() => onSendResource(person.id)} type="button">+ Add</button>}
-                    >
-                      Resources
-                    </Eyebrow>
-                    {personResourceShares.length ? (
-                      <div className="divide-y divide-dos-rule">
-                        {personResourceShares.map((share) => {
-                          const shareResource = getDosResourceBySlug(share.resourceSlug);
-                          const shareResult = share.resultId
-                            ? assessmentResults.find((result) => result.id === share.resultId) ?? null
-                            : null;
-
-                          return (
-                            <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={share.id}>
-                              <div className="min-w-0 flex-1">
-                                <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{shareResource?.title ?? "Library resource"}</p>
-                                <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">
-                                  {shareParticipantSummary(share.participants)}
-                                </p>
-                                <p className="mt-1 flex items-center gap-2 text-[12.5px] text-dos-eyebrow">
-                                  <StatusPill tone={dosResourceShareStatusTone(share.status)}>{dosResourceShareStatusLabel(share.status)}</StatusPill>
-                                  <span>{dosResourceShareDateLine(share)}</span>
-                                </p>
-                              </div>
-                              {share.status === "completed" && shareResult ? (
-                                /* USA-281: a completed row offers the result. Sending
-                                   another goes through Resources > + Add, which is the
-                                   one place a resource is chosen, so this row does not
-                                   need its own second action. */
-                                <PDButton onClick={() => onOpenShareResult(shareResult.id)} tone="solid">View results</PDButton>
-                              ) : share.status === "revoked" || share.status === "expired" ? null : (
-                                <PDButton onClick={() => void navigator.clipboard?.writeText(`${window.location.origin}${share.shareUrl}`)}>Copy link</PDButton>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <p className="text-[14.5px] leading-[1.5] text-dos-body">Nothing sent from the Library yet.</p>
-                    )}
                   </section>
 
                   {/* Groups are a membership fact, not active work. */}
@@ -37826,12 +37921,12 @@ function PersonDetailOverlay({
                 </div>
               ) : (
                 <p className="mt-2.5 text-[13.5px] leading-[1.55] text-dos-eyebrow">
-                  Nothing active yet. Add accountability, a Journey, or prayer.
+                  Nothing active yet. Add accountability, a resource, or prayer.
                 </p>
               )}
               {!activeResourceAssignments.length ? (
-                <button className="mt-2.5 text-[13px] font-semibold text-dos-blue" onClick={() => onAssignResource(person.id)} type="button">
-                  + Add Journey
+                <button className="mt-2.5 text-[13px] font-semibold text-dos-blue" onClick={() => onSendResource(person.id)} type="button">
+                  + Add resource
                 </button>
               ) : null}
             </section>
@@ -38227,11 +38322,11 @@ function PersonDetailOverlay({
             ) : null}
             <button
               className="rounded-2xl border border-[#E3E6EB] bg-white px-4 py-3.5 text-left transition-colors hover:border-[#0F1520]"
-              onClick={() => { setIsAddMenuOpen(false); onAssignResource(person.id); }}
+              onClick={() => { setIsAddMenuOpen(false); onSendResource(person.id); }}
               type="button"
             >
-              <p className="text-[14.5px] font-semibold text-dos-primary">Journey</p>
-              <p className="mt-0.5 text-[12.5px] text-dos-eyebrow">Assign a book study, reading plan, or assessment from the Library.</p>
+              <p className="text-[14.5px] font-semibold text-dos-primary">Resource</p>
+              <p className="mt-0.5 text-[12.5px] text-dos-eyebrow">A journey or an assessment from the Library.</p>
             </button>
             <button
               className="rounded-2xl border border-[#E3E6EB] bg-white px-4 py-3.5 text-left transition-colors hover:border-[#0F1520]"
@@ -39562,7 +39657,13 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   const [resourceAssignmentSheet, setResourceAssignmentSheet] = useState<ResourceAssignmentSheetState>(null);
   const [resourceAssignmentDuplicate, setResourceAssignmentDuplicate] = useState<ResourceAssignmentDuplicateState>(null);
   const [resourceAssignmentNotice, setResourceAssignmentNotice] = useState<ResourceAssignmentNotice>(null);
-  const [assignResourcePickerPersonId, setAssignResourcePickerPersonId] = useState<string | null>(null);
+  /* USA-281 follow-up: the pending removal, whichever kind it is.
+
+     Holding it in state rather than calling window.confirm is what lets the
+     app ask in its own dialog, with the assessment named and the consequences
+     spelled out. The browser prompt could show one unstyled line and could not
+     say any of it. */
+  const [pendingRemoval, setPendingRemoval] = useState<PendingRemoval>(null);
   /* USA-281: which person "+ Add" was pressed for. Holding the id here is what
      keeps them selected through the picker and into whichever setup follows. */
   const [addResourcePersonId, setAddResourcePersonId] = useState<string | null>(null);
@@ -42573,20 +42674,6 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     });
   }
 
-  function openAssignResourcePicker(personId: string) {
-    if (!commitmentsEnabled) {
-      setErrorMessage("Commitments and accountability are not enabled for this workspace.");
-      return;
-    }
-
-    setErrorMessage("");
-    setAssignResourcePickerPersonId(personId);
-  }
-
-  function closeAssignResourcePicker() {
-    setAssignResourcePickerPersonId(null);
-  }
-
   function openAssignTargetPicker(resource: DosResource) {
     if (!commitmentsEnabled) {
       setErrorMessage("Commitments and accountability are not enabled for this workspace.");
@@ -43031,22 +43118,32 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
    * reflection attached to it are preserved and a restore is one column away.
    * The confirmation says what removal does and, for an assignment that came
    * from a group, that it only affects this person's copy. */
-  async function removeResourceAssignment(assignment: DosAppResourceAssignment) {
+  function removeResourceAssignment(assignment: DosAppResourceAssignment) {
     const title = resourceAssignmentTitle(assignment);
     /* USA-281: a person can hold the same resource more than once, once per
        group. The confirmation names WHICH one is going, because "Remove
        Discipleship?" is ambiguous when there are two of them. */
     const identity = resourceAssignmentIdentityLabel(assignment, groups);
-    const sharedNote = assignment.assignmentContext === "group"
-      ? " This removes it from this record only. Everyone else assigned it in the group keeps theirs."
-      : "";
-    const progressNote = assignment.status === "not_started"
-      ? ""
-      : " Progress already recorded is kept and is not deleted.";
 
-    if (!window.confirm(`Remove "${title}" (${identity}) from this record?${sharedNote}${progressNote}`)) {
-      return;
-    }
+    setPendingRemoval({
+      confirmLabel: "Remove",
+      lines: [
+        `${title}.`,
+        `${identity}.`,
+        assignment.status === "not_started"
+          ? "Nothing has been recorded against it yet."
+          : "Progress already recorded is kept and is not deleted.",
+        ...(assignment.assignmentContext === "group"
+          ? ["This removes it from this record only. Everyone else assigned it in the group keeps theirs."]
+          : []),
+      ],
+      onConfirm: () => void confirmResourceAssignmentRemoval(assignment),
+      title: "Remove this from the record?",
+    });
+  }
+
+  async function confirmResourceAssignmentRemoval(assignment: DosAppResourceAssignment) {
+    setPendingRemoval(null);
 
     const result = await submitJson(
       "/api/dos/app/resource-assignments",
@@ -43058,6 +43155,42 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     if (result?.removed) {
       /* The list is server data, so the refresh is what makes the row stay
          gone after a reload rather than only disappearing in this tab. */
+      router.refresh();
+    }
+  }
+
+  /* USA-281 follow-up: removing a sent assessment.
+   *
+   * The deployed Remove control reached Journey assignments and stopped there,
+   * because a sent assessment is a different row in a different table. It has
+   * a public link two people may be holding, it belongs to both of their
+   * records, and when it is finished it owns a result. So it gets its own
+   * path rather than being squeezed through the Journey one. */
+  function removeResourceShare(assignment: DosAppResourceShareAssignment) {
+    const resourceTitle = getDosResourceBySlug(assignment.resourceSlug)?.title ?? "Library resource";
+    const copy = resourceShareRemovalCopy(assignment, resourceTitle);
+
+    setPendingRemoval({
+      confirmLabel: copy.confirmLabel,
+      lines: copy.lines,
+      onConfirm: () => void confirmResourceShareRemoval(assignment),
+      title: copy.title,
+    });
+  }
+
+  async function confirmResourceShareRemoval(assignment: DosAppResourceShareAssignment) {
+    setPendingRemoval(null);
+
+    const result = await submitJson(
+      "/api/dos/app/resource-share-assignments",
+      { action: "remove", assignmentId: assignment.id },
+      "PATCH",
+      false,
+    ) as { ok?: boolean } | null;
+
+    if (result?.ok) {
+      /* Server data again: the refresh is what makes it stay gone on both
+         records after a reload rather than only in this tab. */
       router.refresh();
     }
   }
@@ -47682,7 +47815,8 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onOpenPersonRecord={myRecordPerson ? openPersonDetail : null}
             onOpenScheduledMeeting={openMeetingDetail}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
-            onRemoveResourceAssignment={(assignment) => void removeResourceAssignment(assignment)}
+            onRemoveResourceAssignment={removeResourceAssignment}
+            onRemoveResourceShare={removeResourceShare}
             onQuickTab={setMyRecordTab}
             onSave={submitMyRecord}
             onScheduleMeeting={(personId) => openScheduleMeeting(personId ?? undefined)}
@@ -47740,7 +47874,6 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onSavePrayerRequest={saveMobilePrayerRequestUpdate}
             prayerHouseholdMembers={data.householdMembers}
             prayerPeople={people}
-            onAssignResource={openAssignResourcePicker}
             onCompleteCommitment={(commitment) => void setCommitmentStatus(commitment, "completed")}
             onConfirmCircleMove={confirmPersonCircleMove}
             onEdit={() => openPersonEdit(selectedPerson)}
@@ -47767,7 +47900,8 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onRequestReview={(meeting, type) => setPendingMeetingSendAction({ meeting, type })}
             onPauseCommitment={(commitment) => void setCommitmentStatus(commitment, commitment.status === "paused" ? "active" : "paused")}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
-            onRemoveResourceAssignment={(assignment) => void removeResourceAssignment(assignment)}
+            onRemoveResourceAssignment={removeResourceAssignment}
+            onRemoveResourceShare={removeResourceShare}
             onScheduleMeeting={() => openScheduleMeeting(selectedPerson.id)}
             participantReviews={data.participantReviews}
               participantTestimonies={data.participantTestimonies}
@@ -48157,6 +48291,22 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
           />
         ) : null}
 
+        {/* USA-281 follow-up: the app's own confirmation, not the browser's.
+            One dialog for both removals, so a Journey and an assessment ask
+            the same way, and so the question can name what is going and what
+            happens to it. It portals above every sheet, which is why it sits
+            here rather than inside either panel. */}
+        {pendingRemoval ? (
+          <DosConfirmDialog
+            cancelLabel="Cancel"
+            confirmLabel={pendingRemoval.confirmLabel}
+            description={pendingRemoval.lines.map((line) => <span key={line}>{line}</span>)}
+            onCancel={() => setPendingRemoval(null)}
+            onConfirm={pendingRemoval.onConfirm}
+            title={pendingRemoval.title}
+          />
+        ) : null}
+
         {resourceAssignmentDuplicate ? (
           <ResourceAssignmentDuplicateSheet
             duplicate={resourceAssignmentDuplicate}
@@ -48258,26 +48408,6 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             }}
             personName={people.find((person) => person.id === addResourcePersonId)?.name ?? "this person"}
           />
-        ) : null}
-
-        {assignResourcePickerPersonId ? (
-          <Sheet onClose={closeAssignResourcePicker} showEyebrow={false} title="Assign a Journey">
-            <div className="grid gap-3">
-              <p className="text-sm leading-6 text-[#64748B]">
-                Choose a Library resource to assign to {people.find((person) => person.id === assignResourcePickerPersonId)?.name ?? "this person"}.
-              </p>
-              <CatalogResourceList
-                actionLabel="Assign"
-                onAssign={(resource) => {
-                  const personId = assignResourcePickerPersonId;
-                  closeAssignResourcePicker();
-                  openResourceAssignmentCreate(resource, personId, { assignmentContext: "person" });
-                }}
-                resources={dosAssignableResourceItems}
-                workspaceSlug={data.workspace.slug}
-              />
-            </div>
-          </Sheet>
         ) : null}
 
         {assignTargetPicker ? (

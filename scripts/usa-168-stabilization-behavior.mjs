@@ -2394,9 +2394,14 @@ await check("Keep editing is the safe default and does not rebuild the form", as
   );
   assert(!/onExit\(\)/.test(guard.slice(guard.indexOf("onKeepEditing"))), "Keep editing must never exit.");
 
-  /* Escape and the dialog's own backdrop choose the safe option. */
-  assert(/event.key === "Escape"[\s\S]{0,80}onKeepEditing\(\)/.test(dialog), "Escape keeps editing.");
-  assert(/onMouseDown=\{onKeepEditing\}/.test(dialog), "The dialog's backdrop keeps editing rather than discarding.");
+  /* Escape and the dialog's own backdrop choose the safe option. USA-281
+     follow-up: the shell is now shared with the removal confirmation, so the
+     guarantee is checked where it is implemented, plus the wiring that carries
+     "keep editing" into it. */
+  assert(/event.key === "Escape"[\s\S]{0,80}onCancel\(\)/.test(dialog), "Escape takes the safe option.");
+  assert(/onMouseDown=\{onCancel\}/.test(dialog), "The dialog's backdrop takes the safe option rather than the destructive one.");
+  assert(/onCancel=\{onKeepEditing\}/.test(dialog), "For unsaved work the safe option is Keep editing.");
+  assert(/onConfirm=\{onDiscard\}/.test(dialog), "Discard stays the deliberate press.");
 
   /* Discard is the only thing that throws work away. */
   assert(/onDiscard=\{\(\) => \{[\s\S]{0,120}onExit\(\)/.test(guard), "Only Discard exits with unsaved changes.");
@@ -2448,7 +2453,12 @@ await check("Person polish keeps fixed tabs centered and section hierarchy blue"
   assert(person.includes('<Segmented') && person.includes('label={`${firstName} views`}'), "Person's three fixed views use the centered segmented control.");
   assert(!person.includes("<Eyebrow>Right now</Eyebrow>"), "The redundant Right now umbrella heading stays removed.");
   assert(person.includes('const eyebrowClass = "text-dos-eyebrow uppercase text-dos-eyebrowSection"'), "Last and Next meeting card eyebrows are blue.");
-  for (const section of ["Journey", "Accountability", "Prayer", "Fruit", "Feedback", "Groups", "Reminder", "Group gathering"]) {
+  /* USA-281 follow-up: "Journey" is no longer a section of its own. Journeys
+     and assessments are one Library, so they are listed together under
+     Resources with one + Add. The guarantee here is unchanged, that each named
+     section stays named and carries the blue section eyebrow; only the name of
+     the section a journey lives in has changed. */
+  for (const section of ["Resources", "Accountability", "Prayer", "Fruit", "Feedback", "Groups", "Reminder", "Group gathering"]) {
     assert(person.includes(`aria-label="${section}"`) || person.includes(`<Eyebrow>${section}</Eyebrow>`), `${section} remains a named Person section.`);
   }
   assert(!person.includes('tone="sub"'), "Person's named overview sections use the blue section eyebrow treatment.");

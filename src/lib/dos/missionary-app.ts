@@ -1659,6 +1659,7 @@ type ResourceShareAssignmentRow = {
   primary_person_id: string;
   requested_by_name: string | null;
   resource_slug: string;
+  removed_at?: string | null;
   result_id: string | null;
   revoked_at: string | null;
   secondary_participant_name: string;
@@ -4163,11 +4164,32 @@ async function loadGuidedResourceProgressForWorkspace(supabase: SupabaseAdminCli
 }
 
 async function loadResourceShareAssignmentsForWorkspace(supabase: SupabaseAdminClient, workspaceId: string) {
+  const columns = "id, workspace_id, resource_slug, primary_person_id, secondary_person_id, primary_participant_name, secondary_participant_name, primary_participant_role, secondary_participant_role, requested_by_name, status, token, expires_at, started_at, completed_at, revoked_at, result_id, created_at, updated_at";
+
+  /* USA-281: removed assessments are read WITH the rest rather than filtered
+     out in the query, because the caller needs both halves: the active rows to
+     list, and the removed rows' result ids so the completed result they point
+     at stops showing up on the record under its own name. Partitioning happens
+     once, at the caller. */
   const result = await supabase
     .from("dos_resource_share_assignments")
-    .select("id, workspace_id, resource_slug, primary_person_id, secondary_person_id, primary_participant_name, secondary_participant_name, primary_participant_role, secondary_participant_role, requested_by_name, status, token, expires_at, started_at, completed_at, revoked_at, result_id, created_at, updated_at")
+    .select(`${columns}, removed_at`)
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false });
+
+  /* Before the removal migration is applied there is no column to read. Every
+     row is active, which is the old behaviour and correct until then. */
+  if (result.error && isMissingColumnError(result.error)) {
+    const fallback = await supabase
+      .from("dos_resource_share_assignments")
+      .select(columns)
+      .eq("workspace_id", workspaceId)
+      .order("created_at", { ascending: false });
+
+    return fallback.error && isMissingWorkflowTable(fallback.error, "dos_resource_share_assignments")
+      ? { data: [] as ResourceShareAssignmentRow[], error: null }
+      : fallback;
+  }
 
   return result.error && isMissingWorkflowTable(result.error, "dos_resource_share_assignments")
     ? { data: [] as ResourceShareAssignmentRow[], error: null }
@@ -4711,7 +4733,20 @@ export async function loadDosAppData(
 
   const ministryEventPeopleRows = (ministryEventPeopleResult.data ?? []) as MinistryEventPersonRow[];
   const connectionRows = (connectionLogsResult.data ?? []) as ConnectionLogRow[];
-  const assessmentResultRows = (assessmentResultsResult.data ?? []) as AssessmentResultRow[];
+  /* USA-281: removed assessments never reach the client, and neither does the
+     dos_assessment_results row a removed COMPLETED assessment owns. Without
+     that second half the result would reappear on the Timeline under its own
+     name the moment its share row stopped representing it, and removal would
+     look like it had not worked. Both rows stay in the database and a restore
+     brings both back. */
+  const resourceShareAssignmentRows = (resourceShareAssignmentsResult.data ?? []) as ResourceShareAssignmentRow[];
+  const removedShareResultIds = new Set(
+    resourceShareAssignmentRows
+      .filter((assignment) => Boolean(assignment.removed_at) && assignment.result_id)
+      .map((assignment) => assignment.result_id as string),
+  );
+  const assessmentResultRows = ((assessmentResultsResult.data ?? []) as AssessmentResultRow[])
+    .filter((result) => !removedShareResultIds.has(result.id));
   const reviewLinkRows = (reviewLinksResult.data ?? []) as ReviewLinkRow[];
   const meetingReviewRows = (meetingReviewsResult.data ?? []) as MeetingReviewRow[];
   const prayerLogRows = (prayerLogsResult.data ?? []) as PrayerLogRow[];
@@ -5543,7 +5578,7 @@ export async function loadDosAppData(
      here so the People record and the Library both offer Copy link without a
      second round trip. Nothing about the recipient's answers travels with it
      -- draft responses stay server-side on the assignment. */
-  const resourceShareAssignments: DosAppResourceShareAssignment[] = ((resourceShareAssignmentsResult.data ?? []) as ResourceShareAssignmentRow[]).map((assignment) => ({
+  const resourceShareAssignments: DosAppResourceShareAssignment[] = resourceShareAssignmentRows.filter((assignment) => !assignment.removed_at).map((assignment) => ({
     completedAt: assignment.completed_at,
     createdAt: assignment.created_at,
     expiresAt: assignment.expires_at,

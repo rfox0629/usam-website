@@ -356,11 +356,65 @@ assert.ok(dosApp.includes("Sample questions"), "the five questions on the detail
 assert.ok(dosApp.includes("See all {total} questions"), "the detail page links to every question");
 assert.ok(dosApp.includes("{sample.length} of {total}"), "the detail page says how much of the assessment the sample covers");
 assert.ok(dosApp.includes("aria-label=\"Resources\""), "the Person Activity area has a Resources section");
-assert.ok(dosApp.includes("label: \"Send resource\""), "Send resource is on the Person floating plus menu");
+/* USA-281 follow-up: ONE entry, not two. "Assign journey" and "Send resource"
+   made the user pick an internal flow before picking a resource. */
+assert.ok(dosApp.includes("label: \"Add resource\""), "Add resource is on the Person floating plus menu");
+assert.ok(!dosApp.includes("label: \"Send resource\"") && !dosApp.includes("label: \"Assign journey\""),
+  "the two old entries are gone rather than left beside the new one");
+/* One PERSON-level picker. Assigning a journey to a whole group is a
+   different flow and keeps its own sheet. */
+assert.ok(!dosApp.includes("assignResourcePickerPersonId"),
+  "the second person-level journey picker is gone, not merely unreachable");
+assert.ok(/label: "Add resource", onClick: \(\) => onSendResource\(person\.id\)/.test(dosApp),
+  "the floating entry opens the same picker as Resources + Add, with this person already chosen");
 assert.ok(dosApp.includes("dosLinkedSpouseForPerson"), "the linked spouse comes from the household model");
 assert.ok(dosApp.includes("Copy link"), "a resource row offers Copy link");
 assert.ok(dosApp.includes("View results"), "a completed resource row opens the results");
 assert.ok(dosApp.includes("sharedResultIds"), "one completion is one timeline entry, not two");
+
+const addSheet = dosApp.slice(dosApp.indexOf("function ResourceAddSheet("), dosApp.indexOf("function ResourcePickerSheet("));
+
+assert.ok(/label: "Journeys"/.test(addSheet) && /label: "Assessments"/.test(addSheet),
+  "the picker groups by what the resource is, not by which flow it uses");
+assert.ok(!/"Send a link"|"Assign a journey"/.test(addSheet),
+  "the old flow-shaped group names are gone");
+assert.ok(addSheet.includes('].filter((group) => group.resources.length);'),
+  "a group with no supported resources is not rendered at all");
+assert.ok(addSheet.includes("const journeys = dosAssignableResourceItems.filter((resource) => !assessmentSlugs.has(resource.slug));"),
+  "a resource that supports both flows is listed once, under what it is");
+assert.ok(addSheet.includes("Nothing is created until you confirm it."),
+  "choosing in the picker creates nothing");
+
+/* The person chosen for + Add is carried into whichever setup follows, so a
+   record never asks who this is for. */
+assert.ok(/onAssign=\{\(resource\) => \{\s*const personId = addResourcePersonId;[\s\S]{0,200}openResourceAssignmentCreate\(resource, personId/.test(dosApp),
+  "journey setup opens for the person the picker was opened for");
+assert.ok(/onSend=\{\(resource\) => \{\s*const personId = addResourcePersonId;[\s\S]{0,160}openSendResource\(resource, personId\)/.test(dosApp),
+  "assessment setup opens for the person the picker was opened for");
+
+/* One Resources section: journeys then assessments, under one + Add. */
+assert.ok(!dosApp.includes('<section aria-label="Journey" '),
+  "the Person record no longer has a Journey section separate from Resources");
+assert.ok(dosApp.includes("{conceptJourneys.length || personResourceShares.length ? ("),
+  "the Person Resources section holds journeys and assessments together");
+assert.ok(dosApp.includes("{assignmentGroups.length || resourceShares.length ? ("),
+  "My Record's Resources section holds journeys and assessments together");
+assert.ok(dosApp.includes("const currentCount = draftAssessments.length + activeCommitments.length;"),
+  "a journey is no longer counted under Current commitments as well, so nothing is listed twice");
+assert.ok(dosApp.includes("function ResourceAssessmentRow("),
+  "an assessment row is drawn once and used by both panels");
+
+/* The Person record overlay reserves the same floating-button clearance My
+   Record already had. Without it the last Resources row sat under the button
+   with no way to scroll it clear, which the browser run caught. */
+assert.ok(
+  !dosApp.includes("pb-[calc(env(safe-area-inset-bottom)+9.5rem)]"),
+  "the Person overlay no longer carries its own ad-hoc bottom padding",
+);
+assert.ok(
+  (dosApp.match(/pb-dos-fab-clearance/g) ?? []).length >= 5,
+  "every surface that carries a floating button reserves the shared clearance",
+);
 
 const sendSheet = dosApp.slice(dosApp.indexOf("function SendResourceSheet"), dosApp.indexOf("function ResourceShareResultSheet"));
 assert.ok(sendSheet.includes("A first name is enough. No contact is created."));
@@ -552,8 +606,10 @@ assert.ok(
   !appClient.includes("Send another"),
   "a completed row does not carry its own second send action",
 );
+/* USA-281 follow-up: the row is drawn once now, so the check reads the shared
+   component rather than one panel's copy of it. */
 assert.ok(
-  /share\.status === "completed" && shareResult \? \(\s*<PDButton onClick=\{\(\) => onOpenShareResult\(shareResult\.id\)\} tone="solid">View results<\/PDButton>/.test(appClient),
+  /share\.status === "completed" && result \? \(\s*<PDButton onClick=\{\(\) => onOpenShareResult\(result\.id\)\} tone="solid">View results<\/PDButton>/.test(appClient),
   "a completed row offers View results",
 );
 
@@ -616,9 +672,16 @@ assert.ok(
   /removal[\s\S]{0,400}\.eq\("workspace_id", workspaceResult\.workspaceId\)/.test(assignmentsRoute),
   "removal is scoped to the workspace the caller is authorized for",
 );
+/* USA-281 follow-up: the confirmation is the app's own dialog. The browser
+   prompt could not be styled, could not carry more than one line, and offered
+   OK rather than Remove. */
 assert.ok(
-  appClient.includes("window.confirm(`Remove \"${title}\" (${identity}) from this record?"),
-  "removal is confirmed rather than immediate, and names which assignment it acts on",
+  /setPendingRemoval\(\{[\s\S]{0,600}title: "Remove this from the record\?"/.test(appClient),
+  "removal is confirmed rather than immediate",
+);
+assert.ok(
+  !/window\.confirm\([\s\S]{0,40}Remove/.test(appClient),
+  "removal never falls back to the browser prompt",
 );
 assert.ok(
   appClient.includes("const identity = resourceAssignmentIdentityLabel(assignment, groups)"),
@@ -635,6 +698,219 @@ assert.ok(
 assert.ok(
   appClient.includes('{ danger: true, label: "Remove"'),
   "Remove is reachable from the row menu in My Record and on a Person",
+);
+
+/* ---- USA-281 follow-up: a SENT ASSESSMENT can be removed too ------------
+   The deployed Remove menu reached Journey assignments and stopped there. A
+   sent assessment is a different table, a different lifecycle, a public link
+   and two records, so each of those is checked here rather than assumed to be
+   covered by the Journey path. */
+
+assert.ok(
+  shareLib.includes("export async function removeDosResourceShareAssignment"),
+  "removing a sent assessment is its own operation, not revocation renamed",
+);
+assert.ok(
+  /hadLiveLink[\s\S]{0,200}update\.revoked_at = now;[\s\S]{0,80}update\.status = "revoked";/.test(shareLib),
+  "removing an unfinished assessment revokes its public link in the same write",
+);
+assert.ok(
+  !/removeDosResourceShareAssignment[\s\S]{0,2400}\.delete\(\)/.test(shareLib),
+  "removal never deletes the row, so responses and the result survive",
+);
+assert.ok(
+  !/removeDosResourceShareAssignment[\s\S]{0,2400}responses:/.test(shareLib),
+  "removal never rewrites the answers",
+);
+assert.ok(
+  /const wasCompleted = row\.status === "completed"/.test(shareLib)
+  && !/update\.status = "revoked";[\s\S]{0,120}wasCompleted/.test(shareLib),
+  "a completed assessment keeps its completed status, because the table's own check constraints forbid marking it revoked",
+);
+assert.ok(
+  /if \(row\.public_access_revoked_at \|\| row\.removed_at\) \{\s*return \{ status: "revoked" \};/.test(shareLib),
+  "a removed result is not reachable through a link the couple already has",
+);
+assert.ok(
+  /if \(row\.public_access_revoked_at \|\| row\.removed_at\) \{\s*return \{ error: "This link has been revoked\.", status: 410 as const \};/.test(shareLib),
+  "a removed assessment cannot be opened, answered or submitted through its token",
+);
+assert.ok(
+  shareLib.includes("export async function restoreDosResourceShareAssignment"),
+  "removal is recoverable, which is what makes preserving the result meaningful",
+);
+
+/* Restore recovers the RECORD, not the URL. The two are different decisions
+   and one must never silently perform the other. */
+assert.ok(
+  /Removal always withdraws the link[\s\S]{0,240}public_access_revoked_at: now,/.test(shareLib),
+  "removal always withdraws public access, in both shapes",
+);
+const restoreBody = shareLib.slice(
+  shareLib.indexOf("export async function restoreDosResourceShareAssignment"),
+  shareLib.indexOf("export async function enableDosResourceSharePublicAccess"),
+);
+assert.ok(
+  restoreBody.includes('.update({ removed_at: null, removed_by_user_id: null })'),
+  "restore clears the removal and nothing else",
+);
+assert.ok(
+  !/public_access_revoked_at: null/.test(restoreBody),
+  "restore never reopens the public link",
+);
+assert.ok(
+  shareLib.includes("export async function enableDosResourceSharePublicAccess"),
+  "re-enabling sharing is its own explicit action",
+);
+const enableBody = shareLib.slice(
+  shareLib.indexOf("export async function enableDosResourceSharePublicAccess"),
+  shareLib.indexOf("/* Linking a spouse's contact record"),
+);
+for (const [guard, why] of [
+  ['row.removed_at', "a still-removed assessment cannot be shared again"],
+  ['row.status === "revoked"', "an independently revoked link is never silently overridden"],
+  ['row.status === "expired" || isExpired(row)', "an expired link is never silently extended"],
+]) {
+  assert.ok(enableBody.includes(guard), `enable_sharing refuses when ${why}`);
+}
+assert.ok(
+  enableBody.includes('.update({ public_access_revoked_at: null })'),
+  "enable_sharing is the only thing that clears the public-access flag",
+);
+assert.ok(
+  (shareLib.match(/public_access_revoked_at: null/g) ?? []).length === 1,
+  "nothing else anywhere clears it",
+);
+assert.ok(
+  /if \(row\.public_access_revoked_at \|\| row\.removed_at\)/.test(shareLib)
+  && (shareLib.match(/if \(row\.public_access_revoked_at \|\| row\.removed_at\)/g) ?? []).length === 2,
+  "both token readers refuse a withdrawn link, so a restored record stays unreachable through the old URL",
+);
+assert.ok(
+  shareRoute.includes('action === "enable_sharing"'),
+  "the route exposes re-enabling as its own action",
+);
+assert.ok(
+  shareRoute.includes("publicAccessRestored: false"),
+  "restore says plainly that it did not reopen the link",
+);
+
+const shareMigration = read("supabase/migrations/20260919120000_usa_281_share_assignment_removal.sql");
+assert.ok(
+  shareMigration.includes("add column if not exists public_access_revoked_at timestamptz"),
+  "the migration adds the public-access column",
+);
+assert.ok(
+  !/drop\s+table|delete\s+from/i.test(shareMigration),
+  "the migration never deletes anything",
+);
+
+assert.ok(
+  /action === "remove"/.test(shareRoute) && /action === "restore"/.test(shareRoute),
+  "remove and restore are explicit actions on the share route",
+);
+assert.ok(
+  /requireDosWorkspaceRouteAccess[\s\S]{0,1500}action === "remove"/.test(shareRoute),
+  "removal only runs after workspace access is proved",
+);
+assert.ok(
+  /\.eq\("workspace_id", workspaceId\)/.test(shareLib),
+  "an assessment id from another workspace is a 404 rather than a removal",
+);
+
+const shareLoader = loader.slice(
+  loader.indexOf("async function loadResourceShareAssignmentsForWorkspace("),
+  loader.indexOf("async function loadExternalCalendarEventsForWorkspace("),
+);
+
+assert.ok(
+  shareLoader.includes("isMissingColumnError(result.error)"),
+  "reads still work before the share removal migration is applied",
+);
+assert.ok(
+  loader.includes("const removedShareResultIds = new Set(")
+  && loader.includes("!removedShareResultIds.has(result.id)"),
+  "the result a removed completed assessment owns stops showing on the record too, rather than reappearing under its own name",
+);
+assert.ok(
+  loader.includes("resourceShareAssignmentRows.filter((assignment) => !assignment.removed_at)"),
+  "a removed assessment is filtered out where assessments are read, so it stays gone after a refresh",
+);
+
+assert.ok(
+  appClient.includes("function resourceShareIdentityLabel"),
+  "the confirmation identifies the assessment by participants, status and date",
+);
+assert.ok(
+  /shareParticipantSummary\(assignment\.participants\)[\s\S]{0,120}dosResourceShareStatusLabel\(assignment\.status\)[\s\S]{0,120}dosResourceShareDateLine\(assignment\)/.test(appClient),
+  "all three identifying facts are in that label, because a couple can hold more than one assessment",
+);
+assert.ok(
+  appClient.includes("This is a shared assessment, so it comes off both participants' records."),
+  "removing a couple assessment says that it affects both records",
+);
+assert.ok(
+  appClient.includes("The scores and every answer are kept and can be restored."),
+  "removing a completed assessment discloses that the results survive",
+);
+assert.ok(
+  appClient.includes('title: isCompleted ? "Remove these completed results?" : "Remove this assessment?"'),
+  "a completed assessment asks its own explicit question rather than the generic one",
+);
+assert.ok(
+  appClient.includes('confirmLabel: isCompleted ? "Remove results" : "Remove"'),
+  "the confirm button says what it will remove",
+);
+assert.ok(
+  appClient.includes("It will be its own record and will not overwrite these answers."),
+  "the confirmation states that a new assessment can follow without overwriting",
+);
+/* The row is shared now, so Remove is checked once, in the component, and
+   both panels are checked for passing the handler into it. */
+const assessmentRow = appClient.slice(
+  appClient.indexOf("function ResourceAssessmentRow("),
+  appClient.indexOf("/* Copy link and, where the browser offers it"),
+);
+assert.ok(
+  assessmentRow.includes('{ danger: true, label: "Remove", onSelect: () => onRemove(share) }'),
+  "Remove is reachable from the assessment row menu",
+);
+assert.ok(
+  assessmentRow.includes('label: "Copy link", onSelect: copyLink') && assessmentRow.includes('label: "View results"'),
+  "the same menu also carries Copy link and View results, so the row's actions are all in one place",
+);
+assert.ok(
+  (appClient.match(/onRemoveResourceShare=\{removeResourceShare\}/g) ?? []).length === 2,
+  "both People and My Record get the control, not one of them",
+);
+assert.ok(
+  (appClient.match(/onRemove=\{onRemoveResourceShare\}/g) ?? []).length === 2,
+  "both panels pass the handler into the shared row",
+);
+
+const surfaces = read("src/components/dos/overlays/DosSurfaces.tsx");
+
+assert.ok(
+  surfaces.includes("export function DosConfirmDialog("),
+  "the confirmation is a styled in-app dialog",
+);
+assert.ok(
+  /DiscardChangesDialog[\s\S]{0,400}<DosConfirmDialog/.test(surfaces),
+  "there is one confirmation implementation rather than a parallel copy",
+);
+assert.ok(
+  /confirmLabel=\{pendingRemoval\.confirmLabel\}/.test(appClient) && /cancelLabel="Cancel"/.test(appClient),
+  "the dialog offers Cancel and a named Remove, not the browser's OK",
+);
+
+const rowMenu = appClient.slice(
+  appClient.indexOf("function RowActionMenu("),
+  appClient.indexOf("/* USA-281: several assignments can exist"),
+);
+
+assert.ok(
+  /onClick=\{\(\) => \{\s*setIsOpen\(false\);\s*item\.onSelect\(\);/.test(rowMenu),
+  "the action menu closes before the confirmation opens, so the two are never stacked",
 );
 
 /* ---- USA-281: grouped assignments stay individually addressable --------- */
