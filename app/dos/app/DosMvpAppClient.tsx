@@ -55,6 +55,7 @@ import { backdropMayDismiss, leaveWithoutSavingCopy, type DosSurfaceKind } from 
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
 import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption, type StatusTone } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
+import { answersFromStoredResult, buildAssessmentReportData } from "@/src/lib/dos/assessment-report-data";
 import type { DosRelationshipScore } from "@/src/lib/dos/circle-scoring";
 import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment, DosAppAccountabilitySchedule, DosAppAssessmentResult, DosAppCalendarConnection, DosAppCommitmentUpdate, DosAppData, DosAppDiscipleshipRelationship, DosAppExternalCalendarEvent, DosAppFieldVisibility, DosAppFruit, DosAppFruitEvent, DosAppGroup, DosAppGroupAttendance, DosAppGroupGathering, DosAppGroupMember, DosAppGuidedResourceProgress, DosAppHouseholdMember, DosAppLeaderReflection, DosAppMeeting, DosAppMeetingType, DosAppOrganizationConnection, DosAppParticipantReview, DosAppParticipantTestimony, DosAppPerson, DosAppPersonCommitment, DosAppPrayerLog, DosAppPrayerPartner, DosAppPrayerRequest, DosAppRelationshipReminder, DosAppResourceAssignment, DosAppResourceShareAssignment, DosAppReviewStatus, DosAppTableRole, DosAppUserAssessmentResult, DosAppUserExternalAssessmentResult, DosAppUserJournalEntry, DosAppUserLearningBook, DosAppUserLearningBookStatus, DosAppUserLearningChapterNote, DosAppUserLifePlan, DosAppUserMentorMeeting, DosAppUserMentorRelationship, DosAppUserPrayerLog, DosAppUserPropheticWord, DosAppUserPropheticWordStatus, DosAppUserRecord, DosAppWorkspace, DosSupportingAttendeeSubRole } from "@/src/lib/dos/missionary-app";
 import { MinistryTimeInvestmentReport } from "@/src/components/dos/reports/MinistryTimeInvestmentReport";
@@ -35520,10 +35521,12 @@ function SendResourceSheet({
 function ResourceShareResultSheet({
   allResults,
   onClose,
+  requestedBy,
   result,
 }: {
   allResults: DosAppAssessmentResult[];
   onClose: () => void;
+  requestedBy: { name: string; organization: string | null } | null;
   result: DosAppAssessmentResult;
 }) {
   const [isMounted, setIsMounted] = useState(false);
@@ -35540,6 +35543,12 @@ function ResourceShareResultSheet({
   const participants = Array.isArray(answers?.participants) ? answers.participants : [];
   const participantNames = answers?.participantNames ?? {};
   const questions = Array.isArray(answers?.questions) ? answers.questions : [];
+  const storedQuestions = questions.map((question) => ({
+    group: question.group ?? undefined,
+    id: question.id,
+    note: question.note ?? undefined,
+    prompt: question.prompt,
+  }));
 
   /* The stored payload keeps each participant's own total only implicitly, as
      the sum of their answers. Recomputing it here reads the same numbers the
@@ -35588,30 +35597,22 @@ function ResourceShareResultSheet({
       <AssessmentReport
         backLabel="Close"
         comparison={comparison}
-        data={{
-          categories: result.categoryScores.map((category) => ({
-            husbandScore: category.husbandScore ?? 0,
-            maxScore: category.maxScore,
-            name: category.name,
-            percentage: category.percentage,
-            score: category.score,
-            wifeScore: category.wifeScore ?? 0,
-          })),
+        /* USA-282: rebuilt from the answers this result stored, not from the
+           figures stored beside them. The category percentages written before
+           the arithmetic fix were rounded twice against one spouse's maximum;
+           recomputing here corrects every existing result on sight, with no
+           migration and without rewriting a single saved row. */
+        data={buildAssessmentReportData({
+          answers: answersFromStoredResult(result.answers, storedQuestions, participants),
           completedAt: result.completedAt,
           maxScore: result.maxScore,
-          overallScore: result.overallScore,
-          participantScores,
           participants: participants.map((role) => ({ name: participantNames[role] || role, role })),
-          percentage: result.percentage,
-          questions: questions.map((question) => ({
-            group: question.group ?? null,
-            id: question.id,
-            note: question.note ?? null,
-            prompt: question.prompt,
-            scores: question.scores ?? {},
-          })),
+          /* The questions AS ASKED, from the stored payload, so a report of an
+             older assessment is not silently rewritten by today's catalog. */
+          questions: storedQuestions,
+          requestedBy,
           title: result.assessmentTitle,
-        }}
+        })}
         onBack={onClose}
       />
     </div>
@@ -48242,6 +48243,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
           <ResourceShareResultSheet
             allResults={data.assessmentResults}
             onClose={() => setShareResultId(null)}
+            requestedBy={data.reportSender}
             result={data.assessmentResults.find((result) => result.id === shareResultId) as DosAppAssessmentResult}
           />
         ) : null}

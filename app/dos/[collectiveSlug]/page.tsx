@@ -275,6 +275,7 @@ function filterDosAppDataForSharedGroups(data: DosAppData, sharedGroupIds: strin
     leaderReflections: [],
     meetings: [],
     organizations: [],
+    reportSender: { name: "", organization: null },
     participantReviews: [],
     participantTestimonies: [],
     people,

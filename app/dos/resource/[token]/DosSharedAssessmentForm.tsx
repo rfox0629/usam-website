@@ -29,6 +29,7 @@ import {
   AssessmentStepBand,
   AssessmentTopBar,
 } from "@/src/components/dos/assessments/AssessmentUi";
+import { DosSharedAssessmentReport } from "@/app/dos/resource/[token]/DosSharedAssessmentReport";
 import type { DosAssessmentQuestion } from "@/src/lib/dos/resource-catalog";
 
 type ShareLink = {
@@ -45,6 +46,10 @@ type ShareLink = {
   token: string;
   typeLabel: string;
 };
+
+/* Exactly what the completed page renders, which is what the submit endpoint
+   returns, which is what reopening the link builds. One shape, three doors. */
+type CompletedReport = Parameters<typeof DosSharedAssessmentReport>[0]["shareLink"];
 
 type SaveState = "error" | "idle" | "saved" | "saving";
 
@@ -111,6 +116,7 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
 
   const [answers, setAnswers] = useState<AssessmentAnswerMap>(shareLink.responses);
   const [stage, setStage] = useState<"complete" | "intro" | "questions">("intro");
+  const [completedReport, setCompletedReport] = useState<CompletedReport | null>(null);
   const [activeGroupIndex, setActiveGroupIndex] = useState(0);
   const sectionHeadingRef = useRef<HTMLDivElement>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -195,12 +201,19 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
         headers: { "Content-Type": "application/json" },
         method: "POST",
       });
-      const result = await response.json().catch(() => ({})) as { error?: string; ok?: boolean };
+      const result = await response.json().catch(() => ({})) as {
+        error?: string;
+        ok?: boolean;
+        report?: CompletedReport | null;
+      };
 
       if (!response.ok || !result.ok) {
         throw new Error(result.error ?? "Unable to submit this assessment.");
       }
 
+      /* USA-282: the results come back with the submission, so this is where
+         the couple read them. No refresh, no reopening the link, no account. */
+      setCompletedReport(result.report ?? null);
       setStage("complete");
       scrollToTop();
     } catch (error) {
@@ -224,16 +237,24 @@ export function DosSharedAssessmentForm({ shareLink }: { shareLink: ShareLink })
   }
 
   if (stage === "complete") {
+    /* The report itself, the same one reopening the link shows. */
+    if (completedReport) {
+      return <DosSharedAssessmentReport shareLink={completedReport} />;
+    }
+
+    /* Only if the submission succeeded but the report could not be read back,
+       which the reopen path recovers from. The answers are saved either way,
+       so this says so rather than implying they were lost. */
     return (
       <AssessmentPage>
         <AssessmentTopBar backLabel="" meta="Complete" title={title} />
-        <AssessmentHeader eyebrow="Assessment" title="Assessment complete" />
+        <AssessmentHeader eyebrow="Assessment" title="Answers received" />
         <AssessmentSection>
           <p className="text-[15.5px] leading-[1.62] text-[#475569]">
-            Thank you, {participants.map((participant) => participant.name).join(" and ")}. Your answers went to {requestedByName}, who asked for this assessment.
+            Thank you, {participants.map((participant) => participant.name).join(" and ")}. Your answers are saved and went to {requestedByName}, who asked for this assessment.
           </p>
           <p className="mt-3 text-[14.5px] leading-[1.55] text-[#334E68]">
-            This link is finished. You can close this page.
+            Your results did not load just now. Open this same link again to read them.
           </p>
         </AssessmentSection>
       </AssessmentPage>

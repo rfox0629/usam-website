@@ -1039,6 +1039,13 @@ export type DosAppData = {
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
   organizations: DosAppOrganizationConnection[];
+  /* USA-282: who a report says asked for it, and the organization that
+     actually owns this workspace. The organization is null unless the
+     affiliation is real: loadOrganizationForWorkspace falls back to the USAM
+     name for the connections list, and that fallback must never reach a
+     report, or every workspace's assessment would be branded USA Missionaries
+     whether or not it is with USA Missionaries. */
+  reportSender: { name: string; organization: string | null };
   participantReviews: DosAppParticipantReview[];
   participantTestimonies: DosAppParticipantTestimony[];
   people: DosAppPerson[];
@@ -5738,6 +5745,10 @@ export async function loadDosAppData(
       leaderReflections,
       meetings,
       organizations: buildOrganizationConnections({ organization, usamApplication, workspace }),
+      reportSender: {
+        name: workspace.display_name ?? "",
+        organization: organization && !organization.inferred ? organization.name : null,
+      },
       participantReviews,
       participantTestimonies,
       people,
