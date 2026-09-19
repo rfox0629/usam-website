@@ -1,0 +1,213 @@
+{
+  "generated": "2026-09-19",
+  "team": { "slug": "ryan-foxs-projects-9a51a4d5", "id": "team_rOFmbMUGM3jaGadw3zBU2ejL" },
+  "policy": {
+    "keep": [
+      "current production deployment (the one an alias resolves to)",
+      "previous 2 production deployments",
+      "previews whose git branch still exists on the remote or has an open PR"
+    ],
+    "delete": [
+      "production deployments older than current + 2",
+      "previews whose branch was merged or deleted",
+      "ERROR / BLOCKED / CANCELED deployments",
+      "redundant duplicates: same branch or same commit SHA, superseded by a newer build"
+    ]
+  },
+  "projects": [
+    {
+      "project": "usam-website",
+      "projectId": "prj_gB0MBTEfFRmDb5FnZGg7YpYD7ng4",
+      "total": 19,
+      "keep": 18,
+      "serving": "dpl_3Zyp8PTUXnaFDxmhdjoY7vVLsztJ",
+      "note": "Only 3 production deployments exist, all retained. All 16 preview branches have OPEN PRs; the single deletion is a superseded build on the same branch as PR #163.",
+      "delete": ["dpl_81f5ChsewnRLYepSaAJtZRccm4er"]
+    },
+    {
+      "project": "save-platform",
+      "projectId": "prj_AHSBTqddgOzVX1exoYhsiGZYpiFa",
+      "total": 24,
+      "keep": 6,
+      "serving": "dpl_Ev6LsPXCu9TCo1EHEpEtuQWiaG8T",
+      "note": "15 superseded production builds (many duplicate SHAs 82b2ae7 / 6f8ff93) plus 3 stale previews on deleted branches.",
+      "delete": [
+        "dpl_GgBZV9csM37KZx98T69AoT8DCXif", "dpl_Aym5iGWBcFqE3b5a8UrXa8kFZL49",
+        "dpl_6gFa9ueo8rgjqqoaHqB7UYk3fZer", "dpl_7sT1ojxZsedKqKAAj3KUWPyMhH6Q",
+        "dpl_4J5e3rGdi4foqo1DrYKjHkUiX8Gf", "dpl_GSKWTYjGWb27GfDigArohmvgmoZi",
+        "dpl_5aBL3VzjT28m5Ju4hm6DgEXH9rZD", "dpl_BjF7EtL1b1MV7S1V4o2ndEcb8YbX",
+        "dpl_EKZ51gDnkCLq4MJa6GuifFA3jDMe", "dpl_Au3e5eSvNqADAVe6hMvafuWk5mzM",
+        "dpl_DgywWmAN6trpUdyoASLUiEKv5vp3", "dpl_7vNBgNmzPHBfTcENTnUzkehFv8yg",
+        "dpl_EnEMTDuEPZRPJLFiWmPhx8HhYsJs", "dpl_HRCjNuxotxWjQqZQ9evCUvAENSCH",
+        "dpl_F7bqd5Smq3vnbtHPpAHj6mzKsX8f",
+        "dpl_9bVgyY4NzFGD24DC1gXy4WPoXXcf", "dpl_H34wKYYrdeaj9NpGwyKTA67uRVSC",
+        "dpl_2UqN42DTvLQJ1MZ7cctSMmeTdo6a"
+      ]
+    },
+    {
+      "project": "stewardship.capital",
+      "projectId": "prj_WHNTtoq00xTvMS6cGDkmWB8eVJR7",
+      "total": 14,
+      "keep": 4,
+      "serving": "dpl_MRoq8bfUCV1p3c8m1DixdiScZyWt",
+      "note": "4 superseded production builds, 5 BLOCKED builds, 1 preview on the merged shine-founders-weekend branch.",
+      "delete": [
+        "dpl_6DeDJcAbfe5Hg1WxWky9km5yq2oH", "dpl_3MNdt56bNg7vJHQfGMvntYG76wwM",
+        "dpl_3A7L2HLnAdvxkgHbta9XfqYJh1jb", "dpl_BzY28M5nj7mJQGqrf2XrYeDTrsVQ",
+        "dpl_3DuoGz2f62EnbPeVjYhEpSAfXT4K", "dpl_9EzSWM2jtK2ij7ZgwN2BRqeRCdH1",
+        "dpl_DDDmSRMXXUi2zDFFUEYGXFqMuyD9", "dpl_FJv8Cp66axrC7GZFLMdqpo2uoJq9",
+        "dpl_EUuKx1fhpEfrcpBKbixyc3AxovfP",
+        "dpl_3BAxXHYDt6YbXGmExtwT4KrxZzuo"
+      ]
+    },
+    {
+      "project": "army-website",
+      "projectId": "prj_wlBSmqDY3JxQ6FxWxG2uxW5prwxH",
+      "total": 27,
+      "keep": 6,
+      "serving": "dpl_FuaUDwNZoxfc8yMPmV8UB7e9Li66",
+      "note": "17 superseded production builds (16 share SHA 0941a4b) plus 1 preview on a deleted branch and 3 duplicate ci-baseline previews.",
+      "delete": [
+        "dpl_87VfMenVbVPQCCBnq3PhcTPwAJTN", "dpl_CYyi6tcyWqQLMJaCxRk3F8CrSZQg",
+        "dpl_GWHWh6ZNi7jckBi4BfcuEEMCjh2o", "dpl_5xXt97ixazqcCzdYEQdcPhdYQfm5",
+        "dpl_2jqiXuqgDU6dzEE9XCvBiXacfENi", "dpl_CtLvNcnDXSS19usQN1FfHwETz5p5",
+        "dpl_AWAt1sWpR56idDfSBhHvpJA3zWyh", "dpl_m5w5vysfZdnFhricMzp1Xzm5JGeV",
+        "dpl_H3eGoAYF8GTyicCsP54juVWVubWc", "dpl_9t8hsnrVfWM41zGsouWbfXRnddTZ",
+        "dpl_3tKQ8jiN1XLjohVyqXuqWC47UmiT", "dpl_EoDgKuKt8xK2HhQK1BEFHZ1asaFs",
+        "dpl_EP3Zvq5cVCMreiuwP3pmzzn4js7m", "dpl_AyTrDxupgR5ZhfiZhXGLRs1HsJHV",
+        "dpl_BD5BajNYnhQu2Dkq7yK9Euty2cgG", "dpl_CCpqHTLC4ryDypvirqe6aWP2mk2J",
+        "dpl_24VWVBx3eoyMBFJoY5V4PyRt8JVd",
+        "dpl_GToGCRAhRURfgtfSTwxFC3AHh1J8", "dpl_9wRLDKdwDb6oD8GVh9tZcfGUgkgJ",
+        "dpl_F8A7R99ekLjyrNzibki3VEiMXCBa", "dpl_Grtou1iHf8naoXVvd9wp6LAxCfpN"
+      ]
+    },
+    {
+      "project": "thelordsarmy-website",
+      "projectId": "prj_G7nBCGMicEcUIrcjqRgZXTawQrjy",
+      "total": 15,
+      "keep": 6,
+      "serving": "dpl_ALYqB5w5JUzEbDgemBq37mCd6GD2",
+      "note": "No custom domain — duplicate of army-website on the same repo. 5 superseded production builds, 1 deleted-branch preview, 3 duplicate ci-baseline previews.",
+      "delete": [
+        "dpl_9MbeBwvJuA4D3XRnTpDoY6mp9bbS", "dpl_CrWbfGoixZopzzEX3irzxFsniFWQ",
+        "dpl_DDg2FVLKu8VKjRAAbnx3yRKQRkwx", "dpl_HKZ2DXsygG2Xbw4Vcfcr6bdjtP1Q",
+        "dpl_Fn8kjVZmChuHsf8KtiStLVixHhhy",
+        "dpl_8493hgizABqk36C2qhWx7DpFKGe3", "dpl_5b45akmAWXmLBnXwF6MQQG3ucXyu",
+        "dpl_DQsfDuGxcX9N7PqHQkHxTfnwWFPv", "dpl_6JJXJRFE7xqopumpDd2pJesSzifK"
+      ]
+    },
+    {
+      "project": "the-stick-kids",
+      "projectId": "prj_diF4aypjXf3Spcd1gaVHC8gAEnko",
+      "total": 20,
+      "keep": 3,
+      "serving": "dpl_ksUWEJTdQQq9mA17LSboh399pcCD",
+      "note": "16 superseded production builds plus 1 orphan preview with no git metadata.",
+      "delete": [
+        "dpl_EiYixiFkP5vA3TN26WWNyQjrUM2T", "dpl_F5Q2rtLh2CLtbH9Zv8aXHcnHfWov",
+        "dpl_6rxWKHUNWCZBC7Lii9zKmnFWMUPo", "dpl_CYRWn4GV37GBw7hDtiEQgEY9PaZi",
+        "dpl_26uyT4EQofsWubwJB8fNH4jSscTc", "dpl_H4vA2tzsNMzh3qYjCFbn7XyTmn7x",
+        "dpl_EoLx7wmJPrL1BJeK9SqsLzzvyJ2h", "dpl_EWLwGZWSmGfonZpsdfqAPKSXnCBY",
+        "dpl_5sonLSaMyyAJh4rmQxQvenzqn3oV", "dpl_ajgFpxWTej76HAHK6fAoyi6B7VpT",
+        "dpl_56ELVzwJMiEcm2Yp4DowmGbCTofX", "dpl_BaGkWxpcJS88pCrB895f4Go65kKv",
+        "dpl_4PB1xr6nan2eZd2Z5UDEtbh7Ha7i", "dpl_FRB3m5wQ9bBgnrjpNVb2so6mjr4S",
+        "dpl_ENFDyuKULqS7K9Ay8CKpMvMRLVyP", "dpl_C67uS8cfhM7GtEiCoyrASmBHSKRq",
+        "dpl_GcuYYfp9ZsxCmQpdME74BATN9aAG"
+      ]
+    },
+    {
+      "project": "usam-dashboard",
+      "projectId": "prj_Xpqt641mbqZPKUz1hlBWGDXZ1klT",
+      "total": 23,
+      "keep": 3,
+      "serving": "dpl_HZvR6vb7pMyhHnnTcVRf41hHwVjj",
+      "note": "All deployments target production. 17 superseded builds plus 3 ERROR builds. Many share SHA c34fac1.",
+      "delete": [
+        "dpl_6Bmt2AYmLqZYegCPUfNhfq4wxjrk", "dpl_A8HKyk9BGTUAZ2h4iD9pn4ewWSwh",
+        "dpl_GQBTUueRsStP76p4zuHmE81YshHJ", "dpl_CSJJSH63pnWha3o3XtkBsbRK1YEE",
+        "dpl_7FzF5Y6Zcawdy82q4qmuSDbv9PQn", "dpl_4FhbccZ4bR9C3525tUSQLwhwbt9d",
+        "dpl_4ESxnH9Jz8QETq51v6sFvzUXaRcA", "dpl_8FK8GJ9vsK6aHR3XMNAT1jJGgU68",
+        "dpl_96P844RaTDWesFqc2jFhDBbgE9ac", "dpl_GmqhiRuiKqcUDdxDhpE4vQVxwGbd",
+        "dpl_6KmwaMFYvWPxf9JB6VTrZdbFxTAU", "dpl_76Z2DjbQn9qHkbUT3ZrcAF6cNJ4K",
+        "dpl_x5LcaeYUGjekwtbxVLxoVXTRgCMK", "dpl_D6KYRruSp6a2kcG6hhRHQrvzVB6T",
+        "dpl_4bAQDv3SMAWgoWZmni36hqqdNsMw", "dpl_2vdLmSp4eciyeoeSYPxhfRVsaaQH",
+        "dpl_GZm1zZxnpprfLeZA9YWdDW5Xp7hN", "dpl_6sLR3gszmGjPam1nSoDdB9w7FS5M",
+        "dpl_8v8q4gfFaT8DF5ud6oYms7MSN9Jm", "dpl_9QazLrNPEf7pr6pgzXqyFNh48U8V"
+      ]
+    },
+    {
+      "project": "auto-pilot-strategies",
+      "projectId": "prj_Q7EbdJ3SntAObixIHo2eppOkSwkr",
+      "total": 20,
+      "keep": 4,
+      "serving": "dpl_HtTo7GZ9dzX2uPb1fRmJ9XA93Pzk",
+      "note": "16 superseded production builds. The rescue/ preview is retained.",
+      "delete": [
+        "dpl_Hm4HwcTR51NCAKptSYmyPDfkCkMg", "dpl_836KsPvkAxjVTPKRRSN5MtSsbPzw",
+        "dpl_CYDAUfGsJ2X5zotNbwEjpuYv1rtk", "dpl_GQCZDsskWeQMaG1BDqkMVij6oaQC",
+        "dpl_E3yjdmx8njxsYcKJiEyDRYTAFix9", "dpl_3HZKj5oNbqQGcgmjbK6Ht96ELLLN",
+        "dpl_DVjisQviJQz1ECuhAxyoqbN1peuB", "dpl_H1EFGy3z8ReCbv2ce1Wk166YRRoD",
+        "dpl_7JkNN7Jfa6ZjyxsXz1arRNRYEzSB", "dpl_GY1vgM42jZxYanD5NNAUvtzLfaoQ",
+        "dpl_Ag9ABcdTQvzzPrNUBpLHUPpNTrsn", "dpl_7nvf9yXndczdLw3VdstwRv7dHVTd",
+        "dpl_76bGaHBw6gaaK1zapqcPZ2dy9Axw", "dpl_7q5m5r4CYuB6WQZfxo4ZywedPTZh",
+        "dpl_7PNoPJoL9uX89MCdyEjcbhaV6oTu", "dpl_DAWBDq3hxaxWhe6UvgkM9QV9BxhB"
+      ]
+    },
+    {
+      "project": "alignedinsights-website",
+      "projectId": "prj_2zX4MIP3Q3da9gpNkLOk4ZUqdtaK",
+      "total": 20,
+      "keep": 3,
+      "serving": "dpl_757eZGBdKGN1ttqRKbCB7156gf6t",
+      "note": "All deployments target production; 17 superseded builds.",
+      "delete": [
+        "dpl_BkbnvAXQGM4SQfudU7JXjU3QS73B", "dpl_92mD6hPgveqdqd15T7NUgm1ZErgs",
+        "dpl_7dWKKu2VwUySXmpA8LyZdkvVDeUY", "dpl_8PzBq6qFv6pNBw1iZauK4bJZLavn",
+        "dpl_FS7jUgZPY6WcHGgPYjrEHgQc6A16", "dpl_AUoMHLxUSftcy9jpecmUzrKJ8SGo",
+        "dpl_DT5J6SoE4Am4PUWJk6pB86zJGbZM", "dpl_ELBcdz1o5QVJQnV9njw72LbPtyD5",
+        "dpl_H4KazU79WmSUJooaWTeGDMsDAmPb", "dpl_nR39TU46bnBw7be3NYHri7EUfCLU",
+        "dpl_68kybKncYo6gd1xEaVedjfzGbiMt", "dpl_Gvf1BZRoDsnzxVGsGYczVNzdyxzx",
+        "dpl_D4AwXoZeVbpYiE8HUJT9ZA7RnSdY", "dpl_HDg8yCxZg8mJCoS3rnAEDYgM1P5q",
+        "dpl_F1vwcLuWrQS2Fuk88E6ePt3dDpoS", "dpl_Agn4GB7kSb4BLbpPn6C26Dq4rvQk",
+        "dpl_FkpRSsWH5HZP7PGrgXXppqb4GRCM"
+      ]
+    },
+    {
+      "project": "usam-website-usa-65-preview",
+      "projectId": "prj_uuUGYZuw0R4pZh4VrQLZT3IxmQJ7",
+      "total": 4,
+      "keep": 1,
+      "serving": "dpl_4AR3JfDmDNdBcBgttENZEJ132CW6",
+      "note": "Throwaway one-off preview project from July 2026; 3 superseded previews with no git metadata.",
+      "delete": [
+        "dpl_BF8hJtXUzS6qJRYXpJjPdMJfjj7z", "dpl_2wYfuYHSkxeVAHKwMXZMTerFu7Ry",
+        "dpl_GPoq3m9AzB5bNVG5Ncm3Xrr4iDdd"
+      ]
+    },
+    {
+      "project": "dos-2.0",
+      "projectId": "prj_v5Lz5kJYusmNEj3A0GijRNUyfTWE",
+      "total": 1,
+      "keep": 0,
+      "serving": null,
+      "note": "REVIEW BEFORE RUNNING. Its only deployment is an ERROR build that never served traffic and the project has no domain. Deleting it leaves the project with zero deployments (the project, repo and settings are untouched). Drop this entry if you would rather keep the build record.",
+      "delete": ["dpl_B8rqR76qN9RjeBrpPZaz59BAwyyf"]
+    },
+    {
+      "project": "usa-71-claude-20260722183220",
+      "projectId": "prj_P7Kbvn3WEZiXYoX9tgStViGWV8F0",
+      "total": 1, "keep": 1,
+      "serving": "dpl_76Ld63qKeq2DNTTN7vpu97d45PjK",
+      "note": "Single current production deployment. Nothing to remove.",
+      "delete": []
+    },
+    {
+      "project": "groundwork",
+      "projectId": "prj_har5oAGa2crhNXPWOAtqPEmd0QIi",
+      "total": 2, "keep": 2,
+      "serving": "dpl_5PJBEQydmdwe1oMCQxdAMGrCv4jQ",
+      "note": "Current production serves groundwork.autopilotstrategies.com; the other is a live rescue/ branch preview. Nothing to remove.",
+      "delete": []
+    }
+  ]
+}
