@@ -2,7 +2,7 @@ import "server-only";
 
 import { communicationTopics, normalizeEmail } from "./config";
 import { createManageToken, hashManageToken } from "./tokens";
-import { normalizeNewsletterSections } from "./newsletter-template";
+import { normalizeNewsletterSections } from "./newsletter-sections";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import type { CommunicationNewsletter, CommunicationPreference, CommunicationSubscriber } from "./types";
 
@@ -20,7 +20,7 @@ import type { CommunicationNewsletter, CommunicationPreference, CommunicationSub
 export const publiclyReadableNewsletterStatuses = ["published", "sent"] as const;
 
 const publicNewsletterColumns =
-  "id, slug, title, subject, preheader, summary, body_markdown, sections, cta_label, cta_url, status, published_at, sent_at";
+  "id, slug, title, subject, preheader, summary, body_markdown, sections, cta_label, cta_url, status, published_at, sent_at, postal_address, template";
 
 type SupabaseAdminClient = ReturnType<typeof createSupabaseAdminClient>;
 
@@ -47,12 +47,14 @@ export function mapNewsletterRow(row: NewsletterRow): CommunicationNewsletter {
     cta_url: row.cta_url,
     id: row.id,
     preheader: row.preheader,
+    postal_address: row.postal_address ?? null,
     published_at: row.published_at ?? row.sent_at ?? null,
     sections: normalizeNewsletterSections(row.sections),
     slug: row.slug,
     status: row.status,
     subject: row.subject,
     summary: row.summary,
+    template: row.template ?? null,
     title: row.title,
   };
 }
