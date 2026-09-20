@@ -9,7 +9,9 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
 const failures = [];
+let checked = 0;
 const check = (label, condition, detail) => {
+  checked += 1;
   if (!condition) failures.push(detail ? `${label}\n      ${detail}` : label);
 };
 
@@ -20,7 +22,11 @@ const contentLib = read("src/lib/advisor-content.ts");
 const page = read("app/advisor/page.tsx");
 const briefing = read("app/advisor/AdvisorBriefing.tsx");
 const route = read("app/api/advisor-access/route.ts");
+const rateLimit = read("src/lib/advisor-rate-limit.ts");
+const clientKey = read("src/lib/advisor-client-key.ts");
 const robots = read("app/robots.ts");
+const contentDoc = read("docs/advisor-briefing-content.md");
+const contentExample = read("docs/examples/advisor-briefing-content.example.json");
 const envExample = read(".env.example");
 
 /* -- the private payload never reaches the client ---------------------- */
@@ -104,8 +110,8 @@ check(
   /ADVISOR_ACCESS_PATH = "\/advisor"/.test(access) && /path:\s*ADVISOR_ACCESS_PATH/.test(access),
 );
 check(
-  "the access cookie lasts one day",
-  /MAX_AGE_SECONDS = 60 \* 60 \* 24;/.test(access),
+  "the access cookie lasts three days",
+  /MAX_AGE_SECONDS = 60 \* 60 \* 24 \* 3;/.test(access),
 );
 check(
   "the cookie carries a derived token, not the access code",
@@ -172,6 +178,88 @@ check(
   /^ADVISOR_BRIEFING_CONTENT=\s*$/m.test(envExample),
 );
 
+/* -- failed-attempt throttling ------------------------------------------ */
+
+const limitCheckAt = route.indexOf("getAdvisorRateLimitState");
+const bodyReadAt = route.indexOf("await request.json()");
+
+check("the endpoint consults the rate limiter", limitCheckAt !== -1);
+check(
+  "the rate limit is checked before the request body is read",
+  limitCheckAt !== -1 && bodyReadAt !== -1 && limitCheckAt < bodyReadAt,
+);
+check("a throttled client gets 429", /status: 429/.test(route));
+check(
+  "a 429 carries a Retry-After header",
+  /"Retry-After": String\(rateLimit\.retryAfterSeconds\)/.test(route),
+);
+check(
+  "a failed attempt is recorded",
+  /recordAdvisorFailedAttempt\(clientKey\)/.test(route),
+);
+check(
+  "a successful authentication clears the client's attempts",
+  /clearAdvisorFailedAttempts\(clientKey\)/.test(route),
+);
+check(
+  "the limiter store is bounded",
+  /ADVISOR_RATE_LIMIT_MAX_CLIENTS/.test(rateLimit) && /enforceCapacity/.test(rateLimit),
+);
+check("the limiter prunes expired records", /pruneExpired/.test(rateLimit));
+check(
+  "the client key is a hash, not a raw address",
+  /sha256Hex\(address\)/.test(clientKey),
+);
+check("advisor-client-key.ts is server-only", /^import "server-only";/m.test(clientKey));
+
+// Nothing in the advisor path may log. A stray console call is the easiest way
+// for a code, a cookie, or a payload to end up in a build or runtime log.
+for (const [label, source] of [
+  ["route", route],
+  ["access lib", access],
+  ["content lib", contentLib],
+  ["rate limiter", rateLimit],
+  ["client key", clientKey],
+  ["page", page],
+]) {
+  check(`the ${label} logs nothing`, !/console\.(log|warn|error|info|debug)/.test(source));
+}
+
+/* -- the public docs reveal no subject matter --------------------------- */
+
+// The repository should disclose only that /advisor is a generic protected
+// briefing system — never what any particular briefing is about.
+// The guarded terms are base64-encoded so that this file does not itself
+// restate, in the public repository, the subject matter it exists to keep
+// out of it. Decode to read or extend the list.
+const subjectMatter = new RegExp(
+  Buffer.from("Y3VtdWxhdGl2ZSBnaXZpbmd8YmFuayBiYWxhbmNlfG1vbnRobHkgc3VwcG9ydHxjYXNoIG9uIGhhbmR8XGJTSElORVxifHNjb3JlY2FyZHxwYXJ0bmVyc2hpcHx3ZWVrbHl8Y2FkZW5jZQ==", "base64").toString("utf8"),
+  "i",
+);
+
+check(
+  "docs/advisor-briefing-content.md stays generic",
+  !subjectMatter.test(contentDoc),
+  "found subject-matter wording in the public schema doc",
+);
+check(
+  "the example payload stays generic",
+  !subjectMatter.test(contentExample),
+  "found subject-matter wording in the public example",
+);
+check(
+  "the example uses neutral figure labels",
+  /"label": "Measure A"/.test(contentExample),
+);
+check(
+  "the docs state the limiter is defence in depth",
+  /defence in depth, not the primary control/i.test(contentDoc),
+);
+check(
+  "the limiter source states it is not durable",
+  /NOT durable and NOT shared/.test(rateLimit),
+);
+
 /* -- the documented template stays valid -------------------------------- */
 
 try {
@@ -192,4 +280,4 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-console.log("advisor briefing privacy regression: all checks passed");
+console.log(`advisor briefing privacy regression: all ${checked} checks passed`);

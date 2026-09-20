@@ -3,9 +3,11 @@ import "server-only";
 export const ADVISOR_ACCESS_COOKIE_NAME = "usam_advisor_access";
 export const ADVISOR_ACCESS_PATH = "/advisor";
 
-// One day. The briefing is meeting-scoped, so a session should not outlive it
-// by much; the advisor simply re-enters the code if the tab is left overnight.
-const ADVISOR_ACCESS_MAX_AGE_SECONDS = 60 * 60 * 24;
+// Three days. Long enough to read ahead, sleep on it, and return during the
+// meeting without re-entering the code; short enough that a forgotten session
+// on a shared machine expires on its own. Rotating ADVISOR_ACCESS_KEY revokes
+// every issued session immediately, whatever its remaining lifetime.
+const ADVISOR_ACCESS_MAX_AGE_SECONDS = 60 * 60 * 24 * 3;
 const TOKEN_CONTEXT = "usam-advisor-access";
 
 async function sha256Hex(value: string) {

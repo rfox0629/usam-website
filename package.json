@@ -7,6 +7,7 @@
     "typecheck": "tsc --noEmit",
     "smoke": "node scripts/ci-smoke.mjs",
     "test:advisor-privacy": "node scripts/advisor-briefing-privacy-regression.mjs",
+    "test:advisor-throttle": "node --no-warnings --experimental-strip-types scripts/advisor-access-throttle-regression.mjs",
     "test:operations-communications": "node scripts/operations-communications-regression.mjs",
     "communications:import": "node scripts/communications-audience-import.mjs",
     "test:missionary-profile-prayer": "node scripts/missionary-profile-prayer-regression.mjs",

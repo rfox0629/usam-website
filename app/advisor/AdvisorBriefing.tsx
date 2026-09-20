@@ -74,8 +74,9 @@ function Figures({ items, note }: { items: { label: string; note?: string; value
             >
               {figure.value}
             </dd>
-            {/* The note is what keeps distinct measures from blurring together
-                (cumulative giving is not cash on hand, and so on). */}
+            {/* The note is what keeps distinct measures from blurring
+                together; a grid of bare numbers invites a reader to take one
+                for another. */}
             {figure.note ? <p className="mt-3 text-[13px] leading-6 text-stone-400">{figure.note}</p> : null}
           </div>
         ))}

@@ -1,16 +1,16 @@
 {
   "meta": {
     "title": "Briefing title",
-    "subtitle": "One or two sentences framing why this meeting is happening.",
-    "preparedFor": "Advisor name",
+    "subtitle": "One or two sentences framing the briefing.",
+    "preparedFor": "Recipient name",
     "preparedBy": "Author name",
     "date": "Month DD, YYYY",
     "confidentialNote": "Private material prepared for one reader. Please do not forward."
   },
   "sections": [
     {
-      "id": "where-we-are",
-      "navLabel": "Where We Are",
+      "id": "section-one",
+      "navLabel": "Section One",
       "eyebrow": "Section eyebrow",
       "heading": "Section heading",
       "lede": "A short standfirst paragraph.",
@@ -18,75 +18,66 @@
       "blocks": [
         { "type": "paragraph", "text": "Body copy." },
         { "type": "bullets", "items": ["First point", "Second point"] },
+        { "type": "steps", "items": ["First step", "Second step"] },
+        { "type": "quote", "text": "A quoted line.", "attribution": "Source" },
         {
           "type": "figures",
           "items": [
-            {
-              "label": "Cumulative giving",
-              "value": "$0",
-              "note": "Total given since inception. This is not cash on hand."
-            },
-            {
-              "label": "Current bank balance",
-              "value": "$0",
-              "note": "Cash available today."
-            },
-            {
-              "label": "Monthly support",
-              "value": "$0/mo",
-              "note": "Recurring monthly commitments."
-            }
+            { "label": "Measure A", "value": "000", "note": "What Measure A counts." },
+            { "label": "Measure B", "value": "000", "note": "What Measure B counts." },
+            { "label": "Measure C", "value": "000", "note": "What Measure C counts." }
           ],
           "note": "Each measure answers a different question; they are not interchangeable."
         }
       ]
     },
     {
-      "id": "examples",
-      "navLabel": "Examples",
-      "heading": "Illustrative examples",
+      "id": "section-two",
+      "navLabel": "Section Two",
+      "heading": "Second heading",
       "variant": "panel",
       "blocks": [
         {
           "type": "tabs",
-          "note": "Sample data shown for illustration.",
+          "note": "An optional note under the tab group.",
           "tabs": [
             {
-              "id": "example-one",
-              "label": "Example One",
-              "caption": "Illustrative mockup — sample data, not a live account",
+              "id": "tab-one",
+              "label": "Tab One",
+              "caption": "Optional caption for this panel",
               "blocks": [
-                { "type": "paragraph", "text": "What this mockup shows." },
+                { "type": "paragraph", "text": "Panel body copy." },
                 {
                   "type": "table",
-                  "columns": ["Column", "Value"],
-                  "rows": [["Row label", "Sample value"]],
-                  "caption": "Sample data for illustration only."
+                  "columns": ["Column A", "Column B"],
+                  "rows": [["Row label", "Value"]],
+                  "caption": "Optional table caption."
                 }
               ]
+            },
+            {
+              "id": "tab-two",
+              "label": "Tab Two",
+              "blocks": [{ "type": "paragraph", "text": "Second panel body copy." }]
             }
           ]
         }
       ]
     },
     {
-      "id": "decisions",
-      "navLabel": "Decisions",
-      "heading": "Questions for this meeting",
+      "id": "section-three",
+      "navLabel": "Section Three",
+      "heading": "Third heading",
       "variant": "feature",
       "blocks": [
         {
           "type": "questions",
           "items": [
-            { "prompt": "First question?", "detail": "Why it matters." }
+            { "prompt": "First question?", "detail": "Optional supporting detail." },
+            { "prompt": "Second question?" }
           ]
         },
-        {
-          "type": "callout",
-          "title": "Cadence",
-          "text": "How often we meet and in what form.",
-          "tone": "gold"
-        }
+        { "type": "callout", "title": "Callout title", "text": "Callout body.", "tone": "gold" }
       ]
     },
     {
@@ -104,7 +95,7 @@
                 {
                   "label": "Link label",
                   "href": "https://example.org",
-                  "description": "What the reader will find there."
+                  "description": "Optional description."
                 }
               ]
             }
