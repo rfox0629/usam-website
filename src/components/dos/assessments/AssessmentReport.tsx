@@ -16,51 +16,37 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import { assessmentScoreValues, type AssessmentCategoryScore } from "@/src/lib/dos/assessment-scoring";
+import { assessmentScoreValues } from "@/src/lib/dos/assessment-scoring";
+import { formatAssessmentReportDate, type AssessmentDiscussionItem, type AssessmentReportData } from "@/src/lib/dos/assessment-report-data";
 import { assessmentReportDocumentTitle, assessmentReportFileName, buildAssessmentReportPdf } from "@/src/lib/dos/assessment-report-pdf";
 
-export type AssessmentReportParticipant = {
-  name: string;
-  role: string;
-};
-
-export type AssessmentReportQuestion = {
-  group?: string | null;
-  id: string;
-  note?: string | null;
-  prompt: string;
-  scores: Record<string, number | null | undefined>;
-};
-
-export type AssessmentReportData = {
-  categories: readonly AssessmentCategoryScore[];
-  completedAt: string | null;
-  /* Each participant's own total, on the same scale as maxScore. */
-  participantScores: ReadonlyArray<{ participant: string; score: number }>;
-  participants: readonly AssessmentReportParticipant[];
-  maxScore: number;
-  overallScore: number;
-  percentage: number;
-  questions: readonly AssessmentReportQuestion[];
-  title: string;
-};
+export type { AssessmentReportData } from "@/src/lib/dos/assessment-report-data";
 
 const ink = "text-[#0F172A]";
 const body = "text-[#1E3A5F]";
 const quiet = "text-[#334E68]";
 
-function formatReportDate(value: string | null) {
-  if (!value) {
-    return "Date not recorded";
+function answerAnchorId(questionId: string) {
+  return `assessment-answer-${questionId}`;
+}
+
+/* What kind of thing this is, said plainly. "Lowest here" is deliberately
+   relative: it is the lowest in THIS assessment, which is not the same claim
+   as a low score. */
+function discussionLabel(item: AssessmentDiscussionItem) {
+  if (item.kind === "strength") {
+    return "You both scored this highly";
   }
 
-  const parsed = new Date(value);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return "Date not recorded";
+  if (item.kind === "difference") {
+    return "You saw this differently";
   }
 
-  return parsed.toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" });
+  if (item.kind === "hidden_low_answer") {
+    return "A low answer inside a strong area";
+  }
+
+  return "Lowest in this assessment";
 }
 
 function ReportSection({ children, heading }: { children: ReactNode; heading: string }) {
@@ -197,27 +183,16 @@ export function AssessmentReport({
   const nameForRole = (role: string) => data.participants.find((participant) => participant.role === role)?.name ?? role;
   const scoreForRole = (role: string) => data.participantScores.find((entry) => entry.participant === role)?.score ?? 0;
 
-  /* Differences are arithmetic, not judgement: the gap between what each
-     spouse said in a category, largest first. */
-  const gaps = data.categories
-    .map((category) => ({
-      difference: Math.abs((category.husbandScore ?? 0) - (category.wifeScore ?? 0)),
-      name: category.name,
-    }))
-    .filter((entry) => entry.difference > 0)
-    .sort((first, second) => second.difference - first.difference);
-
-  const ranked = [...data.categories].sort((first, second) => second.percentage - first.percentage);
-  const higher = ranked.slice(0, 2);
-  const lower = [...ranked].reverse().slice(0, 2);
-
   return (
     <main className="assessment-report min-h-screen bg-white">
       <style>{`
-        /* The site's own <p> default is pale grey for a black page. It targets
-           the element directly, so it outranks the colour a light container
-           sets on itself. Inside the report, text inherits instead. */
-        .assessment-report :where(p, li, dd) { color: inherit; }
+        /* The site's own default paints every <p> pale grey for a black page.
+           This replaces it with the report's own body colour, at the same zero
+           specificity, so it wins on order alone and any element that sets its
+           own colour still wins over both. An earlier version of this rule set
+           the colour to inherit from a class selector, which outranked the
+           element colours and left the report pale grey on white. */
+        :where(.assessment-report) :where(p, li, dd) { color: #1E3A5F; }
 
         @media print {
           .assessment-report-hide-on-print { display: none !important; }
@@ -285,10 +260,19 @@ export function AssessmentReport({
           {/* The document and the screen carry the same name, so a saved file
               and the page it came from are recognisably one thing. */}
           <h1 className={`mt-2 text-[27px] font-bold leading-[1.08] tracking-[-0.032em] ${ink}`}>{assessmentReportDocumentTitle}</h1>
-          <p className={`mt-3 text-[15.5px] leading-[1.62] ${body}`}>
+          <p className={`mt-3 text-[17px] font-semibold leading-[1.45] ${ink}`}>
             {data.participants.map((participant) => `${participant.name} (${participant.role})`).join(" and ")}
           </p>
-          <p className={`mt-1 text-[14px] ${quiet}`}>Completed {formatReportDate(data.completedAt)}</p>
+          <p className={`mt-1 text-[14px] ${quiet}`}>Completed {formatAssessmentReportDate(data.completedAt)}</p>
+          {data.requestedBy?.name ? (
+            /* The organization appears only when the affiliation is verified,
+               so a report never puts an organization's name under someone who
+               is not part of it. */
+            <p className={`mt-3 text-[14px] ${quiet}`}>
+              Requested by <span className={`font-semibold ${body}`}>{data.requestedBy.name}</span>
+              {data.requestedBy.organization ? <span>, {data.requestedBy.organization}</span> : null}
+            </p>
+          ) : null}
         </header>
 
         <ReportSection heading="Scores">
@@ -306,15 +290,19 @@ export function AssessmentReport({
           {/* The headline figure is an average, and says so. It is not a sum,
               and it is not a verdict. */}
           <div className="mt-3 rounded-[12px] border border-[#EAF2FF] px-4 py-3">
-            <p className={`text-[13.5px] font-semibold ${quiet}`}>Both answers together</p>
+            <p className={`text-[13.5px] font-semibold ${quiet}`}>Average score</p>
             <p className={`mt-1 text-[24px] font-bold tabular-nums ${ink}`}>
               {data.overallScore}<span className={`text-[16px] font-semibold ${quiet}`}> of {data.maxScore}</span>
-              <span className={`ml-2 text-[16px] font-semibold ${quiet}`}>{data.percentage}%</span>
+              {/* A real space, not only a margin: copied text and a screen
+                  reader both run the two figures together without it. */}
+              {" "}
+              <span className={`ml-1 text-[16px] font-semibold ${quiet}`}>{data.percentage}%</span>
             </p>
             <p className={`mt-2 text-[13.5px] leading-[1.5] ${quiet}`}>
-              Each of you answers fifteen questions on a 0 to 10 scale, so each of you has a score out of {data.maxScore}.
-              The figure above is the average of your two scores. It is a summary of what you each said on one day, not a
-              measure of your marriage.
+              Each of you answers {data.questions.length} questions on a 0 to 10 scale, so each of you has a score out of {data.maxScore}.
+              The average above is your two scores added together and halved. The percentage is your two scores as a share
+              of everything you could both have scored. It summarises what you each said on one day. It is not a measure
+              of your marriage and it is not a diagnosis.
             </p>
           </div>
         </ReportSection>
@@ -322,7 +310,7 @@ export function AssessmentReport({
         {comparison ? (
           <ReportSection heading="Compared with last time">
             <p className={`text-[14.5px] leading-[1.6] ${quiet}`}>
-              You last answered these questions on {formatReportDate(comparison.completedAt)}. This is the change in what
+              You last answered these questions on {formatAssessmentReportDate(comparison.completedAt)}. This is the change in what
               each of you reported, nothing more. It is not evidence that the marriage improved or declined.
             </p>
             <div className="mt-3 grid gap-2">
@@ -349,13 +337,55 @@ export function AssessmentReport({
           </ReportSection>
         ) : null}
 
+        {/* USA-282: the priorities are chosen by documented rules in
+            assessment-report-data.ts, not by superlatives. Each one names its
+            category, shows the figures it was chosen from, and links to the
+            answer it came from so the reader can check it. */}
+        <ReportSection heading="Worth talking about">
+          {data.discussion.length ? (
+            <ol className="grid gap-3">
+              {data.discussion.map((item) => (
+                <li
+                  className={`assessment-report-answer rounded-[14px] border px-4 py-3.5 ${
+                    item.kind === "strength" ? "border-[#C9E9D8] bg-[#F4FBF7]" : "border-[#DCEBFF] bg-[#F7FAFF]"
+                  }`}
+                  key={`${item.kind}-${item.questionId ?? item.category}-${item.title}`}
+                >
+                  <p className={`text-[11px] font-bold uppercase tracking-[0.13em] ${
+                    item.kind === "strength" ? "text-[#047857]" : "text-[#1D4ED8]"
+                  }`}>
+                    {discussionLabel(item)}
+                  </p>
+                  <p className={`mt-1.5 text-[16px] font-bold leading-[1.3] ${ink}`}>{item.title}</p>
+                  <p className={`mt-1 text-[14px] font-semibold tabular-nums ${body}`}>{item.scoreLine}</p>
+                  <p className={`mt-1.5 text-[14.5px] leading-[1.55] ${body}`}>{item.discussionPrompt}</p>
+                  {item.questionId ? (
+                    <a
+                      className="assessment-report-hide-on-print mt-2 inline-block text-[13.5px] font-semibold text-[#1D4ED8] underline"
+                      href={`#${answerAnchorId(item.questionId)}`}
+                    >
+                      See question {item.questionNumber}
+                    </a>
+                  ) : null}
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className={`text-[15.5px] leading-[1.6] ${body}`}>
+              Not enough answers yet to pick anything out.
+            </p>
+          )}
+        </ReportSection>
+
         <ReportSection heading="By category">
           <div className="grid gap-5">
             {data.categories.map((category) => (
               <div key={category.name}>
                 <div className="flex items-baseline justify-between gap-3">
                   <h3 className={`text-[15.5px] font-semibold ${ink}`}>{category.name}</h3>
-                  <span className={`text-[13.5px] font-semibold tabular-nums ${quiet}`}>{category.percentage}%</span>
+                  <span className={`text-[13.5px] font-semibold tabular-nums ${quiet}`}>
+                    {category.combinedScore} of {category.combinedMaxScore} together, {category.percentage}%
+                  </span>
                 </div>
                 <div className="mt-2">
                   {roles.map((role) => (
@@ -372,43 +402,12 @@ export function AssessmentReport({
           </div>
         </ReportSection>
 
-        <ReportSection heading="Worth talking about">
-          <div className="grid gap-4">
-            <div>
-              <p className={`text-[13.5px] font-semibold ${quiet}`}>You both scored these highest</p>
-              <p className={`mt-1 text-[15.5px] leading-[1.6] ${body}`}>
-                {higher.map((entry) => entry.name).join(", ") || "Not enough answers to compare."}
-              </p>
-            </div>
-            <div>
-              <p className={`text-[13.5px] font-semibold ${quiet}`}>You both scored these lowest</p>
-              <p className={`mt-1 text-[15.5px] leading-[1.6] ${body}`}>
-                {lower.map((entry) => entry.name).join(", ") || "Not enough answers to compare."}
-              </p>
-            </div>
-            <div>
-              <p className={`text-[13.5px] font-semibold ${quiet}`}>Where your answers differed most</p>
-              {gaps.length ? (
-                <ul className={`mt-1 grid gap-1 text-[15.5px] leading-[1.6] ${body}`}>
-                  {gaps.slice(0, 3).map((entry) => (
-                    <li key={entry.name}>
-                      {entry.name}: {entry.difference} point{entry.difference === 1 ? "" : "s"} apart
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className={`mt-1 text-[15.5px] leading-[1.6] ${body}`}>You answered every category the same.</p>
-              )}
-            </div>
-          </div>
-        </ReportSection>
-
         <ReportSection heading="Every answer">
           <div className="grid gap-5">
-            {data.questions.map((question, index) => (
-              <div className="assessment-report-answer" key={question.id}>
+            {data.questions.map((question) => (
+              <div className="assessment-report-answer scroll-mt-6" id={answerAnchorId(question.id)} key={question.id}>
                 <p className={`text-[11px] font-bold uppercase tracking-[0.15em] ${quiet}`}>
-                  Question {index + 1}{question.group ? ` · ${question.group}` : ""}
+                  Question {question.number}{question.group ? ` · ${question.group}` : ""}
                 </p>
                 <p className={`mt-1 text-[15.5px] font-semibold leading-[1.45] ${ink}`}>{question.prompt}</p>
                 {question.note ? <p className={`mt-1 text-[13.5px] leading-[1.5] ${quiet}`}>{question.note}</p> : null}

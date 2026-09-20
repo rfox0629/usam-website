@@ -6,9 +6,9 @@
  * couple read the same page. The only difference is this footnote, which tells
  * the couple how long their copy stays reachable and suggests keeping one. */
 
-import { AssessmentReport, type AssessmentReportData } from "@/src/components/dos/assessments/AssessmentReport";
+import { AssessmentReport } from "@/src/components/dos/assessments/AssessmentReport";
+import { buildAssessmentReportData } from "@/src/lib/dos/assessment-report-data";
 import type { AssessmentAnswerMap, AssessmentSummary } from "@/src/lib/dos/assessment-scoring";
-import { getAssessmentAnswer } from "@/src/lib/dos/assessment-scoring";
 import type { DosAssessmentQuestion } from "@/src/lib/dos/resource-catalog";
 
 type CompletedShareLink = {
@@ -18,10 +18,17 @@ type CompletedShareLink = {
   questions: readonly DosAssessmentQuestion[];
   report: AssessmentSummary;
   requestedByName: string;
+  /* The sender's verified organization, or null. Never a display fallback:
+     a report must not put an organization's name under someone who is not
+     part of it. */
+  requestedByOrganization: string | null;
   responses: AssessmentAnswerMap;
   title: string;
 };
 
+/* Fixed to UTC for the same reason the completion date is: this page is
+   rendered on the server before the browser sees it, and a locale-dependent
+   date made the two disagree. */
 function formatExpiry(value: string | null) {
   if (!value) {
     return null;
@@ -33,33 +40,25 @@ function formatExpiry(value: string | null) {
     return null;
   }
 
-  return parsed.toLocaleDateString("en-US", { day: "numeric", month: "long", year: "numeric" });
+  return parsed.toLocaleDateString("en-US", {
+    day: "numeric", month: "long", timeZone: "UTC", year: "numeric",
+  });
 }
 
 export function DosSharedAssessmentReport({ shareLink }: { shareLink: CompletedShareLink }) {
-  const roles = shareLink.participants.map((participant) => participant.role);
   const expiryLabel = formatExpiry(shareLink.expiresAt);
 
-  const data: AssessmentReportData = {
-    categories: shareLink.report.categoryScores,
+  /* Built from the saved answers, by the one builder every surface uses, so
+     this page cannot disagree with the discipler's view or the PDF. */
+  const data = buildAssessmentReportData({
+    answers: shareLink.responses,
     completedAt: shareLink.completedAt,
     maxScore: shareLink.report.participantScores[0]?.maxScore ?? 150,
-    overallScore: shareLink.report.overallScore,
-    participantScores: shareLink.report.participantScores.map((entry) => ({
-      participant: entry.label,
-      score: entry.score,
-    })),
     participants: shareLink.participants,
-    percentage: shareLink.report.percentage,
-    questions: shareLink.questions.map((question) => ({
-      group: question.group ?? null,
-      id: question.id,
-      note: question.note ?? null,
-      prompt: question.prompt,
-      scores: Object.fromEntries(roles.map((role) => [role, getAssessmentAnswer(shareLink.responses, question.id, role)])),
-    })),
+    questions: shareLink.questions,
+    requestedBy: { name: shareLink.requestedByName, organization: shareLink.requestedByOrganization },
     title: shareLink.title,
-  };
+  });
 
   return (
     <AssessmentReport
