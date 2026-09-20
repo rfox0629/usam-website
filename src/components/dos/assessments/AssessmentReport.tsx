@@ -322,10 +322,11 @@ export function AssessmentReport({
         </header>
 
         <ReportSection heading="Scores">
-          {/* Two equal panels side by side at ordinary phone widths, not three
-              stacked cards. They stack only where the width genuinely cannot
-              hold two columns. */}
-          <div className="grid grid-cols-2 gap-2.5 max-[359px]:grid-cols-1">
+          {/* Two equal panels side by side at every ordinary width, including
+              the narrowest phone. A long name wraps inside its own column
+              rather than truncating or forcing the pair to stack: the brief is
+              explicit that a name is not to be cut short. */}
+          <div className="grid grid-cols-2 gap-2.5">
             {roles.map((role, index) => {
               const score = scoreForRole(role);
               const accent = accentFor(index);

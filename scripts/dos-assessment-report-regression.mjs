@@ -17,6 +17,7 @@ import {
   DISCUSSION_RULES,
   buildAssessmentReportData,
   formatAssessmentReportDate,
+  verifiedSenderAffiliation,
 } from "../src/lib/dos/assessment-report-data.ts";
 import {
   assessmentReportDocumentTitle,
@@ -305,5 +306,45 @@ for (const [label, source] of [
 ]) {
   assert.ok(!source.includes("\u2014"), `${label} must not use em dashes`);
 }
+
+/* ---- USA-281: whose organization may appear under the sender -------------
+ *
+ * A personal workspace owns an `organizations` row named after itself, so the
+ * report read "Requested by Ryan Fox, Ryan Fox DOS". That is a workspace
+ * display name, not a membership, and printing it states an affiliation
+ * nobody verified. Run for real against the helper the loader uses.
+ */
+
+assert.equal(
+  verifiedSenderAffiliation({ inferred: false, name: "Ryan Fox DOS" }, "Ryan Fox"),
+  null,
+  "a workspace's own organization is not an affiliation",
+);
+assert.equal(
+  verifiedSenderAffiliation({ inferred: false, name: "Ryan Fox" }, "Ryan Fox"),
+  null,
+  "nor is it when the two names match exactly",
+);
+assert.equal(
+  verifiedSenderAffiliation({ inferred: false, name: "  ryan fox   dos " }, "Ryan Fox"),
+  null,
+  "case and spacing cannot smuggle it back in",
+);
+assert.equal(
+  verifiedSenderAffiliation({ inferred: false, name: "USA Missionaries" }, "Ryan Fox"),
+  "USA Missionaries",
+  "a real affiliation is printed",
+);
+assert.equal(
+  verifiedSenderAffiliation({ inferred: true, name: "USA Missionaries" }, "Ryan Fox"),
+  null,
+  "the USAM display fallback every unowned workspace resolves to is never printed as ownership",
+);
+assert.equal(verifiedSenderAffiliation(null, "Ryan Fox"), null, "no organization prints no line");
+assert.equal(
+  verifiedSenderAffiliation({ inferred: false, name: "   " }, "Ryan Fox"),
+  null,
+  "an empty name prints no line",
+);
 
 console.log("dos-assessment-report-regression: ok");
