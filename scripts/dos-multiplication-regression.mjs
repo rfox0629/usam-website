@@ -166,7 +166,10 @@ const stripComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, "").replac
   const client = read("app/dos/app/DosMvpAppClient.tsx");
   const overview = client.slice(client.indexOf('aria-label="Relationship brief"'), client.indexOf('activeDetailTab === "history"', client.indexOf('aria-label="Relationship brief"')));
   const order = (labels) => labels.map((label) => overview.indexOf(label));
-  const groups = order(['<PersonOverviewGroup\n                  action=', '<PersonOverviewGroup label="Activity">', '<PersonOverviewGroup label="Fruit &amp; Feedback">']);
+  /* USA-280 Person record actions took the + Add off the Multiplication
+     heading, so this group is matched by its label like the other two. The
+     order it checks is unchanged. */
+  const groups = order(['<PersonOverviewGroup label="Multiplication">', '<PersonOverviewGroup label="Activity">', '<PersonOverviewGroup label="Fruit &amp; Feedback">']);
   assert.ok(groups.every((index) => index > 0) && groups[0] < groups[1] && groups[1] < groups[2], "MULTIPLICATION, then ACTIVITY, then FRUIT & FEEDBACK.");
   assert.ok(overview.includes('label="Multiplication"'));
   const activity = overview.slice(groups[1], groups[2]);

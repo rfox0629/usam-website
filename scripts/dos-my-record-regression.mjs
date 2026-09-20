@@ -321,12 +321,28 @@ assert(
   overviewPanelSource.includes("resourceAssignmentPrimaryAction(assignment"),
   "USA-281: the row's primary action is chosen from the assignment's state.",
 );
-["Start", "Continue", "Open", "Resume"].forEach((label) => {
+/* USA-280 Person record actions moved the primary action again, from a button
+   beside the row menu into the first item OF that menu, so the row carries one
+   control instead of two. The guarantee is unchanged and still checked here:
+   the action the assignment's state calls for is the one offered first. */
+assert(
+  overviewPanelSource.includes("label: primary.label"),
+  "USA-280: the row's primary action is rendered from the assignment's own state.",
+);
+["Start", "Continue", "Open"].forEach((label) => {
   assert(
-    overviewPanelSource.includes(`{primary.label}`) && client.includes(`label: "${label}"`),
+    client.includes(`label: "${label}"`),
     `USA-281: ${label} is still a primary action a journey can offer.`,
   );
 });
+/* Resume is deliberately NOT in that list any more. It was offered twice on
+   one row, as the primary button and again in the menu, both calling
+   onPauseResourceAssignment. It is reachable exactly once now, from the
+   Pause/Resume item the assertion below covers. */
+assert(
+  !overviewPanelSource.includes('primary.kind === "resume"'),
+  "USA-280: Resume is not offered twice on the same row.",
+);
 ["Check-in", "Complete", "Edit dates"].forEach((action) => {
   assert(
     overviewPanelSource.includes(`{ label: "${action}"`),
