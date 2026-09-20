@@ -1,5 +1,6 @@
 import "server-only";
 
+import { verifiedSenderAffiliation } from "@/src/lib/dos/assessment-report-data";
 import { normalizeConversationResponses, normalizeConversationFlowKey, normalizeRecommendedResources, type DosConversationFlowKey, type DosConversationResponses, type DosRecommendedResource } from "@/src/lib/dos/meeting-engine";
 import { decideUsamWorkspace } from "@/src/lib/dos/usam-workspace";
 import { loadConfirmedPlacements, type ConfirmedPlacement } from "@/src/lib/dos/circle-placement-store";
@@ -5747,7 +5748,7 @@ export async function loadDosAppData(
       organizations: buildOrganizationConnections({ organization, usamApplication, workspace }),
       reportSender: {
         name: workspace.display_name ?? "",
-        organization: organization && !organization.inferred ? organization.name : null,
+        organization: verifiedSenderAffiliation(organization, workspace.display_name ?? ""),
       },
       participantReviews,
       participantTestimonies,

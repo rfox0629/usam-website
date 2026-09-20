@@ -296,12 +296,14 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
   });
   flow.y += 16;
 
+  /* USA-281: one line, not a paragraph. The long version restated the
+     arithmetic the two cards above had already shown and cost the first page
+     roughly five lines, which is most of the room the fifth category row
+     needed. The honesty the long version carried is kept: it still says this
+     is an average of what was said on one date, and not a diagnosis. */
   paragraph(
     flow,
-    `Each of you answers ${data.questions.length} questions on a 0 to 10 scale, so each of you has a score out of ${data.maxScore}. `
-    + "The average above is your two scores added together and halved. The percentage is your two scores as a share of "
-    + "everything you could both have scored. It summarises what you each said on one day. It is not a measure of your "
-    + "marriage and it is not a diagnosis.",
+    "Average of your two scores. This reflects your answers on this date, not a diagnosis.",
     { color: QUIET, size: 9 },
   );
   flow.y += 6;
@@ -362,9 +364,30 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
     paragraph(flow, "Not enough answers yet to pick anything out.");
   }
 
-  /* By category. The heading, the column names and two rows travel together;
-     a heading alone at the foot of a page is worse than a shorter page. */
-  ensureRoom(flow, 46 + 28 + 48);
+  /* USA-281: the WHOLE table is measured before any of it is placed.
+   *
+   * Reserving only the heading and two rows is what stranded Affection &
+   * Intimacy alone on page 2 with the rest of the sheet blank: four rows fit,
+   * the fifth broke, and the answers then started a fresh page behind it. A
+   * table that cannot fit entire starts on the next page as one block, so a
+   * reader never turns a page for one line.
+   *
+   * The height is computed from the same wrapping the rows actually use, so a
+   * long category name is counted, not guessed at. */
+  const categoryTableHeight = (() => {
+    const firstLines = fitLines(nameForRole(first?.role ?? ""), 8, "bold", CATEGORY_COLUMN_WIDTH - 10, 2);
+    const secondLines = fitLines(nameForRole(second?.role ?? ""), 8, "bold", CATEGORY_COLUMN_WIDTH - 10, 2);
+    const headerHeight = 14 + Math.max(firstLines.length, secondLines.length) * 10;
+    const rowsHeight = data.categories.reduce(
+      (total, category) => total + wrapText(category.name, 9.5, "bold", CATEGORY_NAME_WIDTH - 10).length * 12 + 18,
+      0,
+    );
+
+    /* sectionHeading's own advance, the column names, then every row. */
+    return 30 + headerHeight + rowsHeight;
+  })();
+
+  ensureRoom(flow, categoryTableHeight);
   sectionHeading(flow, "By category");
 
   const firstRole = first?.role ?? "";
@@ -397,9 +420,22 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
   flow.doc.text("Every answer", { color: INK, font: "bold", size: 13.5, x: MARGIN, y: flow.y });
   flow.y += 20;
 
+  /* USA-281: the document groups the answers the way the screen does, so a
+     reader moving between the two is looking at the same structure. The
+     category is stated once as a heading instead of being repeated on every
+     question's eyebrow, and a heading is never left at the foot of a page
+     without at least the first question under it.
+
+     Order, wording, numbering and both answers are untouched. */
+  let currentGroup: string | null = null;
+
   data.questions.forEach((question, index) => {
-    const eyebrow = [`Question ${question.number}`, question.group].filter(Boolean).join("  ·  ");
-    const promptLines = wrapText(question.prompt, 10, "bold", CONTENT);
+    const groupName = question.group?.trim() || "Other questions";
+    /* USA-281: the number rides on the prompt rather than taking a line of its
+       own above it, which is what the screen does too. Fifteen questions each
+       spending a line on "Question 7" is most of the difference between the
+       answers fitting one page and running onto a second. */
+    const promptLines = wrapText(`${question.number}. ${question.prompt}`, 10, "bold", CONTENT);
     const noteLines = question.note ? wrapText(question.note, 8.5, "regular", CONTENT) : [];
 
     const firstScore = firstRole ? question.scores?.[firstRole] : undefined;
@@ -418,13 +454,19 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
        rule under them. Reserving exactly that keeps a question with what the
        couple said about it without ending a page early on space it never
        needed. */
-    const blockHeight = 10 + promptLines.length * 13 + noteLines.length * 10
-      + 1 + (sideBySide ? 10 : 21) + 7;
+    const blockHeight = promptLines.length * 13 + noteLines.length * 10
+      + 1 + (sideBySide ? 10 : 21) + 6;
 
-    ensureRoom(flow, blockHeight, "Every answer");
-
-    flow.doc.text(eyebrow, { color: QUIET, size: 8, x: MARGIN, y: flow.y });
-    flow.y += 10;
+    if (groupName !== currentGroup) {
+      /* The heading travels with the first question under it. */
+      ensureRoom(flow, blockHeight + 20, "Every answer");
+      flow.y += currentGroup === null ? 0 : 6;
+      flow.doc.text(groupName.toUpperCase(), { color: BLUE, font: "bold", size: 8, x: MARGIN, y: flow.y });
+      flow.y += 13;
+      currentGroup = groupName;
+    } else {
+      ensureRoom(flow, blockHeight, "Every answer");
+    }
 
     for (const line of promptLines) {
       flow.doc.text(line, { color: INK, font: "bold", size: 10, x: MARGIN, y: flow.y });
@@ -451,7 +493,7 @@ export function buildAssessmentReportPdf(data: AssessmentReportData) {
 
     if (index < data.questions.length - 1) {
       flow.doc.line({ color: RULE, thickness: 0.4, x1: MARGIN, x2: MARGIN + CONTENT, y: flow.y });
-      flow.y += 7;
+      flow.y += 6;
     }
   });
 

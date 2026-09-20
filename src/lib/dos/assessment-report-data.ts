@@ -317,17 +317,27 @@ export function buildAssessmentDiscussionItems({
     ))
     .slice(0, DISCUSSION_RULES.maxStrengths);
 
-  for (const category of strengths) {
+  /* USA-281: two strengths used to carry the same sentence word for word, so
+     the second card read as a copy of the first and the reader learned nothing
+     from it. The reason is stated once; a second strength says what is
+     different about it, which is that there is more than one.
+
+     The SELECTION is untouched: the same categories qualify, by the same
+     shared-strength rule, in the same order. Only the wording of the second
+     card changes, and it is chosen by position, so it is deterministic. */
+  strengths.forEach((category, index) => {
     items.push({
       category: category.name,
-      discussionPrompt: "You both scored this highly. Name what is working here out loud, because it is what the harder areas get built on.",
+      discussionPrompt: index === 0
+        ? "You both scored this highly. Name what is working here out loud, because it is what the harder areas get built on."
+        : "You both scored this highly too. Two strong areas is something to say out loud together.",
       kind: "strength",
       questionId: null,
       questionNumber: null,
       scoreLine: `${categoryScoreLine(category, participants)}. Together ${category.percentage}%.`,
       title: category.name,
     });
-  }
+  });
 
   return items;
 }
@@ -420,4 +430,46 @@ export function answersFromStoredResult(
   }
 
   return answers;
+}
+
+/* USA-281: what may be printed as the sender's affiliation on a report.
+ *
+ * A personal workspace owns an `organizations` row named after itself, so a
+ * Marriage Assessment read "Requested by Ryan Fox, Ryan Fox DOS". That is a
+ * workspace display name, not a membership, and a report that prints it states
+ * an affiliation nobody verified.
+ *
+ * Two tests, both of which must pass before a name is printed:
+ *
+ *   1. the organization is really this workspace's owner, not the USAM display
+ *      fallback every unowned workspace resolves to (USA-238);
+ *   2. its name is independent of the workspace's own name. "Ryan Fox DOS"
+ *      under "Ryan Fox" is the workspace wearing a second hat.
+ *
+ * When neither holds the line is omitted. It is never filled with USAM, or
+ * with the workspace name, for a user whose affiliation is not recorded. */
+export function verifiedSenderAffiliation(
+  organization: { inferred: boolean; name: string } | null,
+  workspaceDisplayName: string,
+) {
+  if (!organization || organization.inferred || !organization.name.trim()) {
+    return null;
+  }
+
+  /* Compared with the workspace's own suffix removed, because the personal
+     organization is the workspace name plus "DOS". */
+  const normalize = (value: string) => value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/\s+dos$/, "");
+
+  const organizationName = normalize(organization.name);
+  const workspaceName = normalize(workspaceDisplayName);
+
+  if (!workspaceName) {
+    return organization.name;
+  }
+
+  return organizationName === workspaceName ? null : organization.name;
 }

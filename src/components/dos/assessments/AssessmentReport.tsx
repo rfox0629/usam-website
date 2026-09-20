@@ -26,6 +26,26 @@ const ink = "text-[#0F172A]";
 const body = "text-[#1E3A5F]";
 const quiet = "text-[#334E68]";
 
+/* USA-281: colour identifies a person, never a performance.
+ *
+ * Both participants' bars were the same blue, so the only thing colour was
+ * doing was decoration. One accent each, used the same way in the score
+ * panels, the category bars and the answer columns, so a reader learns the
+ * pairing once and it holds for the whole report.
+ *
+ * Every figure keeps its name and its number beside it, so the report reads
+ * correctly in grayscale and for a reader who cannot separate the two hues.
+ * The pairing is by POSITION in the participant list, which preserves
+ * wife-first attribution rather than assuming a role order. */
+const participantAccents = [
+  { bar: "bg-[#2251E8]", panel: "border-[#CFE0FF] bg-[#F7FAFF]", text: "text-[#1D4ED8]" },
+  { bar: "bg-[#047857]", panel: "border-[#C9E9D8] bg-[#F4FBF7]", text: "text-[#047857]" },
+] as const;
+
+function accentFor(index: number) {
+  return participantAccents[index % participantAccents.length];
+}
+
 function answerAnchorId(questionId: string) {
   return `assessment-answer-${questionId}`;
 }
@@ -58,19 +78,22 @@ function ReportSection({ children, heading }: { children: ReactNode; heading: st
   );
 }
 
-/* A restrained comparison: one bar per spouse, same scale, no colour coding
-   that implies a verdict. */
-function ComparisonBar({ label, max, value }: { label: string; max: number; value: number }) {
+/* A restrained comparison: one bar per spouse, same scale. The colour is the
+   person's own accent, so the two bars are told apart by who they belong to
+   and never by which is longer. */
+function ComparisonBar({ accentIndex, label, max, value }: { accentIndex: number; label: string; max: number; value: number }) {
   const width = max > 0 ? Math.round((value / max) * 100) : 0;
+  const accent = accentFor(accentIndex);
 
   return (
     <div className="mt-2 first:mt-0">
       <div className="flex items-baseline justify-between gap-3">
-        <span className={`text-[13.5px] font-semibold ${body}`}>{label}</span>
-        <span className={`text-[13.5px] font-semibold tabular-nums ${ink}`}>{value} of {max}</span>
+        {/* Long names wrap rather than truncate: a name is not decoration. */}
+        <span className={`min-w-0 break-words text-[13.5px] font-semibold ${accent.text}`}>{label}</span>
+        <span className={`shrink-0 text-[13.5px] font-semibold tabular-nums ${ink}`}>{value} of {max}</span>
       </div>
       <div className="mt-1 h-2 w-full overflow-hidden rounded-full bg-[#EAF2FF]">
-        <div className="h-full rounded-full bg-[#2563EB]" style={{ width: `${width}%` }} />
+        <div className={`h-full rounded-full ${accent.bar}`} style={{ width: `${width}%` }} />
       </div>
     </div>
   );
@@ -183,6 +206,23 @@ export function AssessmentReport({
   const nameForRole = (role: string) => data.participants.find((participant) => participant.role === role)?.name ?? role;
   const scoreForRole = (role: string) => data.participantScores.find((entry) => entry.participant === role)?.score ?? 0;
 
+  /* Questions in their original order, gathered under the category each one
+     already carries. Grouping is presentational: nothing is reordered inside a
+     category, no question is dropped, and one with no category of its own
+     keeps its place under a plain heading rather than disappearing. */
+  const answerGroups: Array<{ name: string; questions: typeof data.questions[number][] }> = [];
+
+  for (const question of data.questions) {
+    const name = question.group?.trim() || "Other questions";
+    const existing = answerGroups.find((group) => group.name === name);
+
+    if (existing) {
+      existing.questions.push(question);
+    } else {
+      answerGroups.push({ name, questions: [question] });
+    }
+  }
+
   return (
     <main className="assessment-report min-h-screen bg-white">
       <style>{`
@@ -255,55 +295,83 @@ export function AssessmentReport({
         ) : null}
         <iframe aria-hidden="true" className="hidden" ref={frameRef} title="" />
 
-        <header className="px-5 pb-6 pt-6 sm:px-6">
+        {/* USA-281: a compact block. The old header spent most of a phone
+            screen on an oversized title before a single figure appeared. */}
+        <header className="px-5 pb-5 pt-5 sm:px-6">
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-[#1D4ED8]">Assessment</p>
           {/* The document and the screen carry the same name, so a saved file
               and the page it came from are recognisably one thing. */}
-          <h1 className={`mt-2 text-[27px] font-bold leading-[1.08] tracking-[-0.032em] ${ink}`}>{assessmentReportDocumentTitle}</h1>
-          <p className={`mt-3 text-[17px] font-semibold leading-[1.45] ${ink}`}>
+          <h1 className={`mt-1.5 text-[21px] font-bold leading-[1.15] tracking-[-0.028em] ${ink} sm:text-[24px]`}>{assessmentReportDocumentTitle}</h1>
+          <p className={`mt-2 text-[14.5px] font-semibold leading-[1.4] ${body}`}>
             {data.participants.map((participant) => `${participant.name} (${participant.role})`).join(" and ")}
           </p>
-          <p className={`mt-1 text-[14px] ${quiet}`}>Completed {formatAssessmentReportDate(data.completedAt)}</p>
-          {data.requestedBy?.name ? (
-            /* The organization appears only when the affiliation is verified,
-               so a report never puts an organization's name under someone who
-               is not part of it. */
-            <p className={`mt-3 text-[14px] ${quiet}`}>
-              Requested by <span className={`font-semibold ${body}`}>{data.requestedBy.name}</span>
-              {data.requestedBy.organization ? <span>, {data.requestedBy.organization}</span> : null}
-            </p>
-          ) : null}
+          <p className={`mt-1 text-[13.5px] ${quiet}`}>
+            Completed {formatAssessmentReportDate(data.completedAt)}
+            {data.requestedBy?.name ? (
+              /* The organization appears only when the affiliation is
+                 verified, so a report never puts an organization's name under
+                 someone who is not part of it, and never substitutes the
+                 sender's own workspace name for one. */
+              <>
+                {" · Requested by "}
+                <span className={`font-semibold ${body}`}>{data.requestedBy.name}</span>
+                {data.requestedBy.organization ? <span>, {data.requestedBy.organization}</span> : null}
+              </>
+            ) : null}
+          </p>
         </header>
 
         <ReportSection heading="Scores">
-          <div className="grid gap-3 sm:grid-cols-2">
-            {roles.map((role) => (
-              <div className="rounded-[12px] border border-[#EAF2FF] px-4 py-3" key={role}>
-                <p className={`text-[13.5px] font-semibold ${quiet}`}>{nameForRole(role)} ({role})</p>
-                <p className={`mt-1 text-[24px] font-bold tabular-nums ${ink}`}>
-                  {scoreForRole(role)}<span className={`text-[16px] font-semibold ${quiet}`}> of {data.maxScore}</span>
-                </p>
-              </div>
-            ))}
+          {/* Two equal panels side by side at every ordinary width, including
+              the narrowest phone. A long name wraps inside its own column
+              rather than truncating or forcing the pair to stack: the brief is
+              explicit that a name is not to be cut short. */}
+          <div className="grid grid-cols-2 gap-2.5">
+            {roles.map((role, index) => {
+              const score = scoreForRole(role);
+              const accent = accentFor(index);
+              /* Each spouse's own share of what they alone could have scored.
+                 Rounded only here, for display. */
+              const share = data.maxScore > 0 ? Math.round((score / data.maxScore) * 100) : 0;
+
+              return (
+                <div className={`min-w-0 rounded-[12px] border px-3.5 py-3 ${accent.panel}`} key={role}>
+                  <p className={`break-words text-[13px] font-bold leading-[1.3] ${accent.text}`}>{nameForRole(role)}</p>
+                  <p className={`text-[12px] font-semibold ${quiet}`}>{role}</p>
+                  <p className={`mt-1.5 text-[22px] font-bold leading-none tabular-nums ${ink}`}>
+                    {score}<span className={`text-[14px] font-semibold ${quiet}`}> of {data.maxScore}</span>
+                  </p>
+                  <p className={`mt-1 text-[13px] font-semibold tabular-nums ${quiet}`}>{share}%</p>
+                </div>
+              );
+            })}
           </div>
 
           {/* The headline figure is an average, and says so. It is not a sum,
-              and it is not a verdict. */}
-          <div className="mt-3 rounded-[12px] border border-[#EAF2FF] px-4 py-3">
-            <p className={`text-[13.5px] font-semibold ${quiet}`}>Average score</p>
-            <p className={`mt-1 text-[24px] font-bold tabular-nums ${ink}`}>
-              {data.overallScore}<span className={`text-[16px] font-semibold ${quiet}`}> of {data.maxScore}</span>
-              {/* A real space, not only a margin: copied text and a screen
-                  reader both run the two figures together without it. */}
-              {" "}
-              <span className={`ml-1 text-[16px] font-semibold ${quiet}`}>{data.percentage}%</span>
+              and it is not a verdict. One short line does the work the long
+              paragraph was doing; the full arithmetic stays available. */}
+          <div className="mt-2.5 rounded-[12px] border border-[#EAF2FF] px-3.5 py-3">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <p className={`text-[13px] font-bold ${quiet}`}>Average score</p>
+              <p className={`text-[18px] font-bold tabular-nums ${ink}`}>
+                {data.overallScore}<span className={`text-[13.5px] font-semibold ${quiet}`}> of {data.maxScore}</span>
+                {/* A real space, not only a margin: copied text and a screen
+                    reader both run the two figures together without it. */}
+                {" "}
+                <span className={`text-[13.5px] font-semibold ${quiet}`}>{data.percentage}%</span>
+              </p>
+            </div>
+            <p className={`mt-1.5 text-[13px] leading-[1.5] ${quiet}`}>
+              Average of your two scores. This reflects your answers on this date, not a diagnosis.
             </p>
-            <p className={`mt-2 text-[13.5px] leading-[1.5] ${quiet}`}>
-              Each of you answers {data.questions.length} questions on a 0 to 10 scale, so each of you has a score out of {data.maxScore}.
-              The average above is your two scores added together and halved. The percentage is your two scores as a share
-              of everything you could both have scored. It summarises what you each said on one day. It is not a measure
-              of your marriage and it is not a diagnosis.
-            </p>
+            <details className="assessment-report-details mt-1.5">
+              <summary className={`cursor-pointer list-none text-[12.5px] font-semibold ${accentFor(0).text}`}>How this is worked out</summary>
+              <p className={`mt-1.5 text-[12.5px] leading-[1.5] ${quiet}`}>
+                Each of you answers {data.questions.length} questions on a 0 to 10 scale, so each of you has a score out of {data.maxScore}.
+                The average is your two scores added together and halved. The percentage is your two scores as a share
+                of everything you could both have scored.
+              </p>
+            </details>
           </div>
         </ReportSection>
 
@@ -378,18 +446,21 @@ export function AssessmentReport({
         </ReportSection>
 
         <ReportSection heading="By category">
-          <div className="grid gap-5">
+          <div className="grid gap-4">
             {data.categories.map((category) => (
               <div key={category.name}>
-                <div className="flex items-baseline justify-between gap-3">
-                  <h3 className={`text-[15.5px] font-semibold ${ink}`}>{category.name}</h3>
-                  <span className={`text-[13.5px] font-semibold tabular-nums ${quiet}`}>
+                {/* The heading and its total wrap as two lines on a narrow
+                    phone rather than squeezing into one and clipping. */}
+                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                  <h3 className={`min-w-0 break-words text-[15px] font-bold leading-[1.3] ${ink}`}>{category.name}</h3>
+                  <span className={`shrink-0 text-[13px] font-semibold tabular-nums ${quiet}`}>
                     {category.combinedScore} of {category.combinedMaxScore} together, {category.percentage}%
                   </span>
                 </div>
-                <div className="mt-2">
-                  {roles.map((role) => (
+                <div className="mt-1.5">
+                  {roles.map((role, index) => (
                     <ComparisonBar
+                      accentIndex={index}
                       key={role}
                       label={nameForRole(role)}
                       max={category.maxScore}
@@ -402,28 +473,43 @@ export function AssessmentReport({
           </div>
         </ReportSection>
 
+        {/* USA-281: every answer, grouped by the category it belongs to.
+            It was one long undifferentiated list of fifteen blocks, each
+            repeating its category as an eyebrow. The category is stated once,
+            the questions under it are compact, and the two answers sit in two
+            aligned columns so a reader compares down a column rather than
+            reading a sentence twice.
+
+            Every question and every answer is kept, in order, with its
+            original wording and its original number. */}
         <ReportSection heading="Every answer">
           <div className="grid gap-5">
-            {data.questions.map((question) => (
-              <div className="assessment-report-answer scroll-mt-6" id={answerAnchorId(question.id)} key={question.id}>
-                <p className={`text-[11px] font-bold uppercase tracking-[0.15em] ${quiet}`}>
-                  Question {question.number}{question.group ? ` · ${question.group}` : ""}
-                </p>
-                <p className={`mt-1 text-[15.5px] font-semibold leading-[1.45] ${ink}`}>{question.prompt}</p>
-                {question.note ? <p className={`mt-1 text-[13.5px] leading-[1.5] ${quiet}`}>{question.note}</p> : null}
-                <div className="mt-2 flex flex-wrap gap-x-6 gap-y-1">
-                  {roles.map((role) => {
-                    const value = question.scores?.[role];
-
-                    return (
-                      <p className={`text-[14.5px] ${body}`} key={role}>
-                        <span className="font-semibold">{nameForRole(role)}</span>{" "}
-                        <span className="tabular-nums">
-                          {typeof value === "number" ? `${value} of ${assessmentScoreValues[assessmentScoreValues.length - 1]}` : "not answered"}
-                        </span>
+            {answerGroups.map((group) => (
+              <div key={group.name}>
+                <h3 className={`text-[11px] font-bold uppercase tracking-[0.14em] ${accentFor(0).text}`}>{group.name}</h3>
+                <div className="mt-2 divide-y divide-[#EAF2FF] border-t border-[#EAF2FF]">
+                  {group.questions.map((question) => (
+                    <div className="assessment-report-answer scroll-mt-6 py-2.5" id={answerAnchorId(question.id)} key={question.id}>
+                      <p className={`text-[14.5px] font-semibold leading-[1.4] ${ink}`}>
+                        <span className={`tabular-nums ${quiet}`}>{question.number}.</span> {question.prompt}
                       </p>
-                    );
-                  })}
+                      {question.note ? <p className={`mt-0.5 text-[13px] leading-[1.45] ${quiet}`}>{question.note}</p> : null}
+                      <div className="mt-1.5 grid grid-cols-2 gap-x-3">
+                        {roles.map((role, index) => {
+                          const value = question.scores?.[role];
+
+                          return (
+                            <p className={`min-w-0 text-[13.5px] ${body}`} key={role}>
+                              <span className={`break-words font-semibold ${accentFor(index).text}`}>{nameForRole(role)}</span>{" "}
+                              <span className="tabular-nums">
+                                {typeof value === "number" ? `${value} of ${assessmentScoreValues[assessmentScoreValues.length - 1]}` : "not answered"}
+                              </span>
+                            </p>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
