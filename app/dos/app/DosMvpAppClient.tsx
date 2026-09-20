@@ -16659,6 +16659,26 @@ const prayerRequestCategoryOptions = [
   { label: "Other", value: "Other" },
 ] as const;
 
+/* USA-280 follow-up: a prayer captured during a group gathering is stored with
+   `category: "group"`. That is a provenance marker written by the gathering
+   recorder, not one of the six categories a person can choose, and the detail
+   sheet was printing it raw and unlabelled. The founder saw a bare lowercase
+   word, "group", floating under the request text.
+
+   A category is shown only when it really is one. Anything else is provenance
+   and is stated as provenance, beside the group it came from, which is what
+   the row now says too. Nothing stored is rewritten: this reads the value
+   honestly instead of displaying an internal marker as a user's choice. */
+function prayerRequestCategoryDisplay(category: string | null | undefined) {
+  const value = category?.trim();
+
+  if (!value) {
+    return null;
+  }
+
+  return prayerRequestCategoryOptions.some((option) => option.value === value) ? value : null;
+}
+
 const prayerRequestVisibilityOptions: ReadonlyArray<{ label: string; value: DosAppPrayerRequest["visibility"] }> = [
   { label: "Private", value: "private" },
   { label: "Prayer Team", value: "organization" },
@@ -25400,7 +25420,17 @@ function PrayerRequestDetailSheet({
         <div className="space-y-5">
           <DosFormSection icon="prayer" title={title}>
             <p className="whitespace-pre-line text-base font-black leading-7 text-[#0F172A]">{requestText}</p>
-            {category ? <p className="mt-3 text-sm font-semibold leading-6 text-[#64748B]">{category}</p> : null}
+            {/* Labelled, and only when it is a real category. A bare grey word
+                under the request could not be read as anything. */}
+            {prayerRequestCategoryDisplay(category) ? (
+              <p className="mt-3 text-sm font-semibold leading-6 text-[#334E68]">
+                <span className="text-[#64748B]">Category</span> {prayerRequestCategoryDisplay(category)}
+              </p>
+            ) : linkedGroup ? (
+              <p className="mt-3 text-sm font-semibold leading-6 text-[#334E68]">
+                <span className="text-[#64748B]">From</span> {linkedGroup.name}
+              </p>
+            ) : null}
           </DosFormSection>
 
           <DosFormSection icon="people" title="Details">
@@ -37493,10 +37523,13 @@ function PersonDetailOverlay({
         ) : (
           <Card>
             <span className={eyebrowClass}>Next meeting</span>
+            {/* USA-280 follow-up: this was the remaining Schedule creation
+                button. An empty state is still a creation entry point, and the
+                brief removes those too: scheduling is Schedule meeting in the
+                plus menu, in the Meetings position. The card keeps saying that
+                nothing is scheduled, because that is a fact about the record
+                rather than an invitation to a second way of adding. */}
             <span className="mt-1.5 block text-[13.5px] leading-[1.4] text-dos-body">Nothing scheduled.</span>
-            <span className="mt-2.5 block">
-              <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>
-            </span>
           </Card>
         )}
       </div>
@@ -38225,7 +38258,8 @@ function PersonDetailOverlay({
                       <p className="mt-0.5 text-[13.5px] leading-[1.55] text-dos-eyebrow">Nothing scheduled.</p>
                     )}
                   </div>
-                  {nextMeeting ? null : <PDButton onClick={onScheduleMeeting}>Schedule</PDButton>}
+                  {/* The same empty-state creation button, in the desktop
+                      rail's copy of this panel. Removed for the same reason. */}
                 </div>
                 {personFollowUpReminders.map((reminder) => (
                   <button

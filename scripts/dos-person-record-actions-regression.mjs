@@ -354,4 +354,39 @@ assert.ok(
 assert.ok(!/\$\{unitLabel\} \$\{currentUnit\} of/.test(personDetail), "a position is no longer stated as though it were progress");
 assert.ok(personDetail.includes("complete`"), "progress is stated as sessions done");
 
+/* ---- 8. The second screenshot pass ------------------------------------ *
+ *
+ * Two things the first follow-up missed, both photographed on production.
+ */
+
+/* An empty state is still a creation entry point. "Nothing scheduled." kept a
+   Schedule button on the Next meeting card, and the desktop rail kept a second
+   copy, so scheduling still had two doors after the button row came out. */
+assert.ok(
+  !/Nothing scheduled\.[\s\S]{0,260}?<PDButton onClick=\{onScheduleMeeting\}>/.test(personDetail),
+  "no empty state offers its own Schedule button",
+);
+assert.ok(
+  (personDetail.match(/onClick=\{onScheduleMeeting\}/g) ?? []).length === 0,
+  "scheduling is reached from the plus menu only",
+);
+assert.ok(personDetail.includes("Nothing scheduled."), "the card still states the fact");
+assert.ok(personDetail.includes('key: "schedule-meeting"'), "and Schedule meeting is still in the plus menu");
+
+/* A prayer captured in a group gathering is stored with category "group", a
+   provenance marker rather than one of the six categories a person chooses.
+   The sheet printed it raw and unlabelled, so it read as a stray word. */
+assert.ok(client.includes("function prayerRequestCategoryDisplay("), "a category is resolved before it is shown");
+assert.ok(
+  /prayerRequestCategoryOptions\.some\(\(option\) => option\.value === value\)/.test(client),
+  "and only a real category is shown as one",
+);
+const prayerSheet = client.slice(client.indexOf("function PrayerRequestDetailSheet("), client.indexOf("function PrayerDetailMetaRow("));
+assert.ok(
+  !/\{category \? <p[^>]*>\{category\}<\/p> : null\}/.test(prayerSheet),
+  "the raw stored value is never printed on its own",
+);
+assert.ok(prayerSheet.includes(">Category<"), "the category carries a label");
+assert.ok(prayerSheet.includes(">From<"), "and a group-origin request states where it came from instead");
+
 console.log("dos-person-record-actions-regression: ok");
