@@ -34040,7 +34040,7 @@ function MobileFloatingActions({
     ? `${positionClassName} bottom-7 right-7 flex w-[230px] max-w-[calc(100%-3.5rem)] flex-col items-end gap-2 pointer-events-auto xl:right-9 xl:max-w-[calc(100%-4.5rem)]`
     /* The open menu grows upward from the button, so cap it to the space
        above and let it scroll rather than run off the top of the screen. */
-    : `${positionClassName} bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-[max(1rem,calc((100vw-430px)/2+1rem))] flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-7.5rem)] w-[216px] max-w-[calc(100%-2rem)] flex-col items-end gap-2 pointer-events-auto`;
+    : `${positionClassName} bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-[max(1rem,calc((100vw-430px)/2+1rem))] flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-7.5rem)] w-[248px] max-w-[calc(100%-2rem)] flex-col items-end gap-2 pointer-events-auto`;
 
   const content = (
     <div className={rootClassName}>
@@ -34071,7 +34071,12 @@ function MobileFloatingActions({
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
                     <Icon name={item.icon} size={15} />
                   </span>
-                  <span className="min-w-0 whitespace-nowrap">{item.label}</span>
+                  {/* USA-280 Person record actions: the labels got longer when
+                      the sections' own buttons moved in here, and "Add
+                      discipleship connection" ran off the side of a 320
+                      screen. It wraps rather than being clipped or truncated:
+                      an action nobody can finish reading is not reachable. */}
+                  <span className="min-w-0 py-2 leading-[1.3]">{item.label}</span>
                 </button>
               </Fragment>
             ))}
