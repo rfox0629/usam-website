@@ -5,6 +5,8 @@ import { getCanonicalDomainSiteForHostname } from "@/src/lib/domain-sites";
 const privateRouteDisallowList = [
   "/admin",
   "/admin/",
+  "/advisor",
+  "/advisor/",
   "/api",
   "/api/",
   "/auth",

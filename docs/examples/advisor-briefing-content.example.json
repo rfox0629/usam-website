@@ -1,0 +1,117 @@
+{
+  "meta": {
+    "title": "Briefing title",
+    "subtitle": "One or two sentences framing why this meeting is happening.",
+    "preparedFor": "Advisor name",
+    "preparedBy": "Author name",
+    "date": "Month DD, YYYY",
+    "confidentialNote": "Private material prepared for one reader. Please do not forward."
+  },
+  "sections": [
+    {
+      "id": "where-we-are",
+      "navLabel": "Where We Are",
+      "eyebrow": "Section eyebrow",
+      "heading": "Section heading",
+      "lede": "A short standfirst paragraph.",
+      "variant": "plain",
+      "blocks": [
+        { "type": "paragraph", "text": "Body copy." },
+        { "type": "bullets", "items": ["First point", "Second point"] },
+        {
+          "type": "figures",
+          "items": [
+            {
+              "label": "Cumulative giving",
+              "value": "$0",
+              "note": "Total given since inception. This is not cash on hand."
+            },
+            {
+              "label": "Current bank balance",
+              "value": "$0",
+              "note": "Cash available today."
+            },
+            {
+              "label": "Monthly support",
+              "value": "$0/mo",
+              "note": "Recurring monthly commitments."
+            }
+          ],
+          "note": "Each measure answers a different question; they are not interchangeable."
+        }
+      ]
+    },
+    {
+      "id": "examples",
+      "navLabel": "Examples",
+      "heading": "Illustrative examples",
+      "variant": "panel",
+      "blocks": [
+        {
+          "type": "tabs",
+          "note": "Sample data shown for illustration.",
+          "tabs": [
+            {
+              "id": "example-one",
+              "label": "Example One",
+              "caption": "Illustrative mockup — sample data, not a live account",
+              "blocks": [
+                { "type": "paragraph", "text": "What this mockup shows." },
+                {
+                  "type": "table",
+                  "columns": ["Column", "Value"],
+                  "rows": [["Row label", "Sample value"]],
+                  "caption": "Sample data for illustration only."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "decisions",
+      "navLabel": "Decisions",
+      "heading": "Questions for this meeting",
+      "variant": "feature",
+      "blocks": [
+        {
+          "type": "questions",
+          "items": [
+            { "prompt": "First question?", "detail": "Why it matters." }
+          ]
+        },
+        {
+          "type": "callout",
+          "title": "Cadence",
+          "text": "How often we meet and in what form.",
+          "tone": "gold"
+        }
+      ]
+    },
+    {
+      "id": "appendix",
+      "navLabel": "Appendix",
+      "heading": "Link directory",
+      "blocks": [
+        {
+          "type": "links",
+          "groups": [
+            {
+              "title": "Group title",
+              "note": "What this group covers.",
+              "links": [
+                {
+                  "label": "Link label",
+                  "href": "https://example.org",
+                  "description": "What the reader will find there."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "footerNote": "Closing note."
+}
