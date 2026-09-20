@@ -2687,6 +2687,7 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
     ],
     leaderReflections,
     meetings,
+    reportSender: { name: "", organization: null },
     organizations: [
       {
         id: "independent",
