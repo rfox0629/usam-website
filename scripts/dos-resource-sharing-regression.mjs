@@ -639,10 +639,29 @@ assert.ok(
   "a completed row does not carry its own second send action",
 );
 /* USA-281 follow-up: the row is drawn once now, so the check reads the shared
-   component rather than one panel's copy of it. */
+   component rather than one panel's copy of it.
+
+   USA-280 Person record actions moved View results off a button beside the
+   row's menu and into the menu itself, because the row was offering it twice.
+   Same guarantee, read where it now lives, and asserted to appear once. */
 assert.ok(
-  /share\.status === "completed" && result \? \(\s*<PDButton onClick=\{\(\) => onOpenShareResult\(result\.id\)\} tone="solid">View results<\/PDButton>/.test(appClient),
+  /share\.status === "completed" && result\s*\?\s*\[\{ label: "View results", onSelect: \(\) => onOpenShareResult\(result\.id\) \}\]/.test(appClient),
   "a completed row offers View results",
+);
+const assessmentRowSource = appClient.slice(
+  appClient.indexOf("function ResourceAssessmentRow"),
+  appClient.indexOf("function ResourceShareLinkActions"),
+);
+/* Counted as the menu entries they are, so the prose around them does not
+   decide whether this passes. */
+assert.ok(
+  (assessmentRowSource.match(/label: "View results"/g) ?? []).length === 1
+  && (assessmentRowSource.match(/label: "Copy link"/g) ?? []).length === 1,
+  "the row lists each of its actions once, not as a button and a menu item",
+);
+assert.ok(
+  !assessmentRowSource.includes("<PDButton"),
+  "the assessment row carries no button competing with its own menu",
 );
 
 const dosLayout = read("app/dos/app/layout.tsx");
@@ -940,9 +959,20 @@ const rowMenu = appClient.slice(
   appClient.indexOf("/* USA-281: several assignments can exist"),
 );
 
+/* USA-280 Person record actions put the close behind a helper, because the
+   menu now also returns focus to its trigger on Escape. The guarantee is the
+   same one and is still read from the order of the two calls. */
 assert.ok(
-  /onClick=\{\(\) => \{\s*setIsOpen\(false\);\s*item\.onSelect\(\);/.test(rowMenu),
+  /onClick=\{\(\) => \{\s*close\(\);\s*item\.onSelect\?\.\(\);/.test(rowMenu),
   "the action menu closes before the confirmation opens, so the two are never stacked",
+);
+assert.ok(
+  /const close = \(returnFocus = false\) => \{\s*setIsOpen\(false\);/.test(rowMenu),
+  "closing the menu is what that helper does",
+);
+assert.ok(
+  rowMenu.includes('event.key === "Escape"') && rowMenu.includes("triggerRef.current?.focus()"),
+  "USA-280: Escape closes the menu and puts focus back on the control that opened it",
 );
 
 /* ---- USA-281: grouped assignments stay individually addressable --------- */

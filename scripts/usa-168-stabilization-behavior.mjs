@@ -548,24 +548,28 @@ await check("Every Person V2 Accountability entry point opens the one canonical 
   );
   assert(personDetail.includes("unifiedAccountabilityRows({"), "That section must be built from both models by the one presenter.");
 
-  // Door 1: the section's own restrained add, available whether or not the
-  // section already has rows.
+  /* Door 1 used to be the section's own + Add. USA-280 Person record actions
+     took it out: the floating plus is the one place a record is added to, and
+     the section heading is no longer a second entry point.
+
+     The guarantee that mattered is unchanged and is asserted below on the
+     plus menu instead: adding is reachable whether or not the section already
+     has rows, and it opens the one canonical form. What this now checks is
+     that the section did not keep a competing door. */
   const section = personDetail.slice(personDetail.indexOf('aria-label="Accountability"'));
   const sectionHead = section.slice(0, section.indexOf("</section>"));
-  assert(sectionHead.includes("+ Add"), "The section must offer + Add.");
-  assert(
-    /onClick=\{onAddAccountabilitySchedule\}[\s\S]{0,120}\+ Add/.test(sectionHead),
-    "The section's + Add must open the canonical Accountability form.",
-  );
-  assert(
-    !sectionHead.includes("{!accountabilityTopics.length ? ("),
-    "+ Add must not be conditional on the section being empty.",
-  );
+  assert(!sectionHead.includes("+ Add"), "The Accountability section must not carry its own add.");
 
-  // Door 2: the Person FAB.
+  // Door 1 (was 2): the Person plus menu, which is now the only creation door.
   assert(
-    personDetail.includes('label: "Add accountability", onClick: onAddAccountabilitySchedule'),
-    "The Person FAB must open the same canonical form.",
+    personDetail.includes('key: "add-accountability", label: "Add accountability", onClick: onAddAccountabilitySchedule'),
+    "The Person plus menu must open the same canonical form.",
+  );
+  /* Not conditional on anything: an empty Accountability section is still a
+     section someone can add to. */
+  assert(
+    /\{ icon: "commitment", key: "add-accountability"/.test(personDetail),
+    "Add accountability is offered unconditionally, not only when the section has rows.",
   );
 
   // Door 3: Log Meeting's inline Accountability, which is the same field set
@@ -917,12 +921,15 @@ await check("Creating an Accountability and progressing one look different", asy
   const section = personDetail.slice(personDetail.indexOf('aria-label="Accountability"'));
   const sectionBody = section.slice(0, section.indexOf("</section>"));
 
-  // Exactly one blue creation link, on the heading. Comments and the empty
-  // state may mention it in prose; only real controls are counted.
+  /* USA-280 Person record actions made this distinction absolute rather than
+     visual: the section holds no creation control at all now, so nothing in
+     it can be mistaken for one. Creating lives in the floating plus, which
+     the Accountability doors check above covers. Comments and empty-state
+     prose may still mention adding; only real controls are counted. */
   const code = sectionBody.replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
   const blueAddControls = code.match(/text-dos-blue"[^>]*>\s*\+ Add\s*</g) ?? [];
-  assert.equal(blueAddControls.length, 1, "Exactly one blue + Add, and it belongs to the heading.");
-  assert(/onClick=\{onAddAccountabilitySchedule\}[\s\S]{0,120}\+ Add/.test(code), "That + Add creates a new Accountability.");
+  assert.equal(blueAddControls.length, 0, "No creation control sits in the Accountability section.");
+  assert(!code.includes("onClick={onAddAccountabilitySchedule}"), "The section does not create an Accountability.");
 
   /* Row actions moved inside the record. The Overview row is now the doorway
      to the Accountability itself, so the action that fits it lives in its
@@ -1327,7 +1334,15 @@ await check("Person Prayer opens their requests, not the resource library", asyn
   assert(prayerSectionBody.includes("onOpen={item.onOpen ?? (() => setIsPersonPrayerOpen(true))}"), "A prayer record opens that prayer.");
   assert(personDetail.includes("onOpen: (() => setOpenPrayerRequestId(request.id))"), "Each request row carries its own record.");
   assert(personDetail.includes("<PrayerRequestDetailSheet"), "That record's detail is mounted from the Person.");
-  assert(/onClick=\{onAddPrayerRequest\}[\s\S]{0,140}\+ Add/.test(prayerSectionBody), "The section action creates another request.");
+  /* USA-280 Person record actions: creating another request is the floating
+     plus's job now, so the section carries no add of its own. The guarantee
+     that the action creates a REQUEST and never opens the resource library is
+     unchanged, and is read from the plus menu entry instead. */
+  assert(!prayerSectionBody.includes("onClick={onAddPrayerRequest}"), "The Prayer section carries no add of its own.");
+  assert(
+    personDetail.includes('key: "add-prayer-request", label: "Add prayer request", onClick: onAddPrayerRequest'),
+    "The plus menu action creates another request.",
+  );
   assert(!prayerSectionBody.includes("onOpenPrayerResources"), "The card must not route to the resource library.");
   assert(personDetail.includes("<PersonPrayerSheet"), "That sheet exists and is mounted.");
 
@@ -1365,7 +1380,17 @@ await check("Person Overview cards carry a visible action, not an invisible one"
      no separate View button competing with either. */
   assert(feedbackBody.includes("<PersonRecordRow"), "A feedback record opens itself.");
   assert.equal((feedbackBody.match(/View all/g) ?? []).length, 0, "No competing navigation on that small card.");
-  assert(feedbackBody.includes("Request"), "The section action requests more feedback.");
+  /* USA-280 Person record actions: Request moved to the floating plus with
+     every other creation action, on the same condition it always had. */
+  assert(!feedbackBody.includes(">Request<"), "The Feedback section carries no action of its own.");
+  assert(
+    personDetail.includes('key: "request-feedback" as PersonRecordActionKey, label: "Request feedback"'),
+    "The plus menu action requests more feedback.",
+  );
+  assert(
+    /lastMeeting && onRequestReview\s*\?\s*\[\{ icon: "send" as IconName, key: "request-feedback"/.test(personDetail),
+    "It is offered only when there is a meeting to ask about and the viewer may ask.",
+  );
 
   /* No em dashes anywhere a Person can read. The regex that strips a session
      prefix matches input and is not copy. */
@@ -1377,23 +1402,33 @@ await check("Person Overview cards carry a visible action, not an invisible one"
   }
 });
 
-/* One interaction model on the Person: the section heading creates, the record
-   opens itself, and the actions live inside the record. */
-await check("Person Overview is one interaction system: section creates, record opens", async () => {
+/* One interaction model on the Person. USA-280 Person record actions moved the
+   creating half of it: the floating plus creates, the record opens itself, and
+   an item's own actions live in its three-dot menu. Each creation action is
+   still semantically right for its category, which is what these check. */
+await check("Person Overview is one interaction system: the plus creates, the record opens", async () => {
   const client = readFileSync(new URL("../app/dos/app/DosMvpAppClient.tsx", import.meta.url), "utf8");
   const personDetail = client.slice(
     client.indexOf("function PersonDetailOverlay({"),
     client.indexOf("\nfunction ReviewActionButton({"),
   );
 
-  // Section-level actions, each semantically right for its category.
   const section = (label) => {
     const start = personDetail.indexOf(`aria-label="${label}"`);
     return start === -1 ? "" : personDetail.slice(start, personDetail.indexOf("</section>", start));
   };
-  assert(/onClick=\{onAddAccountabilitySchedule\}[\s\S]{0,140}\+ Add/.test(section("Accountability")), "Accountability creates a new one.");
-  assert(/onClick=\{onAddPrayerRequest\}[\s\S]{0,140}\+ Add/.test(section("Prayer")), "Prayer creates a request, not a resource lookup.");
-  assert(/setIsFeedbackChoiceOpen\(true\)[\s\S]{0,140}Request/.test(section("Feedback")), "Feedback is requested through the canonical selector.");
+
+  // Creation actions, each semantically right for its category, all in the
+  // one menu, and none of them left behind on a section heading.
+  assert(/key: "add-accountability", label: "Add accountability", onClick: onAddAccountabilitySchedule/.test(personDetail), "Accountability creates a new one.");
+  assert(/key: "add-prayer-request", label: "Add prayer request", onClick: onAddPrayerRequest/.test(personDetail), "Prayer creates a request, not a resource lookup.");
+  assert(/key: "request-feedback" as PersonRecordActionKey, label: "Request feedback", onClick: \(\) => setIsFeedbackChoiceOpen\(true\)/.test(personDetail), "Feedback is requested through the canonical selector.");
+  /* Controls, not prose: a comment may still explain where adding went. */
+  for (const surface of ["Accountability", "Prayer", "Feedback", "Resources", "Groups"]) {
+    const code = section(surface).replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
+    assert(!/>\s*\+ Add\s*</.test(code), `${surface} no longer carries its own add.`);
+    assert(!/>\s*Request\s*</.test(code), `${surface} no longer carries its own request action.`);
+  }
 
   // Fruit is observed during an interaction, so it has no create action.
   const fruit = personDetail.slice(personDetail.indexOf("const renderFruit = () => {"));

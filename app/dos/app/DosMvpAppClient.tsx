@@ -196,6 +196,10 @@ import {
   type DosResourceAssignmentStatus,
 } from "@/src/lib/dos/resource-assignments";
 import {
+  orderPersonRecordActions,
+  type PersonRecordActionKey,
+} from "@/src/lib/dos/person-record-sections";
+import {
   cleanShareParticipantName,
   dosResourceActionLabels,
   dosResourceShareStatusLabel,
@@ -12770,18 +12774,43 @@ function resourceAssignmentResource(assignment: DosAppResourceAssignment) {
 /* USA-281: a compact row menu, so a row can offer one action and still reach
    every other one. Nothing is removed to tidy a screen: Check-in, Pause,
    Complete and Edit dates all live in here, one tap from where they were. */
+/* USA-280 Person record actions: the one control an existing item carries.
+   Everything that can be done to the item is inside it, in a fixed order, so
+   no row needs a second button beside it.
+
+   `href` exists because "Open" on an external resource is a link, not a
+   handler, and a link that is secretly a button loses the middle click and
+   the copy-link that people expect of it. The menu closes before it runs the
+   action, which is what keeps a confirmation from opening underneath its own
+   menu. */
+type RowActionMenuItem = {
+  danger?: boolean;
+  href?: string;
+  label: string;
+  onSelect?: () => void;
+};
+
 function RowActionMenu({
   items,
   label,
 }: {
-  items: ReadonlyArray<{ danger?: boolean; label: string; onSelect: () => void }>;
+  items: ReadonlyArray<RowActionMenuItem>;
   label: string;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   if (!items.length) {
     return null;
   }
+
+  const close = (returnFocus = false) => {
+    setIsOpen(false);
+
+    if (returnFocus) {
+      triggerRef.current?.focus();
+    }
+  };
 
   return (
     <div
@@ -12791,6 +12820,12 @@ function RowActionMenu({
           setIsOpen(false);
         }
       }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && isOpen) {
+          event.stopPropagation();
+          close(true);
+        }
+      }}
     >
       <button
         aria-expanded={isOpen}
@@ -12798,26 +12833,49 @@ function RowActionMenu({
         aria-label={label}
         className="flex h-11 w-11 items-center justify-center rounded-full text-dos-secondary transition-colors hover:bg-dos-blue50 hover:text-dos-primary"
         onClick={() => setIsOpen((open) => !open)}
+        ref={triggerRef}
         type="button"
       >
         <MoreHorizontal aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
       </button>
       {isOpen ? (
-        <div className="absolute right-0 z-dos-popover mt-1 w-44 rounded-2xl border border-dos-line bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]" role="menu">
-          {items.map((item) => (
-            <button
-              className={`flex min-h-11 w-full items-center rounded-xl px-3 text-left text-dos-label font-semibold hover:bg-dos-blue50 ${item.danger ? "text-[#B42318] hover:bg-[#FEF2F2]" : "text-dos-primary"}`}
-              key={item.label}
-              onClick={() => {
-                setIsOpen(false);
-                item.onSelect();
-              }}
-              role="menuitem"
-              type="button"
-            >
-              {item.label}
-            </button>
-          ))}
+        <div className="absolute right-0 z-dos-popover mt-1 w-48 rounded-2xl border border-dos-line bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]" role="menu">
+          {items.map((item, index) => {
+            const itemClassName = `flex min-h-11 w-full items-center rounded-xl px-3 text-left text-dos-label font-semibold hover:bg-dos-blue50 ${item.danger ? "text-[#B42318] hover:bg-[#FEF2F2]" : "text-dos-primary"}`;
+            /* Removal is last and set apart, so it is never the thing a
+               thumb lands on by accident. */
+            const startsDangerGroup = Boolean(item.danger) && !items[index - 1]?.danger;
+
+            return (
+              <Fragment key={item.label}>
+                {startsDangerGroup && index > 0 ? (
+                  <span aria-hidden="true" className="my-1.5 block h-px bg-dos-rule" />
+                ) : null}
+                {item.href ? (
+                  <a
+                    className={itemClassName}
+                    href={item.href}
+                    onClick={() => close()}
+                    role="menuitem"
+                  >
+                    {item.label}
+                  </a>
+                ) : (
+                  <button
+                    className={itemClassName}
+                    onClick={() => {
+                      close();
+                      item.onSelect?.();
+                    }}
+                    role="menuitem"
+                    type="button"
+                  >
+                    {item.label}
+                  </button>
+                )}
+              </Fragment>
+            );
+          })}
         </div>
       ) : null}
     </div>
@@ -32151,9 +32209,15 @@ function MyRecordOverviewPanel({
         people={people}
         record={record}
       />
+      {/* USA-280 Person record actions: the same one line the Person record
+          carries, for the same reason. The sections no longer hold their own
+          + Add. */}
+      <p className="mt-3 text-[13px] font-semibold leading-[1.5] text-dos-secondary">
+        Use + to add to this record.
+      </p>
       <MyRecordSurface>
         <MyRecordSurfaceSection label="Time with God">
-          <Eyebrow action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "encounter", mode: "new", title: "Time With God" })}>+ Add</MyRecordSectionAction>}>
+          <Eyebrow>
             Time with God
           </Eyebrow>
           {encounters.length ? (
@@ -32218,7 +32282,6 @@ function MyRecordOverviewPanel({
             listed there as well. */}
         <MyRecordSurfaceSection label="Resources">
           <Eyebrow
-            action={onSendResource ? <MyRecordSectionAction onClick={onSendResource}>+ Add</MyRecordSectionAction> : undefined}
             count={(assignmentGroups.length + resourceShares.length) || undefined}
           >
             Resources
@@ -32283,28 +32346,29 @@ function MyRecordOverviewPanel({
                         </ul>
                       ) : null}
                     </div>
-                    <span className="flex shrink-0 items-center gap-2">
-                      {primary.kind === "continue" && guidedResource ? (
-                        <PDButton onClick={() => onOpenGuidedResource(guidedResource, assignment.personId, assignment.id)} tone="solid">{primary.label}</PDButton>
-                      ) : primary.kind === "open" && resource ? (
-                        <PDButton href={resource.path} tone="solid">{primary.label}</PDButton>
-                      ) : primary.kind === "start" ? (
-                        <PDButton onClick={() => onMarkResourceAssignmentInProgress(assignment)} tone="solid">{primary.label}</PDButton>
-                      ) : primary.kind === "resume" ? (
-                        <PDButton onClick={() => onPauseResourceAssignment(assignment)} tone="solid">{primary.label}</PDButton>
-                      ) : null}
-                      {/* Every action the retired Growth panel had is still
-                          here. Five buttons ran off the side of a phone, so
-                          the four secondary ones moved into this menu. */}
+                    {/* USA-280 Person record actions: one control. The primary
+                        button sat beside a menu that repeated it -- Resume
+                        appeared in both and ran the same handler -- so the
+                        primary action is now simply the first item in the one
+                        menu, in the order the model fixes: open, then the
+                        lifecycle actions, then Remove, set apart. */}
+                    <span className="flex shrink-0 items-center">
                       <RowActionMenu
                         items={[
+                          ...(primary.kind === "continue" && guidedResource
+                            ? [{ label: primary.label, onSelect: () => onOpenGuidedResource(guidedResource, assignment.personId, assignment.id) }]
+                            : primary.kind === "open" && resource
+                              ? [{ href: resource.path, label: primary.label }]
+                              : primary.kind === "start"
+                                ? [{ label: primary.label, onSelect: () => onMarkResourceAssignmentInProgress(assignment) }]
+                                : []),
                           ...(assignment.status === "not_started" ? [] : [{ label: "Check-in", onSelect: () => onLogResourceCheckIn(assignment) }]),
                           { label: assignment.status === "paused" ? "Resume" : "Pause", onSelect: () => onPauseResourceAssignment(assignment) },
                           { label: "Complete", onSelect: () => onMarkResourceAssignmentComplete(assignment) },
                           { label: "Edit dates", onSelect: () => onEditResourceAssignment(assignment) },
                           { danger: true, label: "Remove", onSelect: () => onRemoveResourceAssignment(assignment) },
                         ]}
-                        label={`More actions for ${resourceAssignmentTitle(assignment)}, ${resourceAssignmentIdentityLabel(assignment, groups)}`}
+                        label={`Actions for ${resourceAssignmentTitle(assignment)}, ${resourceAssignmentIdentityLabel(assignment, groups)}`}
                       />
                     </span>
                   </div>
@@ -32326,7 +32390,7 @@ function MyRecordOverviewPanel({
         </MyRecordSurfaceSection>
 
         <MyRecordSurfaceSection label="Personal prayer">
-          <Eyebrow action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "prayer", mode: "new" })}>+ Add</MyRecordSectionAction>}>
+          <Eyebrow>
             Personal prayer
           </Eyebrow>
           {prayerLogs.length ? (
@@ -32553,7 +32617,6 @@ function MyRecordMyLifePanel({
 
       <MyRecordSurfaceSection label="Prophetic Words">
         <Eyebrow
-          action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "prophetic_word", mode: "new" })}>+ Add</MyRecordSectionAction>}
           count={propheticWords.length || undefined}
         >
           Prophetic Words
@@ -32578,7 +32641,6 @@ function MyRecordMyLifePanel({
 
       <MyRecordSurfaceSection label="God's Faithfulness">
         <Eyebrow
-          action={<MyRecordSectionAction onClick={() => onOpenSheet({ defaultTags: ["Thanksgiving"], kind: "encounter", mode: "new", title: "God's Faithfulness" })}>+ Add</MyRecordSectionAction>}
           count={ebenezers.length || undefined}
         >
           God&apos;s Faithfulness
@@ -32603,7 +32665,6 @@ function MyRecordMyLifePanel({
 
       <MyRecordSurfaceSection label="Assessments">
         <Eyebrow
-          action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "external_assessment", mode: "new" })}>+ Add</MyRecordSectionAction>}
           count={recordedAssessments.length || undefined}
         >
           Assessments
@@ -32628,7 +32689,6 @@ function MyRecordMyLifePanel({
 
       <MyRecordSurfaceSection label="Learning">
         <Eyebrow
-          action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "book", mode: "new" })}>+ Add</MyRecordSectionAction>}
           count={books.length || undefined}
         >
           Learning
@@ -32651,7 +32711,7 @@ function MyRecordMyLifePanel({
         {books.length > 4 ? <MyRecordSectionAction onClick={() => toggleCollection("learning")}>{expandedCollections.learning ? "Show less" : `View all ${books.length} books`}</MyRecordSectionAction> : null}
       </MyRecordSurfaceSection>
       <MyRecordSurfaceSection label="People discipling me">
-        <Eyebrow action={<MyRecordSectionAction onClick={() => onOpenSheet({ kind: "mentor_relationship", mode: "new" })}>+ Add</MyRecordSectionAction>}>People discipling me</Eyebrow>
+        <Eyebrow>People discipling me</Eyebrow>
         {record.mentorRelationships.length ? record.mentorRelationships.map((mentor) => (
           <MyRecordSectionRow key={mentor.id} primary={mentor.mentorName} meta={mentor.meetingRhythm} onOpen={() => onOpenSheet({ kind: "mentor_relationship", mentor, mode: "view" })} />
         )) : <MyRecordSectionEmpty>No relationships recorded yet.</MyRecordSectionEmpty>}
@@ -32931,13 +32991,30 @@ function MyRecordWorkspace({
     openMyRecordSheet({ items: timeline, kind: "timeline", mode: "view" });
   }
 
+  /* USA-280 Person record actions: the browser's own OK box asked "Delete this
+     My Record item?" and named nothing. It is the app's dialog now, it says
+     which item, and it is honest about what happens: this endpoint really does
+     delete the row, so it says delete and says it cannot be undone rather than
+     borrowing the softer wording the shared assessments use. */
   function handleMyRecordDelete(targetKind: string, targetId: string) {
-    if (!window.confirm("Delete this My Record item?")) {
+    setPendingMyRecordDelete({
+      itemLabel: myRecordSheet ? myRecordSheetTitle(myRecordSheet) : "this item",
+      targetId,
+      targetKind,
+    });
+  }
+
+  function confirmMyRecordDelete() {
+    const pending = pendingMyRecordDelete;
+
+    if (!pending) {
       return;
     }
 
+    setPendingMyRecordDelete(null);
+
     void (async () => {
-      const saved = await onSave({ kind: "delete", targetId, targetKind }, activeMyRecordTab);
+      const saved = await onSave({ kind: "delete", targetId: pending.targetId, targetKind: pending.targetKind }, activeMyRecordTab);
 
       if (saved) {
         setMyRecordSheet(null);
@@ -32946,6 +33023,11 @@ function MyRecordWorkspace({
   }
 
   /* One creation menu per view, matching what that view is for. */
+  const [pendingMyRecordDelete, setPendingMyRecordDelete] = useState<{
+    itemLabel: string;
+    targetId: string;
+    targetKind: string;
+  } | null>(null);
   const myRecordFabItems: MyRecordContextualAction[] = (() => {
     const encounter = () => openMyRecordSheet({ kind: "encounter", mode: "new", title: "Time With God" });
     const addMentor = () => openMyRecordSheet({ kind: "mentor_relationship", mode: "new" });
@@ -32973,8 +33055,14 @@ function MyRecordWorkspace({
       ];
     }
 
+    /* USA-280 Person record actions: My Record's overview sections read Time
+       with God, Current commitments, Resources, Personal prayer, so the menu
+       reads that way too. Add resource is here because the Resources section
+       no longer carries its own + Add; without it the section would have no
+       way to add at all. */
     return [
       { icon: "library", label: "Time With God", onClick: encounter },
+      ...(onSendResource ? [{ icon: "library" as IconName, label: "Add resource", onClick: onSendResource }] : []),
       { icon: "prayer", label: "Log Prayer", onClick: prayer },
       { icon: "people", label: "Log Discipleship Meeting", onClick: mentorMeeting },
     ];
@@ -33118,6 +33206,20 @@ function MyRecordWorkspace({
         onClose={() => setIsMyRecordFabOpen(false)}
         onToggle={() => setIsMyRecordFabOpen((current) => !current)}
       />
+
+      {pendingMyRecordDelete ? (
+        <DosConfirmDialog
+          cancelLabel="Cancel"
+          confirmLabel="Delete"
+          description={[
+            `${pendingMyRecordDelete.itemLabel}.`,
+            "This one is deleted outright rather than kept and hidden, so it cannot be restored afterwards.",
+          ].map((line) => <span key={line}>{line}</span>)}
+          onCancel={() => setPendingMyRecordDelete(null)}
+          onConfirm={confirmMyRecordDelete}
+          title="Delete this from your record?"
+        />
+      ) : null}
 
       {myRecordSheet ? (
         <MyRecordSheetFrame key={myRecordSheetKey(myRecordSheet)} kind={myRecordSheetSurfaceKind(myRecordSheet)} onClose={() => setMyRecordSheet(null)} title={myRecordSheetTitle(myRecordSheet)}>
@@ -33938,7 +34040,7 @@ function MobileFloatingActions({
     ? `${positionClassName} bottom-7 right-7 flex w-[230px] max-w-[calc(100%-3.5rem)] flex-col items-end gap-2 pointer-events-auto xl:right-9 xl:max-w-[calc(100%-4.5rem)]`
     /* The open menu grows upward from the button, so cap it to the space
        above and let it scroll rather than run off the top of the screen. */
-    : `${positionClassName} bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-[max(1rem,calc((100vw-430px)/2+1rem))] flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-7.5rem)] w-[216px] max-w-[calc(100%-2rem)] flex-col items-end gap-2 pointer-events-auto`;
+    : `${positionClassName} bottom-[calc(env(safe-area-inset-bottom)+5.65rem)] right-[max(1rem,calc((100vw-430px)/2+1rem))] flex max-h-[calc(100dvh-env(safe-area-inset-bottom)-7.5rem)] w-[248px] max-w-[calc(100%-2rem)] flex-col items-end gap-2 pointer-events-auto`;
 
   const content = (
     <div className={rootClassName}>
@@ -33969,7 +34071,12 @@ function MobileFloatingActions({
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#EBF2FF] text-[#2563EB]">
                     <Icon name={item.icon} size={15} />
                   </span>
-                  <span className="min-w-0 whitespace-nowrap">{item.label}</span>
+                  {/* USA-280 Person record actions: the labels got longer when
+                      the sections' own buttons moved in here, and "Add
+                      discipleship connection" ran off the side of a 320
+                      screen. It wraps rather than being clipped or truncated:
+                      an action nobody can finish reading is not reachable. */}
+                  <span className="min-w-0 py-2 leading-[1.3]">{item.label}</span>
                 </button>
               </Fragment>
             ))}
@@ -35209,24 +35316,23 @@ function ResourceAssessmentRow({
           <span>{dosResourceShareDateLine(share)}</span>
         </p>
       </div>
-      <span className="flex shrink-0 items-center gap-1">
-        {share.status === "completed" && result ? (
-          <PDButton onClick={() => onOpenShareResult(result.id)} tone="solid">View results</PDButton>
-        ) : hasLiveLink ? (
-          <PDButton onClick={copyLink}>Copy link</PDButton>
-        ) : null}
-        {onRemove ? (
-          <RowActionMenu
-            items={[
-              ...(hasLiveLink ? [{ label: "Copy link", onSelect: copyLink }] : []),
-              ...(share.status === "completed" && result
-                ? [{ label: "View results", onSelect: () => onOpenShareResult(result.id) }]
-                : []),
-              { danger: true, label: "Remove", onSelect: () => onRemove(share) },
-            ]}
-            label={`More actions for ${title}, ${resourceShareIdentityLabel(share)}`}
-          />
-        ) : null}
+      {/* USA-280 Person record actions: one control. This row used to carry a
+          filled button AND a menu that listed the same two actions again, so
+          "View results" appeared twice on the same row and the narrow widths
+          paid for it in width. The menu is the only control now, and it is
+          rendered whenever there is anything to offer, not only when removal
+          happens to be available. */}
+      <span className="flex shrink-0 items-center">
+        <RowActionMenu
+          items={[
+            ...(share.status === "completed" && result
+              ? [{ label: "View results", onSelect: () => onOpenShareResult(result.id) }]
+              : []),
+            ...(hasLiveLink ? [{ label: "Copy link", onSelect: copyLink }] : []),
+            ...(onRemove ? [{ danger: true, label: "Remove", onSelect: () => onRemove(share) }] : []),
+          ]}
+          label={`Actions for ${title}, ${resourceShareIdentityLabel(share)}`}
+        />
       </span>
     </div>
   );
@@ -37205,32 +37311,48 @@ function PersonDetailOverlay({
   const lastMeetingDurationLabel = lastMeetingDurationMinutes ? formatLoggedTime(lastMeetingDurationMinutes) : "";
   // Relationship comes from canonical Person fields only — never inferred.
   const relationshipCadence = person.meetingRhythm?.trim() ?? "";
-  /* Ranked by how often the action is reached for, and grouped by what it is
-     for: the meeting, walking with them, their growth, then administration.
-     One list, rendered by both the mobile and desktop FAB. */
-  const personFabItems: MobileFloatingActionItem[] = [
-    { group: "meet", icon: "log", label: "Log meeting", onClick: onLogMeeting },
-    { group: "meet", icon: "calendar", label: "Schedule meeting", onClick: onScheduleMeeting },
-    { group: "walk", icon: "commitment", label: "Add accountability", onClick: onAddAccountabilitySchedule },
-    { group: "walk", icon: "prayer", label: "Add prayer request", onClick: onAddPrayerRequest },
-    { group: "walk", icon: "arrow", label: "Add reminder", onClick: onAddReminder },
+  /* USA-280 Person record actions: the plus menu is the only way to add, and
+     it reads in the record's own order, because it is generated from the same
+     list the record renders. Nothing here is "ranked by how often it is
+     reached for" any more: that ordering could not be checked and had drifted
+     from the sections on the page.
+
+     Only actions this person and this viewer actually have are listed. An
+     action that is not supported is absent, never present and inert. */
+  const personRecordActions: Array<{ icon: IconName; key: PersonRecordActionKey; label: string; onClick: () => void }> = [
+    { icon: "log", key: "log-meeting", label: "Log meeting", onClick: onLogMeeting },
+    { icon: "calendar", key: "schedule-meeting", label: "Schedule meeting", onClick: onScheduleMeeting },
+    /* Multiplication's only entry point used to be an inline + Add on the
+       section heading, which is exactly the button this change removes. It
+       needed a home here before that button could go. */
+    ...(multiplication.discipleship.supported
+      ? [{ icon: "people" as IconName, key: "add-discipleship-connection" as PersonRecordActionKey, label: "Add discipleship connection", onClick: () => multiplication.onAdd() }]
+      : []),
     /* USA-281 follow-up: ONE entry. "Assign journey" and "Send resource"
        asked the user to know which internal flow their resource happens to
        use before they had chosen a resource. This opens the same picker that
-       Resources > + Add opens, with this person already chosen, and the
-       picker hands off to whichever setup the chosen resource needs. */
-    { group: "walk", icon: "library", label: "Add resource", onClick: () => onSendResource(person.id) },
-    /* Observed Fruit is deliberately absent: Fruit should carry provenance
-       from an actual logged interaction, so its path is Log Meeting ->
-       Observed Fruit. Legacy and backend-created Fruit records are untouched;
-       this is a V2 provenance rule, not an enforcement. Edit Person is absent
-       too -- maintaining the record is administration, and it lives in the
-       header. One feedback entry, not two: Quick Review and Testimony are the
-       same intent, and the choice belongs one level down. */
+       Resources used to open, with this person already chosen, and the picker
+       hands off to whichever setup the chosen resource needs. */
+    { icon: "library", key: "add-resource", label: "Add resource", onClick: () => onSendResource(person.id) },
+    { icon: "commitment", key: "add-accountability", label: "Add accountability", onClick: onAddAccountabilitySchedule },
+    /* Groups has no creation action on a person record, by design: someone
+       joins a group from the group, or through a request they send. There was
+       no inline action to move here and one is not invented to fill the gap.
+       Fruit is absent for the same kind of reason -- it carries provenance
+       from a logged interaction, so its path is Log meeting -> Observed Fruit.
+       Edit Person is absent because maintaining the record is administration,
+       and it stays in the header. */
+    { icon: "prayer", key: "add-prayer-request", label: "Add prayer request", onClick: onAddPrayerRequest },
+    /* One feedback entry, not two: Quick Review and Testimony are the same
+       intent, and the choice belongs one level down. */
     ...(lastMeeting && onRequestReview
-      ? [{ group: "feedback", icon: "send" as IconName, label: "Request feedback", onClick: () => setIsFeedbackChoiceOpen(true) }]
+      ? [{ icon: "send" as IconName, key: "request-feedback" as PersonRecordActionKey, label: "Request feedback", onClick: () => setIsFeedbackChoiceOpen(true) }]
       : []),
+    /* No section of its own, so it falls into the separated final group. */
+    { icon: "arrow", key: "add-reminder", label: "Add reminder", onClick: onAddReminder },
   ];
+  const personFabItems: MobileFloatingActionItem[] = orderPersonRecordActions(personRecordActions)
+    .map(({ group, icon, label, onClick }) => ({ group, icon, label, onClick }));
   const lastTimeTopic = lastMeeting?.title?.trim() && !genericMeetingTitles.has(lastMeeting.title.trim().toLowerCase())
     ? lastMeeting.title.trim()
     : null;
@@ -37593,6 +37715,14 @@ function PersonDetailOverlay({
           <article aria-label="Relationship brief" className="mx-auto w-full max-w-[600px] lg:mx-0 lg:max-w-[936px]">
             <div className="lg:flex lg:items-start lg:gap-x-12 xl:gap-x-16">
               <div className="min-w-0 lg:flex-1">
+                {/* USA-280 Person record actions: one quiet line, once, near
+                    the top. The sections no longer carry their own + Add, so
+                    the record says where adding lives rather than leaving a
+                    reader to find the button in the corner of the screen. */}
+                <p className="mt-1 text-[13px] font-semibold leading-[1.5] text-dos-secondary">
+                  Use + to add to this record.
+                </p>
+
                 {/* The relationship itself now reads under the name, so the two
                     meetings lead the page as a matched pair. */}
                 {renderMeetingCards()}
@@ -37600,12 +37730,10 @@ function PersonDetailOverlay({
                 {/* USA-275: three visible groups, each one white surface with a
                     DOS blue group heading above the existing blue subsection
                     eyebrows. Only multiplication descendants expand. */}
-                <PersonOverviewGroup
-                  action={multiplication.discipleship.supported ? (
-                    <button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={() => multiplication.onAdd()} type="button">+ Add</button>
-                  ) : undefined}
-                  label="Multiplication"
-                >
+                {/* USA-280 Person record actions: the heading's + Add is gone.
+                    Add discipleship connection is in the plus menu, in this
+                    section's place in it. */}
+                <PersonOverviewGroup label="Multiplication">
                   <div className="pb-3">
                     <MultiplicationTree entries={multiplicationEntries} graph={multiplication.graph} onManage={multiplication.onManageEntry} onOpen={multiplication.onOpenEntry} />
                     {!multiplicationEntries.length && hasLegacyMultiplication && multiplication.discipleship.supported ? (
@@ -37642,11 +37770,7 @@ function PersonDetailOverlay({
                       resource. A row never says "Sent": DOS creates a link,
                       the leader delivers it. */}
                   <section aria-label="Resources" className="border-b border-dos-rule py-3 first:pt-1 last:border-b-0">
-                    <Eyebrow
-                      action={<button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={() => onSendResource(person.id)} type="button">+ Add</button>}
-                    >
-                      Resources
-                    </Eyebrow>
+                    <Eyebrow>Resources</Eyebrow>
                     {conceptJourneys.length || personResourceShares.length ? (
                       <div className="divide-y divide-dos-rule">
                         {conceptJourneys.map((journey) => (
@@ -37666,19 +37790,29 @@ function PersonDetailOverlay({
                                 </span>
                               ) : null}
                             </div>
-                            {/* Continue is the one filled action on the page.
-                                USA-281: Remove sits beside it so a Journey
-                                assigned by mistake can be taken off this
-                                record without asking anyone. */}
-                            <span className="flex shrink-0 items-center gap-1">
-                              {journey.isInAppJourney && journey.resource ? (
-                                <PDButton onClick={() => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId)} tone="solid">Continue</PDButton>
-                              ) : journey.resource ? (
-                                <PDButton href={journey.resource.path}>Open</PDButton>
-                              ) : null}
+                            {/* USA-280 Person record actions: one control, not
+                                two. Continue used to sit beside the three-dot
+                                menu, which put the same row's actions in two
+                                places and cost the narrow widths a column.
+
+                                The assignment id goes with it. Journeys are
+                                scoped by assignment instance (USA-170), and
+                                this row was passing only the person, so a
+                                person with one resource assigned twice, once
+                                through a group and once on their own, opened
+                                whichever the handler defaulted to instead of
+                                the study whose row was pressed. */}
+                            <span className="flex shrink-0 items-center">
                               <RowActionMenu
-                                items={[{ danger: true, label: "Remove", onSelect: () => onRemoveResourceAssignment(journey.assignment) }]}
-                                label={`More actions for ${journey.title}, ${resourceAssignmentIdentityLabel(journey.assignment, groups)}`}
+                                items={[
+                                  ...(journey.isInAppJourney && journey.resource
+                                    ? [{ label: "Continue", onSelect: () => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId, journey.assignment.id) }]
+                                    : journey.resource
+                                      ? [{ href: (journey.resource as DosResource).path, label: "Open" }]
+                                      : []),
+                                  { danger: true, label: "Remove", onSelect: () => onRemoveResourceAssignment(journey.assignment) },
+                                ]}
+                                label={`Actions for ${journey.title}, ${resourceAssignmentIdentityLabel(journey.assignment, groups)}`}
                               />
                             </span>
                           </div>
@@ -37704,11 +37838,7 @@ function PersonDetailOverlay({
                       anything here yet, and opens the same canonical form as
                       the FAB and Log Meeting. */}
                   <section aria-label="Accountability" className="border-b border-dos-rule py-3 last:border-b-0">
-                    <Eyebrow
-                      action={<button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={onAddAccountabilitySchedule} type="button">+ Add</button>}
-                    >
-                      Accountability
-                    </Eyebrow>
+                    <Eyebrow>Accountability</Eyebrow>
                     <div className={accountabilityTopics.length ? "divide-y divide-dos-rule" : "contents"}>
                       {cappedRows("accountability", accountabilityTopics).map((topic) => (
                         <PersonRecordRow key={topic.id} onOpen={topic.onOpen}>
@@ -37748,15 +37878,17 @@ function PersonDetailOverlay({
                     {personGroups.length ? (
                       <div className="divide-y divide-dos-rule">
                         {personGroups.map((group) => (
-                          <div className="flex items-center gap-4 py-3 first:pt-1.5 last:pb-1.5" key={group.id}>
-                            <div className="min-w-0 flex-1">
-                              <p className="text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</p>
-                              {group.leaderPersonId === person.id ? (
-                                <p className="mt-0.5 text-[13px] font-semibold text-dos-secondary">Leader</p>
-                              ) : null}
-                            </div>
-                            <PDButton onClick={() => onOpenGroup(group.id)}>View</PDButton>
-                          </div>
+                          /* USA-280 Person record actions: opening the group is
+                             the only thing this row does, so the row itself
+                             does it, the way every other record row does. A
+                             three-dot menu holding one item that repeats the
+                             row would be a menu for its own sake. */
+                          <PersonRecordRow key={group.id} onOpen={() => onOpenGroup(group.id)}>
+                            <span className="block text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</span>
+                            {group.leaderPersonId === person.id ? (
+                              <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Leader</span>
+                            ) : null}
+                          </PersonRecordRow>
                         ))}
                       </div>
                     ) : (
@@ -37768,14 +37900,11 @@ function PersonDetailOverlay({
                       for them is not something they are responsible for doing,
                       so it reads as its own compact section. */}
                   <section aria-label="Prayer" className="border-b border-dos-rule py-3 last:border-b-0">
-                    {/* + Add creates another request. Never the resource library:
-                        that is something to send someone, not something they
-                        asked for. */}
-                    <Eyebrow
-                      action={<button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={onAddPrayerRequest} type="button">+ Add</button>}
-                    >
-                      Prayer
-                    </Eyebrow>
+                    {/* Adding another request is the plus menu's Add prayer
+                        request, never the resource library: a resource is
+                        something to send someone, not something they asked
+                        us to pray for. */}
+                    <Eyebrow>Prayer</Eyebrow>
                     {prayerCountLine ? <p className="mb-1 text-dos-meta text-dos-secondary">{prayerCountLine}</p> : null}
                     {conceptPrayerItems.length ? (
                       <div className="divide-y divide-dos-rule">
@@ -37803,13 +37932,7 @@ function PersonDetailOverlay({
                       to them. The label stays "Feedback" (spec §9 PL-7). */}
                   <section aria-label="Feedback" className="border-b border-dos-rule py-3 last:border-b-0">
                     {/* Feedback is requested, not created. */}
-                    <Eyebrow
-                      action={lastMeeting && onRequestReview ? (
-                        <button className="-my-3 -mr-2 flex min-h-11 min-w-11 shrink-0 items-center justify-end px-2 text-[13px] font-semibold text-dos-blue" onClick={() => setIsFeedbackChoiceOpen(true)} type="button">Request</button>
-                      ) : undefined}
-                    >
-                      Feedback
-                    </Eyebrow>
+                    <Eyebrow>Feedback</Eyebrow>
                     {latestPersonFeedback ? (
                       <div className="divide-y divide-dos-rule">
                         <PersonRecordRow onOpen={() => setSelectedFeedbackItem(latestPersonFeedback.item)}>
