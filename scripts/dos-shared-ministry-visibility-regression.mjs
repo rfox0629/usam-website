@@ -26,6 +26,7 @@ register("./scripts/ts-loader.mjs", pathToFileURL("./"));
 const {
   dosPersonSharedMinistryMeetings,
   dosPersonSharedMinistryParticipation,
+  dosSharedMinistryLeaderName,
   dosSharedMinistryNameKey,
   dosSharedMinistryPersonIdsForMeeting,
   dosSharedMinistryTeamMemberPersonIds,
@@ -60,6 +61,7 @@ const sharedMeeting = {
   ministryTeam: [
     { fieldPersonId: null, role: "ministry_team", teamMemberId: "member-brooke" },
   ],
+  recorder: { displayName: "Ryan Fox" },
 };
 
 /* An ordinary meeting with no ministry team, to prove nothing changed for the
@@ -199,17 +201,68 @@ assert.deepEqual(
   "A supporting attendee must not gain ministry visibility: `ministry_event_people` states that participants receive person activity and supporting attendees do not.",
 );
 
-/* ---- 7. The role language never inverts who was serving whom ------------- */
+/* ---- 7. The role language says who joined whom, in whose meeting --------- */
 
-assert.equal(dosSharedMinistryTitle(["Samuel Gaffney"]), "Ministered with Samuel Gaffney");
-assert.equal(dosSharedMinistryTitle(["Samuel Gaffney", "Skylar Gaffney"]), "Ministered with Samuel Gaffney and Skylar Gaffney");
-assert.equal(dosSharedMinistryTitle([]), "Ministered with the team");
+/* The label is built from the record: the leader from the meeting's recorder,
+   the names from its participants. Nothing is hardcoded. */
+const brookeLeader = dosSharedMinistryLeaderName(sharedMeeting, "Brooke Fox");
 
+assert.equal(brookeLeader, "Ryan Fox", "The leader comes from the meeting's recorder.");
+assert.equal(
+  dosSharedMinistryTitle(brookeLeader, sharedMeeting.fieldPersonIds.map((id) => ({
+    "person-samuel": "Samuel Gaffney",
+    "person-skylar": "Skylar Gaffney",
+  })[id])),
+  "Joined Ryan Fox in a meeting with Samuel Gaffney and Skylar Gaffney",
+  "The shared ministry row must name the leader joined and the people the meeting was with.",
+);
+
+assert.equal(
+  dosSharedMinistryTitle("Ryan Fox", ["Samuel Gaffney"]),
+  "Joined Ryan Fox in a meeting with Samuel Gaffney",
+);
+assert.equal(
+  dosSharedMinistryTitle("Ryan Fox", ["Samuel Gaffney", "Skylar Gaffney", "Patty Gaffney"]),
+  "Joined Ryan Fox in a meeting with Samuel Gaffney, Skylar Gaffney and Patty Gaffney",
+);
+
+/* A meeting with no recorder still reads correctly rather than inventing a
+   leader, which is what older rows look like. */
+assert.equal(
+  dosSharedMinistryLeaderName({ ...sharedMeeting, recorder: null }, "Brooke Fox"),
+  "",
+  "A meeting with no recorder yields no leader.",
+);
+assert.equal(
+  dosSharedMinistryTitle("", ["Samuel Gaffney", "Skylar Gaffney"]),
+  "Joined a meeting with Samuel Gaffney and Skylar Gaffney",
+);
+assert.equal(dosSharedMinistryTitle("", []), "Joined a ministry meeting");
+
+/* Nobody joins themselves: when the leader IS the person whose record is being
+   read, the leader is dropped instead of reading "Joined Ryan Fox" on Ryan's
+   own record. */
+assert.equal(
+  dosSharedMinistryLeaderName(sharedMeeting, "Ryan Fox"),
+  "",
+  "A leader must never be shown as joining themselves.",
+);
+assert.equal(
+  dosSharedMinistryLeaderName(sharedMeeting, "ryan  fox"),
+  "",
+  "That self-check normalizes the name, like every other pairing here.",
+);
+
+/* The wording must never invert who was serving whom, and must no longer read
+   as though the participants were this person's fellow ministry partners --
+   the reason "Ministered with ..." was replaced. */
 for (const label of [
-  dosSharedMinistryTitle(["Samuel Gaffney", "Skylar Gaffney"]),
-  dosSharedMinistryTitle([]),
+  dosSharedMinistryTitle("Ryan Fox", ["Samuel Gaffney", "Skylar Gaffney"]),
+  dosSharedMinistryTitle("", ["Samuel Gaffney"]),
+  dosSharedMinistryTitle("", []),
 ]) {
   assert.equal(/disciple|ministered to|mentored/i.test(label), false, `Shared ministry must never read as being discipled. Got "${label}"`);
+  assert.equal(/ministered with/i.test(label), false, `"Ministered with" implies the participants were ministry partners. Got "${label}"`);
 }
 
 /* ---- 8. The wiring, in the surfaces that must read the resolver ---------- */
@@ -222,17 +275,22 @@ assert.ok(
 );
 assert.ok(
   client.includes("id: `history-ministry-meeting-${meeting.id}`")
-    && client.includes("title: dosSharedMinistryTitle(meeting.participantNames),"),
-  "Person Timeline must carry a shared ministry row titled with the ministered-with language.",
+    && client.includes("title: dosSharedMinistryTitle(dosSharedMinistryLeaderName(meeting, person.name), meeting.participantNames),"),
+  "Person Timeline must title its shared ministry row from the meeting's own leader and participants.",
 );
 assert.ok(
   client.includes("const lastMeetingIsSharedMinistry = Boolean(")
-    && client.includes("lastMeetingIsSharedMinistry ? dosSharedMinistryTitle(lastMeeting.participantNames)"),
+    && client.includes("lastMeetingIsSharedMinistry ? dosSharedMinistryTitle(dosSharedMinistryLeaderName(lastMeeting, person.name), lastMeeting.participantNames)"),
   "Overview's Last meeting must consider shared ministry and name the role accurately when it wins.",
+);
+assert.equal(
+  /dosSharedMinistryTitle\(\s*"/.test(client),
+  false,
+  "The label must always be built from the record, never from a hardcoded name.",
 );
 assert.ok(
   client.includes("const myRecordSharedMinistryMeetings = useMemo(")
-    && client.includes("buildMyRecordTimeline(record, people, sharedMinistryMeetings)")
+    && client.includes("buildMyRecordTimeline(record, people, sharedMinistryMeetings, myRecordOwnerName)")
     && client.includes('kind: "ministry" as const,'),
   "My Record's Timeline must include shared ministry participation under its own kind.",
 );
@@ -287,7 +345,8 @@ const preview = read("app/dos/app/preview/page.tsx");
 assert.ok(
   preview.includes('id: "demo-meeting-shared-ministry-gaffney"')
     && preview.includes('teamMemberId: "demo-household-member-brooke"')
-    && preview.includes('fieldPersonIds: ["demo-person-samuel-gaffney", "demo-person-skylar-gaffney"]'),
+    && preview.includes('fieldPersonIds: ["demo-person-samuel-gaffney", "demo-person-skylar-gaffney"]')
+    && preview.includes('id: "demo-event-person-ryan-recorder"'),
   "The demo fixture must reproduce the reported case: one meeting, Samuel and Skylar as participants, Brooke on the ministry team by roster id.",
 );
 assert.ok(

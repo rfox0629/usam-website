@@ -1098,6 +1098,17 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
         },
       ],
       notes: "Walked through the gospel together over dinner. Brooke ministered alongside.",
+      /* Ryan ran and logged this meeting, which is what makes the shared row on
+         Brooke's record read "Joined Ryan Fox in a meeting with ...". */
+      recorder: {
+        displayName: "Ryan Fox",
+        fieldPersonId: null,
+        id: "demo-event-person-ryan-recorder",
+        role: "recorder",
+        supportingSubRole: null,
+        teamMemberId: "demo-household-member-ryan",
+        userId: null,
+      },
       participantNames: ["Samuel Gaffney", "Skylar Gaffney"],
       recommendedResources: [],
       review: buildDemoReview(),

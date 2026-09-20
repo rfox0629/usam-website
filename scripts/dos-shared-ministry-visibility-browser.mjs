@@ -175,9 +175,9 @@ async function run(viewportName, viewport) {
     /LAST MEETING/.test(brookeOverview) && !brookeOverview.includes("Nothing logged yet"),
   );
   check(
-    `${viewportName}: Brooke's Overview names the ministry role, not discipleship`,
-    /Ministered with/.test(brookeOverview) && !/Ministered to Brooke|Discipled Brooke/i.test(brookeOverview),
-    (brookeOverview.match(/Ministered with[^|]*/) ?? ["(not found)"])[0].trim(),
+    `${viewportName}: Brooke's Overview names who was joined, not discipleship`,
+    /Joined Ryan Fox in a meeting with/.test(brookeOverview) && !/Ministered with|Ministered to Brooke|Discipled Brooke/i.test(brookeOverview),
+    (brookeOverview.match(/Joined [^|]*/) ?? ["(not found)"])[0].trim(),
   );
 
   await openRecordTab(page, "Timeline");
@@ -186,12 +186,12 @@ async function run(viewportName, viewport) {
 
   check(
     `${viewportName}: Brooke's Timeline shows the shared ministry meeting`,
-    /Ministered with Samuel Gaffney and Skylar Gaffney/.test(brookeTimeline),
+    /Joined Ryan Fox in a meeting with Samuel Gaffney and Skylar Gaffney/.test(brookeTimeline),
   );
   check(
     `${viewportName}: the shared row appears exactly once`,
-    (brookeTimeline.match(/Ministered with Samuel Gaffney and Skylar Gaffney/g) ?? []).length === 1,
-    `${(brookeTimeline.match(/Ministered with Samuel Gaffney and Skylar Gaffney/g) ?? []).length} occurrence(s)`,
+    (brookeTimeline.match(/Joined Ryan Fox in a meeting with Samuel Gaffney and Skylar Gaffney/g) ?? []).length === 1,
+    `${(brookeTimeline.match(/Joined Ryan Fox in a meeting with Samuel Gaffney and Skylar Gaffney/g) ?? []).length} occurrence(s)`,
   );
 
   /* ---- Samuel: the primary attendee path is untouched -------------------- */
@@ -208,7 +208,7 @@ async function run(viewportName, viewport) {
   );
   check(
     `${viewportName}: Samuel is never shown as shared ministry`,
-    !/Ministered with/.test(samuelTimeline),
+    !/Joined .* in a meeting with/.test(samuelTimeline),
   );
 
   /* ---- My Record, from Brooke's seat ------------------------------------ */
@@ -223,7 +223,7 @@ async function run(viewportName, viewport) {
 
   check(
     `${viewportName}: My Record Timeline carries the shared ministry meeting`,
-    /Ministered with Samuel Gaffney and Skylar Gaffney/.test(myRecordTimeline),
+    /Joined Ryan Fox in a meeting with Samuel Gaffney and Skylar Gaffney/.test(myRecordTimeline),
   );
   check(
     `${viewportName}: it is badged Ministry, not Discipleship`,
@@ -231,7 +231,7 @@ async function run(viewportName, viewport) {
   );
   check(
     `${viewportName}: My Record's Last meeting card stays discipler-scoped`,
-    !/Last meeting[^|]*\|[^|]*Ministered with/.test(myRecordTimeline),
+    !/Last meeting[^|]*\|[^|]*Joined .* in a meeting with/.test(myRecordTimeline),
   );
 
   /* ---- No horizontal overflow at this width ----------------------------- */

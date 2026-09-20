@@ -61,7 +61,7 @@ import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment
 import { MinistryTimeInvestmentReport } from "@/src/components/dos/reports/MinistryTimeInvestmentReport";
 import { exitAfterSaveNeedsConfirmation } from "@/src/lib/dos/unsaved-work";
 import { dosMyRecordDisciplerPersonIds, dosMyRecordLastMeeting, dosMyRecordMeetingDisciplerIds, dosMyRecordMeetingStartAt, dosMyRecordNextScheduledMeeting } from "@/src/lib/dos/my-record-meetings";
-import { dosPersonSharedMinistryMeetings, dosSharedMinistryTeamMemberPersonIds, dosSharedMinistryTitle } from "@/src/lib/dos/shared-ministry-participation";
+import { dosPersonSharedMinistryMeetings, dosSharedMinistryLeaderName, dosSharedMinistryTeamMemberPersonIds, dosSharedMinistryTitle } from "@/src/lib/dos/shared-ministry-participation";
 import { buildDosMinistryReport, dosDiscipleshipMeetingPersonId, dosMeetingContextLabel, dosMinistryFruitEntriesFromAppData, dosMinistryGatheringsFromAppData, dosMinistryReportInputFromAppData, formatDosMinistryMinutes, type DosMinistryReportRow, type DosMinistryReportTotals } from "@/src/lib/dos/ministry-report";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions } from "@/src/lib/dos/review-form-config";
 import { dosTestimonyReviewFormDefinition } from "@/src/lib/dos/testimony-form-config";
@@ -31194,6 +31194,7 @@ function buildMyRecordTimeline(
   record: DosAppUserRecord,
   people: DosAppPerson[],
   sharedMinistryMeetings: ReadonlyArray<DosAppMeeting> = [],
+  myRecordOwnerName: string | null = null,
 ): MyRecordTimelineItem[] {
   const encounterItems = buildMyRecordEncounters(record, people).map((encounter) => {
     const kind = myRecordEncounterKind(encounter);
@@ -31288,7 +31289,7 @@ function buildMyRecordTimeline(
     id: `shared-ministry-${meeting.id}`,
     kind: "ministry" as const,
     meta: [meetingActivityTitle(meeting), meeting.durationMinutes ? formatRecordDuration(meeting.durationMinutes) : null].filter(Boolean).join(" · "),
-    title: dosSharedMinistryTitle(meeting.participantNames),
+    title: dosSharedMinistryTitle(dosSharedMinistryLeaderName(meeting, myRecordOwnerName), meeting.participantNames),
   }));
 
   return [...encounterItems, ...mentorItems, ...sharedMinistryItems, ...assessmentItems, ...externalAssessmentItems, ...propheticWordItems, ...learningBookItems, ...learningChapterItems, ...lifePlanItems]
@@ -32691,6 +32692,7 @@ function MyRecordWorkspace({
   profileName,
   record,
   reminders,
+  myRecordOwnerName,
   resourceAssignments,
   resourceShareAssignments,
   sharedMinistryMeetings,
@@ -32736,6 +32738,9 @@ function MyRecordWorkspace({
   profileName: string;
   record: DosAppUserRecord;
   reminders: DosAppRelationshipReminder[];
+  /* USA-276: the account holder's own name, so a shared ministry row never
+     reads "Joined <themselves> in a meeting". */
+  myRecordOwnerName: string | null;
   resourceAssignments: DosAppResourceAssignment[];
   resourceShareAssignments: DosAppResourceShareAssignment[];
   /* USA-276: canonical meetings this account holder ministered at, resolved by
@@ -32777,10 +32782,10 @@ function MyRecordWorkspace({
       })),
     ];
 
-    return [...buildMyRecordTimeline(record, people, sharedMinistryMeetings), ...shareItems].sort((first, second) => (
+    return [...buildMyRecordTimeline(record, people, sharedMinistryMeetings, myRecordOwnerName), ...shareItems].sort((first, second) => (
       (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0)
     ));
-  }, [myResourceShares, people, record, sharedMinistryMeetings]);
+  }, [myRecordOwnerName, myResourceShares, people, record, sharedMinistryMeetings]);
   const activeMyRecordTab = normalizeMyRecordTab(tab);
   const recordScrollRef = useRef<HTMLDivElement>(null);
   const [isMyRecordFabOpen, setIsMyRecordFabOpen] = useState(false);
@@ -36979,7 +36984,7 @@ function PersonDetailOverlay({
       id: `history-ministry-meeting-${meeting.id}`,
       kind: "meeting" as const,
       onClick: () => onOpenMeeting(meeting.id, person.id),
-      title: dosSharedMinistryTitle(meeting.participantNames),
+      title: dosSharedMinistryTitle(dosSharedMinistryLeaderName(meeting, person.name), meeting.participantNames),
     })),
     ...personDiscipleshipMeetings.map((meeting) => ({
       date: meeting.meetingDate,
@@ -37337,7 +37342,7 @@ function PersonDetailOverlay({
               {chevron}
             </span>
             <span className={leadClass}>{formatRelativeDate(lastMeeting.date)}</span>
-            <span className={bodyClass}>{lastMeetingIsSharedMinistry ? dosSharedMinistryTitle(lastMeeting.participantNames) : (lastTimeTopic || meetingActivityTitle(lastMeeting))}</span>
+            <span className={bodyClass}>{lastMeetingIsSharedMinistry ? dosSharedMinistryTitle(dosSharedMinistryLeaderName(lastMeeting, person.name), lastMeeting.participantNames) : (lastTimeTopic || meetingActivityTitle(lastMeeting))}</span>
             {lastMeetingDurationLabel ? <span className={metaClass}>{lastMeetingDurationLabel}</span> : null}
           </Card>
         ) : (
@@ -47885,6 +47890,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             list keeps its search, circle filter and scroll for the way back. */}
         {activeTab === "people" && isMyRecordOpen && !selectedPerson ? (
           <MyRecordWorkspace
+            myRecordOwnerName={myRecordPerson?.name ?? null}
             sharedMinistryMeetings={myRecordSharedMinistryMeetings}
             groups={groups}
             commitments={myRecordCommitments}

@@ -56,6 +56,11 @@ export type SharedMinistryMeeting = {
   id: string;
   meetingStatus: "canceled" | "logged" | "scheduled";
   ministryTeam: ReadonlyArray<SharedMinistryEventPerson>;
+  /* Who logged the meeting. `recorded_by_display_name` is a quiet label, not
+     ownership -- but it is the one record DOS keeps of which leader ran this
+     meeting, and it is what the shared row names. A meeting saved before the
+     recorder was captured simply has none. */
+  recorder?: { displayName: string } | null;
 };
 
 export type SharedMinistryHouseholdMember = {
@@ -170,25 +175,62 @@ export function dosPersonSharedMinistryMeetings<MeetingT extends SharedMinistryM
       || second.id.localeCompare(first.id));
 }
 
-/* The label DOS already uses for this role. Meeting detail reads
-   "With {names}" for the ministry team, so a shared record says the same thing
-   the other way round: this person ministered alongside the people the meeting
-   was with. It never says "discipled" or "ministered to", which would invert
-   who was serving whom. */
-export function dosSharedMinistryTitle(participantNames: ReadonlyArray<string>) {
+/* Who this person joined. The recorder is the leader who ran the meeting; a
+   meeting saved before recorders were captured has none, and the label then
+   says so rather than inventing one.
+
+   `viewerName` is the person whose record is being read. A leader never joins
+   themselves, so when the two are the same person the leader is dropped and
+   the row reads "Joined a meeting with ...". */
+export function dosSharedMinistryLeaderName(
+  meeting: SharedMinistryMeeting,
+  viewerName?: string | null,
+) {
+  const leader = (meeting.recorder?.displayName ?? "").trim();
+
+  if (!leader) {
+    return "";
+  }
+
+  return dosSharedMinistryNameKey(leader) === dosSharedMinistryNameKey(viewerName)
+    ? ""
+    : leader;
+}
+
+function formatNameList(names: ReadonlyArray<string>) {
+  if (names.length === 1) {
+    return names[0];
+  }
+
+  if (names.length === 2) {
+    return `${names[0]} and ${names[1]}`;
+  }
+
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+/* What a shared ministry row is called.
+ *
+ * "Joined Ryan Fox in a meeting with Samuel Gaffney and Skylar Gaffney".
+ *
+ * Every part is built from the record: the leader from the meeting's recorder,
+ * the names from its participants. It replaced "Ministered with Samuel and
+ * Skylar", which read as though Samuel and Skylar were Brooke's fellow ministry
+ * partners rather than the people the meeting was with. The distinction this
+ * label has to carry is that Brooke joined the LEADER, in a meeting that was
+ * WITH the participants, and it never says "discipled" or "ministered to",
+ * which would invert who was serving whom. */
+export function dosSharedMinistryTitle(
+  leaderName: string,
+  participantNames: ReadonlyArray<string>,
+) {
   const named = participantNames.map((name) => name.trim()).filter(Boolean);
+  const leader = leaderName.trim();
+  const withPeople = named.length ? ` with ${formatNameList(named)}` : "";
 
-  if (!named.length) {
-    return "Ministered with the team";
+  if (leader) {
+    return `Joined ${leader} in a meeting${withPeople}`;
   }
 
-  if (named.length === 1) {
-    return `Ministered with ${named[0]}`;
-  }
-
-  if (named.length === 2) {
-    return `Ministered with ${named[0]} and ${named[1]}`;
-  }
-
-  return `Ministered with ${named.slice(0, -1).join(", ")} and ${named[named.length - 1]}`;
+  return named.length ? `Joined a meeting${withPeople}` : "Joined a ministry meeting";
 }
