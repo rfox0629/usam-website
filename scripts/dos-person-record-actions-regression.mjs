@@ -224,15 +224,26 @@ assert.ok(
   "the journey row has no button beside its menu",
 );
 
-/* Groups rows open the group and nothing else, so the row is the control. */
+/* USA-280 follow-up: the dots open the menu first and View group then
+   navigates. Groups used to be the one section where a tap navigated, which is
+   the inconsistency the screenshot audit reported. */
 assert.ok(
-  personSection("Groups").includes("<PersonRecordRow key={group.id} onOpen={() => onOpenGroup(group.id)}>"),
+  personSection("Groups").includes('label: "View group", onSelect: () => onOpenGroup(group.id)'),
   "a group row opens the group",
 );
 assert.ok(!personSection("Groups").includes("<PDButton"), "a group row carries no competing button");
+assert.ok(!personSection("Groups").includes("<PersonRecordRow"), "a group row is not itself a button");
+
+/* Nothing on the record navigates on tap any more: no row is a button and no
+   row draws a navigation chevron. This is the whole point of the change, so it
+   is asserted over the record as a whole rather than section by section. */
+assert.ok(!client.includes("function PersonRecordRow"), "the clickable-row primitive is gone");
+assert.ok(!/<ChevronRight[^>]*text-dos-eyebrow/.test(personDetail), "no record row draws a navigation chevron");
 
 /* Removal is last, set apart, and worded as removal. */
-const rowMenu = client.slice(client.indexOf("function RowActionMenu("), client.indexOf("/* USA-281: several assignments can exist"));
+/* The menu is a shared primitive in its own module now, so the Multiplication
+   tree uses the same control instead of a dots button of its own. */
+const rowMenu = readFileSync(new URL("../src/components/dos/RowActionMenu.tsx", import.meta.url), "utf8");
 assert.ok(rowMenu.includes("const startsDangerGroup = Boolean(item.danger) && !items[index - 1]?.danger;"), "the danger group is detected");
 assert.ok(/startsDangerGroup && index > 0 \?/.test(rowMenu), "and separated from what precedes it");
 assert.ok(rowMenu.includes("close();"), "the menu closes before it runs an action");
@@ -274,5 +285,108 @@ for (const [surface, source] of [["the Person record", personDetail], ["My Recor
     }
   }
 }
+
+/* ---- 7. The September 20 screenshot audit ----------------------------- *
+ *
+ * Every item below is a defect the founder photographed on production after
+ * the first pass shipped. Each assertion names the behaviour, not the code, so
+ * it keeps meaning if the implementation moves again.
+ */
+
+const rowMenuModule = read("src/components/dos/RowActionMenu.tsx");
+
+/* One shared primitive, used by the record and by the Multiplication tree.
+   Multiplication had grown its own dots button wired straight to a sheet,
+   which is why it behaved differently from every other section. */
+const multiplicationTree = read("src/components/dos/multiplication/MultiplicationTree.tsx");
+assert.ok(multiplicationTree.includes('from "@/src/components/dos/RowActionMenu"'), "Multiplication uses the shared row menu");
+assert.ok(!multiplicationTree.includes("MoreHorizontal"), "Multiplication has no dots button of its own");
+assert.ok(!/<button[^>]*onClick=\{\(\) => onOpen\(entry\)\}/.test(multiplicationTree), "a Multiplication row is not itself a button");
+assert.ok(multiplicationTree.includes('label: "View connection"'), "the menu names what opens the connection");
+
+/* End and Remove are different operations and stay separate. Neither deletes
+   the person. The menu names which one it is, and the sheet opens on that
+   confirmation rather than asking the reader to choose twice. */
+assert.ok(
+  personDetail.includes('label: "End discipleship connection"') && personDetail.includes('label: "Remove, added by mistake"'),
+  "End and Remove stay distinct on a connection",
+);
+const entrySheet = read("src/components/dos/multiplication/DiscipleshipSheets.tsx");
+assert.ok(entrySheet.includes("initialConfirming"), "the sheet opens on the action the menu named");
+assert.ok(entrySheet.includes('fit="content"'), "a connection sheet is sized by its content");
+
+/* Meetings: the last creation controls outside the plus are gone. Both were
+   already in the plus menu, in the Meetings position. */
+assert.ok(!personDetail.includes("<MeetingActionRow"), "the person record carries no Log/Schedule button row");
+for (const key of ["log-meeting", "schedule-meeting"]) {
+  assert.ok(personDetail.includes(`key: "${key}"`), `${key} is still reachable from the plus menu`);
+}
+
+/* Accountability replaced direct arrow navigation with a named action. */
+assert.ok(personSection("Accountability").includes('label: "View commitment"'), "Accountability opens from its menu");
+
+/* Fruit keeps provenance and is never edited apart from its source. */
+const fruitSection = personDetail.slice(personDetail.indexOf("const renderFruit = () => {"));
+const fruitBody = fruitSection.slice(0, fruitSection.indexOf("\n  };"));
+assert.ok(fruitBody.includes('label: "View meeting"'), "derived fruit can reach the meeting it came from");
+assert.ok(!/label: "(Edit|Delete|Remove)"/.test(fruitBody), "derived fruit is not edited or deleted on its own");
+assert.ok(client.includes('sourceIsMeeting ? "View meeting" : "View source"'), "the fruit sheet names the meeting rather than a vague source");
+
+/* A short sheet is sized by its content rather than opening almost empty. */
+const surfaces = read("src/components/dos/overlays/DosSurfaces.tsx");
+assert.ok(surfaces.includes('fit?: "content" | "full"'), "a sheet may be sized by its content");
+assert.ok(surfaces.includes('fit = "full"'), "and the fixed height stays the default");
+
+/* Resources name the state the assignment is in, from real progress. */
+const resourcesSection = personSection("Resources");
+for (const label of ["Resume", "Start", "Review", "Continue"]) {
+  assert.ok(resourcesSection.includes(`"${label}"`), `a journey row can read ${label}`);
+}
+
+/* "Week 2 of 7" sat beside "Not started" because the two read different
+   sources and only one was current. Progress is the stronger evidence, so the
+   state is derived from it. Nothing is written and no progress is invented. */
+assert.ok(personDetail.includes("const derivedState: DosAppResourceAssignment[\"status\"]"), "assignment state is derived from real progress");
+assert.ok(
+  /resourceAssignmentIdentityLabel\(journey\.assignment, groups, journey\.derivedState\)/.test(personDetail),
+  "the identity line reads the same derived state as the progress line",
+);
+assert.ok(!/\$\{unitLabel\} \$\{currentUnit\} of/.test(personDetail), "a position is no longer stated as though it were progress");
+assert.ok(personDetail.includes("complete`"), "progress is stated as sessions done");
+
+/* ---- 8. The second screenshot pass ------------------------------------ *
+ *
+ * Two things the first follow-up missed, both photographed on production.
+ */
+
+/* An empty state is still a creation entry point. "Nothing scheduled." kept a
+   Schedule button on the Next meeting card, and the desktop rail kept a second
+   copy, so scheduling still had two doors after the button row came out. */
+assert.ok(
+  !/Nothing scheduled\.[\s\S]{0,260}?<PDButton onClick=\{onScheduleMeeting\}>/.test(personDetail),
+  "no empty state offers its own Schedule button",
+);
+assert.ok(
+  (personDetail.match(/onClick=\{onScheduleMeeting\}/g) ?? []).length === 0,
+  "scheduling is reached from the plus menu only",
+);
+assert.ok(personDetail.includes("Nothing scheduled."), "the card still states the fact");
+assert.ok(personDetail.includes('key: "schedule-meeting"'), "and Schedule meeting is still in the plus menu");
+
+/* A prayer captured in a group gathering is stored with category "group", a
+   provenance marker rather than one of the six categories a person chooses.
+   The sheet printed it raw and unlabelled, so it read as a stray word. */
+assert.ok(client.includes("function prayerRequestCategoryDisplay("), "a category is resolved before it is shown");
+assert.ok(
+  /prayerRequestCategoryOptions\.some\(\(option\) => option\.value === value\)/.test(client),
+  "and only a real category is shown as one",
+);
+const prayerSheet = client.slice(client.indexOf("function PrayerRequestDetailSheet("), client.indexOf("function PrayerDetailMetaRow("));
+assert.ok(
+  !/\{category \? <p[^>]*>\{category\}<\/p> : null\}/.test(prayerSheet),
+  "the raw stored value is never printed on its own",
+);
+assert.ok(prayerSheet.includes(">Category<"), "the category carries a label");
+assert.ok(prayerSheet.includes(">From<"), "and a group-origin request states where it came from instead");
 
 console.log("dos-person-record-actions-regression: ok");

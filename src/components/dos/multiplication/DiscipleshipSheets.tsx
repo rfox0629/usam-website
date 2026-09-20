@@ -138,18 +138,24 @@ export function AddDiscipleshipConnectionSheet({
 
 export function DiscipleshipEntrySheet({
   entry,
+  initialConfirming = null,
   onClose,
   onEnd,
   onOpen,
   onRemove,
 }: {
   entry: DosDiscipleEntry;
+  /* USA-280 follow-up: the row menu now names the action, so the sheet opens
+     on that action's confirmation rather than making the reader choose the
+     same thing twice. End and Remove stay distinct, and each still states
+     what it does before it does it. */
+  initialConfirming?: "end" | "remove" | null;
   onClose: () => void;
   onEnd: (() => Promise<string | null>) | null;
   onOpen: (() => void) | null;
   onRemove: (() => Promise<string | null>) | null;
 }) {
-  const [confirming, setConfirming] = useState<"end" | "remove" | null>(null);
+  const [confirming, setConfirming] = useState<"end" | "remove" | null>(initialConfirming);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -188,7 +194,9 @@ export function DiscipleshipEntrySheet({
   );
 
   return (
-    <DosDetailSheet actions={actions} onClose={onClose} title={entry.name}>
+    /* A connection is a name, a status and at most one confirmation. It does
+       not need a full-height screen. */
+    <DosDetailSheet actions={actions} fit="content" onClose={onClose} title={entry.name}>
       {entry.state !== "confirmed" ? (
         <DosDetailSection label="Status">
           <p>{entry.state === "awaiting_confirmation" ? "Awaiting confirmation" : "Not confirmed"}</p>

@@ -965,21 +965,33 @@ assert.ok(
   "the dialog offers Cancel and a named Remove, not the browser's OK",
 );
 
-const rowMenu = appClient.slice(
-  appClient.indexOf("function RowActionMenu("),
-  appClient.indexOf("/* USA-281: several assignments can exist"),
-);
+/* USA-280 follow-up: the menu is a shared primitive in its own module now, so
+   the Multiplication tree can use the same control instead of its own dots
+   button. The guarantee is unchanged and still read from the order of the two
+   calls; only the file it is read from has moved. */
+const rowMenu = read("src/components/dos/RowActionMenu.tsx");
 
-/* USA-280 Person record actions put the close behind a helper, because the
-   menu now also returns focus to its trigger on Escape. The guarantee is the
-   same one and is still read from the order of the two calls. */
 assert.ok(
-  /onClick=\{\(\) => \{\s*close\(\);\s*item\.onSelect\?\.\(\);/.test(rowMenu),
+  /onClick=\{\(event\) => \{\s*event\.stopPropagation\(\);\s*close\(\);\s*item\.onSelect\?\.\(\);/.test(rowMenu),
   "the action menu closes before the confirmation opens, so the two are never stacked",
 );
 assert.ok(
   /const close = \(returnFocus = false\) => \{\s*setIsOpen\(false\);/.test(rowMenu),
   "closing the menu is what that helper does",
+);
+/* New with the shared primitive: opening a menu may never also navigate, and
+   two menus may never be open at once. Both were real defects on the record. */
+assert.ok(
+  /event\.preventDefault\(\);\s*event\.stopPropagation\(\);/.test(rowMenu),
+  "opening the menu never also triggers whatever encloses it",
+);
+assert.ok(
+  rowMenu.includes("announceOpenRowActionMenu"),
+  "opening one row menu closes every other one on the screen",
+);
+assert.ok(
+  rowMenu.includes("BOTTOM_FURNITURE_CLEARANCE") && rowMenu.includes("overflow-y-auto"),
+  "the menu is measured clear of the bottom navigation and scrolls rather than running off screen",
 );
 assert.ok(
   rowMenu.includes('event.key === "Escape"') && rowMenu.includes("triggerRef.current?.focus()"),

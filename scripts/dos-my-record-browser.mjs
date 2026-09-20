@@ -59,7 +59,20 @@ try {
     await page.screenshot({ path: `test-results/usa-272/${width}-timeline.png` });
     await page.getByRole("button", { name: "My Life", exact: true }).click();
     const relationships = record.locator('section[aria-label="People discipling me"]');
-    await relationships.getByText("Dirk Bond", { exact: true }).click();
+    /* USA-280 follow-up: a record row is no longer a button. The saved
+       relationship opens from the row's own trailing menu, the way every
+       other record row in DOS now opens. The guarantee is unchanged: the
+       saved relationship opens, and it can still be edited and closed.
+
+       That the row is not clickable is asserted too, so the shortcut this
+       change removed cannot quietly come back. */
+    assert.equal(
+      await relationships.getByRole("button", { name: "Dirk Bond", exact: true }).count(),
+      0,
+      "USA-280: the row itself is not a button",
+    );
+    await relationships.getByRole("button", { name: /^Actions for Dirk Bond$/ }).click();
+    await page.getByRole("menuitem", { name: "View", exact: true }).click();
     const sheet = page.locator('[data-dos-my-record-sheet]');
     await sheet.getByRole("button", { name: "Edit", exact: true }).click();
     await page.locator('[data-dos-my-record-sheet="editable"]').waitFor();

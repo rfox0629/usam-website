@@ -391,7 +391,16 @@ const myLifeOrder = ["Purpose", "Prophetic Words", "God's Faithfulness", "Assess
 assert(myLifeOrder.every((position, index) => index === 0 || position > myLifeOrder[index - 1]), "USA-272: My Life reads Purpose, Prophetic Words, God's Faithfulness, Assessments, Learning.");
 const surfaceSectionSource = client.slice(client.indexOf("function MyRecordSurfaceSection"), client.indexOf("function MyRecordSectionAction"));
 assert(surfaceSectionSource.includes("border-b border-dos-rule py-3 last:border-b-0"), "USA-272: sections are hairline-separated inside the one container, as on a Person.");
-assert(client.includes("function MyRecordSectionRow") && client.slice(client.indexOf("function MyRecordSectionRow"), client.indexOf("function MyRecordSectionEmpty")).includes("<PersonRecordRow"), "USA-272: rows are the Person record row, not a second row style.");
+/* USA-280 follow-up: the shared row primitive is `PersonRecordItem`, in
+   `src/components/dos/RowActionMenu.tsx`. `PersonRecordRow` made the whole row
+   a button with a chevron and is gone. The guarantee this line has always made
+   is unchanged: My Record uses the Person record's row, never a second row
+   style of its own. It is checked against the new name, and the retired one is
+   asserted absent so it cannot quietly come back. */
+const myRecordSectionRowSource = client.slice(client.indexOf("function MyRecordSectionRow"), client.indexOf("function MyRecordSectionEmpty"));
+assert(client.includes("function MyRecordSectionRow") && myRecordSectionRowSource.includes("<PersonRecordItem"), "USA-272: rows are the Person record row, not a second row style.");
+assert(!client.includes("function PersonRecordRow"), "USA-280: the clickable-row-with-chevron primitive stays retired.");
+assert(myRecordSectionRowSource.includes("menuItems="), "USA-280: a My Record row opens its saved item from its own menu.");
 
 // 10. The retired panels are gone rather than left unreachable.
 ["MyRecordWalkWithGodPanel", "MyRecordGrowthPanel", "MyRecordCallingPanel", "MyRecordLegacyPanel"].forEach((panel) => {
