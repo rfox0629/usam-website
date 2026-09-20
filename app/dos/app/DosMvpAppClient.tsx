@@ -38026,7 +38026,7 @@ function PersonDetailOverlay({
                             ]}
                             menuLabel={`Actions for ${item.text.slice(0, 60)}`}
                           >
-                            <span className="block text-[15px] font-semibold leading-[1.45] text-dos-body">{item.text}</span>
+                            <span className="block text-[15px] font-semibold leading-[1.45] text-dos-primary">{item.text}</span>
                             {item.origin ? (
                               <span className="mt-1 block text-[12.5px] font-semibold text-dos-eyebrow">{item.origin}</span>
                             ) : null}

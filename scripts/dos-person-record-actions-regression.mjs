@@ -464,4 +464,15 @@ assert.ok(
   "and the people are still in the commitment the row opens",
 );
 
+/* A prayer request is the person's own words, so it reads as a statement in
+   the record rather than as supporting description. It was the one row whose
+   first line used the body grey while every other section used the strong
+   near-black, which read as faded beside them. */
+const prayerSection = personSection("Prayer");
+assert.ok(
+  /<span className="block text-\[15px\] font-semibold leading-\[1\.45\] text-dos-primary">\{item\.text\}<\/span>/.test(prayerSection),
+  "the prayer itself is the strong record text, not the body grey",
+);
+assert.ok(prayerSection.includes('text-dos-eyebrow">{item.origin}'), "and where it came from stays the quieter line");
+
 console.log("dos-person-record-actions-regression: ok");
