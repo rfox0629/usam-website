@@ -317,17 +317,27 @@ export function buildAssessmentDiscussionItems({
     ))
     .slice(0, DISCUSSION_RULES.maxStrengths);
 
-  for (const category of strengths) {
+  /* USA-281: two strengths used to carry the same sentence word for word, so
+     the second card read as a copy of the first and the reader learned nothing
+     from it. The reason is stated once; a second strength says what is
+     different about it, which is that there is more than one.
+
+     The SELECTION is untouched: the same categories qualify, by the same
+     shared-strength rule, in the same order. Only the wording of the second
+     card changes, and it is chosen by position, so it is deterministic. */
+  strengths.forEach((category, index) => {
     items.push({
       category: category.name,
-      discussionPrompt: "You both scored this highly. Name what is working here out loud, because it is what the harder areas get built on.",
+      discussionPrompt: index === 0
+        ? "You both scored this highly. Name what is working here out loud, because it is what the harder areas get built on."
+        : "You both scored this highly too. Two strong areas is something to say out loud together.",
       kind: "strength",
       questionId: null,
       questionNumber: null,
       scoreLine: `${categoryScoreLine(category, participants)}. Together ${category.percentage}%.`,
       title: category.name,
     });
-  }
+  });
 
   return items;
 }

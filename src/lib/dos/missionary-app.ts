@@ -4479,6 +4479,48 @@ async function loadOrganizationForWorkspace(supabase: SupabaseAdminClient, works
     : null;
 }
 
+/* USA-281: what may be printed as the sender's affiliation on a report.
+ *
+ * A personal workspace owns an `organizations` row named after itself, so a
+ * Marriage Assessment read "Requested by Ryan Fox, Ryan Fox DOS". That is a
+ * workspace display name, not a membership, and a report that prints it states
+ * an affiliation nobody verified.
+ *
+ * Two tests, both of which must pass before a name is printed:
+ *
+ *   1. the organization is really this workspace's owner, not the USAM display
+ *      fallback every unowned workspace resolves to (USA-238);
+ *   2. its name is independent of the workspace's own name. "Ryan Fox DOS"
+ *      under "Ryan Fox" is the workspace wearing a second hat.
+ *
+ * When neither holds the line is omitted. It is never filled with USAM, or
+ * with the workspace name, for a user whose affiliation is not recorded. */
+export function verifiedSenderAffiliation(
+  organization: { inferred: boolean; name: string } | null,
+  workspaceDisplayName: string,
+) {
+  if (!organization || organization.inferred || !organization.name.trim()) {
+    return null;
+  }
+
+  /* Compared with the workspace's own suffix removed, because the personal
+     organization is the workspace name plus "DOS". */
+  const normalize = (value: string) => value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .replace(/\s+dos$/, "");
+
+  const organizationName = normalize(organization.name);
+  const workspaceName = normalize(workspaceDisplayName);
+
+  if (!workspaceName) {
+    return organization.name;
+  }
+
+  return organizationName === workspaceName ? null : organization.name;
+}
+
 function organizationTypeFromBranding(organization: Awaited<ReturnType<typeof loadOrganizationForWorkspace>>): DosAppOrganizationConnection["type"] {
   if (!organization) {
     return "other";
@@ -5747,7 +5789,7 @@ export async function loadDosAppData(
       organizations: buildOrganizationConnections({ organization, usamApplication, workspace }),
       reportSender: {
         name: workspace.display_name ?? "",
-        organization: organization && !organization.inferred ? organization.name : null,
+        organization: verifiedSenderAffiliation(organization, workspace.display_name ?? ""),
       },
       participantReviews,
       participantTestimonies,

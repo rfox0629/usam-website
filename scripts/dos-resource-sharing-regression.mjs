@@ -317,11 +317,22 @@ assert.ok(
   report.includes("your two scores added together and halved"),
   "the report says how the average was arrived at",
 );
-/* Same guarantee, read across the line breaks JSX puts in the sentence. */
+/* Same guarantee, read across the line breaks JSX puts in the sentence.
+
+   USA-281 shortened the sentence to the wording the founder specified:
+   "Average of your two scores. This reflects your answers on this date, not a
+   diagnosis." The long version restated the arithmetic the two score panels
+   already showed, and those five lines were most of the room the fifth
+   category row needed on page one of the PDF. The refusal is unchanged and
+   now leads rather than trailing a paragraph: the figure is named as an
+   average, it is tied to the date it was answered on, and it says it is not a
+   diagnosis. */
 assert.ok(
-  /not a\s+measure\s+of your\s+marriage/.test(report) && /not a diagnosis/.test(report),
+  /reflects your answers on this date/.test(report) && /not a diagnosis/.test(report),
   "the report refuses to read as a diagnosis",
 );
+/* The full arithmetic stays available rather than being deleted. */
+assert.ok(report.includes("How this is worked out"), "the fuller calculation is still reachable");
 assert.ok(report.includes("Every answer"), "every answer is in the report");
 assert.ok(!report.includes("\u2014"), "the report uses no em dashes");
 
