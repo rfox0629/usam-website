@@ -227,7 +227,18 @@ const stripComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, "").replac
 // 9. Preview fixtures show the chain without production data.
 {
   const preview = read("app/dos/app/preview/page.tsx");
-  assert.ok(preview.includes('params.perspective === "dirk" ? buildDirkPerspectiveData(demoData) : demoData'));
+  /* USA-276 added a second perspective, so the dispatch is no longer one
+     expression. The guarantee this line was written for is unchanged and still
+     checked: `?perspective=dirk` must reach Dirk's projection, and the plain
+     demo must still be what everything else gets. */
+  assert.ok(
+    preview.includes('params.perspective === "dirk"') && preview.includes("buildDirkPerspectiveData(demoData)"),
+    "?perspective=dirk must still dispatch to Dirk's projection.",
+  );
+  assert.ok(
+    /:\s*demoData;/.test(preview),
+    "Every other visitor must still get the unmodified demo data.",
+  );
   assert.ok(preview.includes("None\n   of these are production records."));
 }
 

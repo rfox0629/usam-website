@@ -485,6 +485,25 @@ function buildDirkPerspectiveData(ryan: DosAppData): DosAppData {
   };
 }
 
+/* `?perspective=brooke`: the SAME workspace and the same canonical meetings,
+   seen by Brooke rather than Ryan. Only the viewer identity changes -- no row
+   is added, removed or copied -- which is exactly the claim USA-276 makes:
+   one meeting record, more than one appropriate perspective. It exists so My
+   Record's shared ministry participation can be reviewed without touching the
+   default demo, and without anybody's real record. */
+function buildBrookePerspectiveData(ryan: DosAppData): DosAppData {
+  return {
+    ...ryan,
+    workspace: {
+      ...ryan.workspace,
+      greetingName: "Brooke",
+      userEmail: "brooke@example.com",
+      userFullName: "Brooke Fox",
+      userPersonId: "demo-person-brooke-fox",
+    },
+  };
+}
+
 function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppData {
   const people: DosAppPerson[] = [
     {
@@ -1051,6 +1070,54 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       title: "Coffee",
       type: "coffee",
       updatedAt: daysAgoIso(13, 12),
+    },
+    /* USA-276: the reported case, as a fixture. ONE canonical meeting: Ryan
+       logged it with Samuel and Skylar, and added Brooke under More people →
+       Ministry Team. Brooke is stored the way the picker's "Team" result
+       stores her -- by `teamMemberId`, with no `fieldPersonId` -- so this
+       fixture exercises the roster-member → Person resolution, which is the
+       half of the bug that a `fieldPersonId` row would hide. There is no
+       second meeting record anywhere. */
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(4, 18),
+      durationMinutes: 90,
+      fieldPersonIds: ["demo-person-samuel-gaffney", "demo-person-skylar-gaffney"],
+      growthReflection: emptyGrowthReflection,
+      id: "demo-meeting-shared-ministry-gaffney",
+      ministryTeam: [
+        {
+          displayName: "Brooke Fox",
+          fieldPersonId: null,
+          id: "demo-event-person-brooke-ministry",
+          role: "ministry_team",
+          supportingSubRole: null,
+          teamMemberId: "demo-household-member-brooke",
+          userId: null,
+        },
+      ],
+      notes: "Walked through the gospel together over dinner. Brooke ministered alongside.",
+      /* Ryan ran and logged this meeting, which is what makes the shared row on
+         Brooke's record read "Joined Ryan Fox in a meeting with ...". */
+      recorder: {
+        displayName: "Ryan Fox",
+        fieldPersonId: null,
+        id: "demo-event-person-ryan-recorder",
+        role: "recorder",
+        supportingSubRole: null,
+        teamMemberId: "demo-household-member-ryan",
+        userId: null,
+      },
+      participantNames: ["Samuel Gaffney", "Skylar Gaffney"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      scheduledEndAt: daysAgoIso(4, 18, 90),
+      scheduledStartAt: daysAgoIso(4, 18),
+      source: "table",
+      title: "Kitchen Table",
+      type: "kitchen_table",
+      updatedAt: daysAgoIso(4, 20),
     },
     {
       conversationFlowKey: "none",
@@ -3110,5 +3177,11 @@ export default async function DosAppPreviewPage({
      pinned instant is also the client's: DOS_DEMO_NOW governs both the recorded
      history and the rolling windows the app computes from it, so the server
      HTML and the hydrated render agree. */
-  return <DosMvpAppClient data={params.perspective === "dirk" ? buildDirkPerspectiveData(demoData) : demoData} renderedAt={demoNow().toISOString()} />;
+  const perspectiveData = params.perspective === "dirk"
+    ? buildDirkPerspectiveData(demoData)
+    : params.perspective === "brooke"
+      ? buildBrookePerspectiveData(demoData)
+      : demoData;
+
+  return <DosMvpAppClient data={perspectiveData} renderedAt={demoNow().toISOString()} />;
 }
