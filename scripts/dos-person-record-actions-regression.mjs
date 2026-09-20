@@ -180,10 +180,19 @@ assert.ok(
   "the life plan keeps its own control, because nothing else can reach it",
 );
 
-/* ---- 4. Empty sections stay, and the record says where adding lives ---- */
+/* ---- 4. Empty sections stay ------------------------------------------- */
 
+/* The "Use + to add to this record." line is gone from both surfaces.
+ *
+ * It was added when the sections lost their own + Add, to say where adding had
+ * moved. The plus is the only way to add on every record now, so the sentence
+ * was explaining a rule the screen no longer has an alternative to. The
+ * guarantee it was standing in for is the one asserted throughout this file
+ * and is unchanged: no section carries a creation control of its own, and
+ * every creation action is reachable from the plus. */
 for (const [surface, source] of [["the Person record", personDetail], ["My Record", myRecordOverview]]) {
-  assert.ok(source.includes("Use + to add to this record."), `${surface} says where adding lives`);
+  const code = source.replace(/\{?\/\*[\s\S]*?\*\/\}?/g, "");
+  assert.ok(!code.includes("Use + to add to this record."), `${surface} does not explain the plus in prose`);
 }
 
 /* An empty section is still a section: it reads a sentence rather than

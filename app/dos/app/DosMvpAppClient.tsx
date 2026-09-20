@@ -32184,12 +32184,11 @@ function MyRecordOverviewPanel({
         people={people}
         record={record}
       />
-      {/* USA-280 Person record actions: the same one line the Person record
-          carries, for the same reason. The sections no longer hold their own
-          + Add. */}
-      <p className="mt-3 text-[13px] font-semibold leading-[1.5] text-dos-secondary">
-        Use + to add to this record.
-      </p>
+      {/* USA-280 follow-up: the "Use + to add to this record." line is gone.
+          It was added when the sections lost their own + Add, to say where
+          adding had moved. The floating plus is the only way to add now, on
+          every record, so the sentence was explaining a rule the screen no
+          longer has an alternative to. */}
       <MyRecordSurface>
         <MyRecordSurfaceSection label="Time with God">
           <Eyebrow>
@@ -37775,13 +37774,8 @@ function PersonDetailOverlay({
           <article aria-label="Relationship brief" className="mx-auto w-full max-w-[600px] lg:mx-0 lg:max-w-[936px]">
             <div className="lg:flex lg:items-start lg:gap-x-12 xl:gap-x-16">
               <div className="min-w-0 lg:flex-1">
-                {/* USA-280 Person record actions: one quiet line, once, near
-                    the top. The sections no longer carry their own + Add, so
-                    the record says where adding lives rather than leaving a
-                    reader to find the button in the corner of the screen. */}
-                <p className="mt-1 text-[13px] font-semibold leading-[1.5] text-dos-secondary">
-                  Use + to add to this record.
-                </p>
+                {/* USA-280 follow-up: the "Use + to add to this record." line
+                    is gone, for the reason above. */}
 
                 {/* The relationship itself now reads under the name, so the two
                     meetings lead the page as a matched pair. */}
