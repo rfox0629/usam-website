@@ -2425,8 +2425,15 @@ await check("The shared detail shell protects editing exactly as Sheet does", as
   assert(shell.includes("isEditing && formIsDirty(initialValuesRef.current, readSurfaceValues(bodyRef.current))"), "Dirtiness is read from the rendered controls, only while editing.");
   assert(shell.includes("onMouseDown={backdropMayDismiss(kind) ? onClose : undefined}"), "An editing shell's backdrop cannot discard work.");
   assert(shell.includes("onClick={requestClose}") && shell.includes("{guard.confirmation}"), "Close routes through the guard.");
+  /* USA-280 follow-up: the fixed height is still the default, so nothing that
+     relied on it changes. A sheet may now opt into being sized by its content,
+     which is what three short lines of observed Fruit needed, and that variant
+     keeps the same ceiling so long content still scrolls rather than growing
+     past the screen. */
   assert(/h-\[calc\(100dvh-2\.75rem\)\]/.test(shell) && /md:h-\[min\(720px/.test(shell), "The shell has a fixed height, so short content cannot collapse it.");
-  assert(shell.includes("min-h-0 flex-1 overflow-y-auto"), "Only the body scrolls.");
+  assert(/fit = "full"/.test(shell), "Fixed height stays the default.");
+  assert(/max-h-\[calc\(100dvh-2\.75rem\)\]/.test(shell) && /md:max-h-\[min\(720px/.test(shell), "A content-sized sheet keeps the same ceiling.");
+  assert(shell.includes("min-h-0 overflow-y-auto"), "Only the body scrolls.");
 
   for (const title of ['title="Edit prayer request"', '? "Edit prayer request" : "Edit reminder"']) {
     const index = client.indexOf(title);

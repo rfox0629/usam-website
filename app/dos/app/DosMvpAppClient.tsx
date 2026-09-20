@@ -36396,10 +36396,17 @@ function PersonFruitDetailSheet({
   personName?: string | null;
 }) {
   const description = fruitNarrative(entry.event);
+  /* USA-280 follow-up: "View source" named nothing. When the source is a
+     meeting, the action says so, because that is the record it opens. The
+     label falls back only where the provenance really is something else. */
+  const sourceIsMeeting = Boolean(entry.event.meetingId);
 
   return (
     <DosDetailSheet
-      actions={onViewSource ? <AppButton onClick={() => { onClose(); onViewSource(); }} tone="white">View source</AppButton> : undefined}
+      actions={onViewSource ? <AppButton onClick={() => { onClose(); onViewSource(); }} tone="white">{sourceIsMeeting ? "View meeting" : "View source"}</AppButton> : undefined}
+      /* Observed Fruit is three short lines. It no longer opens an almost
+         empty full-height screen; longer detail still scrolls. */
+      fit="content"
       identity={personName}
       onClose={onClose}
       title={entry.event.title || entry.event.fruitType}
@@ -37819,9 +37826,25 @@ function PersonDetailOverlay({
                                 the study whose row was pressed. */}
                             <span className="flex shrink-0 items-center">
                               <RowActionMenu
+                                /* USA-280 follow-up: the first action names
+                                   the state the assignment is actually in.
+                                   "Continue" on something nobody has opened
+                                   yet, or on a paused study, described the
+                                   control rather than the record. The state is
+                                   the derived one, so a journey with real
+                                   session progress is never offered Start. */
                                 items={[
                                   ...(journey.isInAppJourney && journey.resource
-                                    ? [{ label: "Continue", onSelect: () => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId, journey.assignment.id) }]
+                                    ? [{
+                                      label: journey.derivedState === "paused"
+                                        ? "Resume"
+                                        : journey.derivedState === "not_started"
+                                          ? "Start"
+                                          : journey.derivedState === "completed"
+                                            ? "Review"
+                                            : "Continue",
+                                      onSelect: () => onOpenGuidedResource(journey.resource as DosResource, journey.assignment.personId, journey.assignment.id),
+                                    }]
                                     : journey.resource
                                       ? [{ href: (journey.resource as DosResource).path, label: "Open" }]
                                       : []),

@@ -194,7 +194,9 @@ export function DiscipleshipEntrySheet({
   );
 
   return (
-    <DosDetailSheet actions={actions} onClose={onClose} title={entry.name}>
+    /* A connection is a name, a status and at most one confirmation. It does
+       not need a full-height screen. */
+    <DosDetailSheet actions={actions} fit="content" onClose={onClose} title={entry.name}>
       {entry.state !== "confirmed" ? (
         <DosDetailSection label="Status">
           <p>{entry.state === "awaiting_confirmation" ? "Awaiting confirmation" : "Not confirmed"}</p>
