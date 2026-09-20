@@ -14024,6 +14024,11 @@ function PersonAccountabilityDetailSheet({
           {onEdit && !isSystemGenerated ? <AppButton onClick={onEdit} tone="white">Edit</AppButton> : null}
         </div>
       )}
+      /* USA-280 follow-up: sized by its content. Every read-only sheet in DOS
+         opened at a fixed near-full height whatever it held, so a short record
+         read as a mostly empty screen. The ceiling is unchanged, so anything
+         long still scrolls. */
+      fit="content"
       identity={personName}
       onClose={onClose}
       title="Accountability"
@@ -14047,7 +14052,6 @@ function PersonAccountabilityDetailSheet({
           </ul>
         ) : null}
 
-
         {recentProgress.length ? (
           <div className="border-t border-dos-rule pt-3">
             <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">
@@ -14062,7 +14066,18 @@ function PersonAccountabilityDetailSheet({
               ))}
             </div>
           </div>
-        ) : null}
+        ) : (
+          /* A commitment with nothing recorded yet read as a title above an
+             empty screen. It says so now, in the same restrained wording the
+             record's own empty sections use. */
+          <p className="border-t border-dos-rule pt-3 text-[14.5px] leading-[1.5] text-dos-body">
+            {progressKind === "check_in"
+              ? "No check-ins recorded yet."
+              : progressKind === "people" && confirmedSubjects.length
+                ? "No progress recorded since."
+                : "No progress recorded yet."}
+          </p>
+        )}
       </div>
     </DosDetailSheet>
   );
@@ -25413,6 +25428,7 @@ function PrayerRequestDetailSheet({
                 : null}
           </div>
         )}
+        fit="content"
         identity={linkedPeople.length ? linkedPeople.map((person) => person.name).join(", ") : null}
         onClose={onClose}
         title="Prayer request"
@@ -36315,6 +36331,7 @@ function PersonFeedbackDetailSheet({
           <PDButton onClick={() => { onClose(); onAddFollowUpReminder(); }}>Add reminder</PDButton>
         </div>
       ) : undefined}
+      fit="content"
       identity={personName}
       onClose={onClose}
       title={legacyForm ? legacyForm.formName : isQuickReview ? "Quick Review" : "Testimony"}
@@ -36471,6 +36488,7 @@ function PersonPrayerSheet({
           <AppButton onClick={() => { onClose(); onOpenPrayerResources(); }} tone="white">Prayer resources</AppButton>
         </div>
       )}
+      fit="content"
       identity={person.name}
       onClose={onClose}
       title="Prayer"
@@ -37777,17 +37795,23 @@ function PersonDetailOverlay({
                     section's place in it. */}
                 <PersonOverviewGroup label="Multiplication">
                   <div className="pb-3">
-                    {/* USA-280 follow-up: the dots open a menu, and each
-                        lifecycle action names itself. End and Remove stay
-                        separate because they are different: ending keeps the
-                        connection as history, removing takes back a row added
-                        by mistake. Neither deletes the person. */}
+                    {/* One removal, not two.
+
+                        "End discipleship connection" and "Remove, added by
+                        mistake" read as the same thing to anyone who has not
+                        seen the two database states behind them, and a menu
+                        that asks a reader to tell them apart is asking the
+                        wrong question. The menu offers Remove; the
+                        confirmation says what happens.
+
+                        It takes the row off Multiplication and stops it
+                        counting. It does not delete the person, their record,
+                        or any meeting logged with them. */}
                     <MultiplicationTree
                       entries={multiplicationEntries}
                       graph={multiplication.graph}
                       lifecycleItems={(entry) => [
-                        { label: "End discipleship connection", onSelect: () => multiplication.onManageEntry(entry, "end") },
-                        { danger: true, label: "Remove, added by mistake", onSelect: () => multiplication.onManageEntry(entry, "remove") },
+                        { danger: true, label: "Remove", onSelect: () => multiplication.onManageEntry(entry, "remove") },
                       ]}
                       onOpen={multiplication.onOpenEntry}
                     />
@@ -37921,22 +37945,16 @@ function PersonDetailOverlay({
                           menuItems={[{ label: "View commitment", onSelect: topic.onOpen }]}
                           menuLabel={`Actions for ${topic.title}`}
                         >
+                          {/* USA-280 follow-up: the row is the commitment's
+                              name and how it stands. Who has been confirmed
+                              used to expand underneath it, one line per
+                              person, which made a discipling goal the tallest
+                              thing in the section AND repeated the names
+                              already listed under Multiplication at the top of
+                              the same record. The names are in the commitment,
+                              which View commitment opens; nothing is lost. */}
                           <span className="block text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</span>
                           {topic.meta ? <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{topic.meta}</span> : null}
-                          {/* Who has been confirmed, one line each and one line
-                              per person however many updates mention them. */}
-                          {topic.subjects.length ? (
-                            <span className="mt-2 grid gap-1.5">
-                              {topic.subjects.map((subject) => (
-                                <span className="block" key={subject.key}>
-                                  <span className="block text-[14px] font-semibold leading-[1.2] text-dos-primary">{subject.name}</span>
-                                  {subject.startedDate ? (
-                                    <span className="block text-[12.5px] text-dos-eyebrow">Started {formatShortDate(subject.startedDate)}</span>
-                                  ) : null}
-                                </span>
-                              ))}
-                            </span>
-                          ) : null}
                         </PersonRecordItem>
                       ))}
                       {/* Same element, same type ramp and the same absence of
@@ -49325,6 +49343,8 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                 <AppButton disabled={isSubmitting} onClick={handleDeleteReminder} tone="white">Remove</AppButton>
               </div>
             ) : undefined}
+            /* A form needs its room; reading one reminder does not. */
+            fit={isEditingReminder ? "full" : "content"}
             identity={reminderPerson?.name ?? null}
             isEditing={isEditingReminder}
             onClose={closeForm}

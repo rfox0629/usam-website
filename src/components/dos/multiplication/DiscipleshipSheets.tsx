@@ -181,15 +181,16 @@ export function DiscipleshipEntrySheet({
   const actions = confirming ? (
     <div className="grid gap-2">
       <Button disabled={isSaving} fullWidth onClick={() => void run(confirming === "end" ? onEnd : onRemove)} variant={confirming === "end" ? "primary" : "danger"}>
-        {confirming === "end" ? "End connection" : "Remove entry"}
+        {confirming === "end" ? "End connection" : "Remove"}
       </Button>
       <Button disabled={isSaving} fullWidth onClick={() => setConfirming(null)} variant="text">Cancel</Button>
     </div>
   ) : (
+    /* USA-280 follow-up: the row menu names the action, so the sheet is for
+       reading the connection. Removal arrives here already confirming. */
     <div className="grid gap-2">
       {onOpen ? <Button fullWidth onClick={onOpen}>Open</Button> : null}
-      {onEnd ? <Button fullWidth onClick={() => setConfirming("end")}>End discipleship connection</Button> : null}
-      {onRemove ? <Button fullWidth onClick={() => setConfirming("remove")} variant="danger">Remove, added by mistake</Button> : null}
+      {onRemove ? <Button fullWidth onClick={() => setConfirming("remove")} variant="danger">Remove</Button> : null}
     </div>
   );
 
@@ -213,8 +214,10 @@ export function DiscipleshipEntrySheet({
         </DosDetailSection>
       ) : null}
       {confirming === "remove" ? (
-        <DosDetailSection label="Remove entry">
-          <p>For an entry added by mistake. It stops counting and is not kept as history.</p>
+        /* What it does, in the words of the thing it affects. */
+        <DosDetailSection label={`Remove ${entry.name}?`}>
+          <p>This takes them off Multiplication and stops them counting toward it.</p>
+          <p className="mt-2">It does not delete {entry.name}, their record, or any meeting logged with them.</p>
         </DosDetailSection>
       ) : null}
       <ErrorLine message={error} />

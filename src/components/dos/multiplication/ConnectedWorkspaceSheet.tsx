@@ -450,7 +450,7 @@ export function ConnectedWorkspaceSheet({
   }
 
   return (
-    <DosDetailSheet identity={identity} onClose={onClose} title={title}>
+    <DosDetailSheet fit="content" identity={identity} onClose={onClose} title={title}>
       <div data-connected-view="read-only">
         {stack.length > 1 ? (
           <button className="-mt-1 mb-2 inline-flex min-h-11 items-center gap-1.5 text-dos-label font-semibold text-dos-blueText focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue" onClick={back} type="button">
