@@ -60,6 +60,7 @@ import type { DosAppAccountabilityCheckIn, DosAppAccountabilityCheckInCommitment
 import { MinistryTimeInvestmentReport } from "@/src/components/dos/reports/MinistryTimeInvestmentReport";
 import { exitAfterSaveNeedsConfirmation } from "@/src/lib/dos/unsaved-work";
 import { dosMyRecordDisciplerPersonIds, dosMyRecordLastMeeting, dosMyRecordMeetingDisciplerIds, dosMyRecordMeetingStartAt, dosMyRecordNextScheduledMeeting } from "@/src/lib/dos/my-record-meetings";
+import { dosPersonSharedMinistryMeetings, dosSharedMinistryTeamMemberPersonIds, dosSharedMinistryTitle } from "@/src/lib/dos/shared-ministry-participation";
 import { buildDosMinistryReport, dosDiscipleshipMeetingPersonId, dosMeetingContextLabel, dosMinistryFruitEntriesFromAppData, dosMinistryGatheringsFromAppData, dosMinistryReportInputFromAppData, formatDosMinistryMinutes, type DosMinistryReportRow, type DosMinistryReportTotals } from "@/src/lib/dos/ministry-report";
 import { dosQuickReviewFormDefinition, dosQuickReviewOverallRatingOptions } from "@/src/lib/dos/review-form-config";
 import { dosTestimonyReviewFormDefinition } from "@/src/lib/dos/testimony-form-config";
@@ -30898,6 +30899,10 @@ type MyRecordRecordKind =
   | "learning"
   | "life_plan"
   | "mentor"
+  /* USA-276: a meeting this account holder ministered at, on somebody else's
+     canonical record. Distinct from "mentor", which is discipleship they
+     RECEIVED -- conflating the two would misread who was serving whom. */
+  | "ministry"
   | "prayer"
   | "prophetic"
   | "reflection"
@@ -30927,6 +30932,15 @@ function myRecordRecordVisual(kind: MyRecordRecordKind): MyRecordRecordVisual {
       icon: <Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
       iconClassName: "bg-[#EBF2FF] text-[#2563EB] ring-[#BFDBFE]",
       label: "Prayer",
+    };
+  }
+
+  if (kind === "ministry") {
+    return {
+      badgeClassName: "bg-[#FFFBEB] text-[#A16207]",
+      icon: <HeartHandshake className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />,
+      iconClassName: "bg-[#FFFBEB] text-[#A16207] ring-[#FDE68A]",
+      label: "Ministry",
     };
   }
 
@@ -31171,7 +31185,15 @@ function buildMyRecordEncounters(record: DosAppUserRecord, people: DosAppPerson[
 
 
 
-function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[]): MyRecordTimelineItem[] {
+/* USA-276: `sharedMinistryMeetings` are canonical meetings this account holder
+   ministered at, logged by whoever ran them. They are displayed here and
+   counted nowhere: My Record shows the one existing record, it does not make a
+   second one, and the Reports totals never see this function. */
+function buildMyRecordTimeline(
+  record: DosAppUserRecord,
+  people: DosAppPerson[],
+  sharedMinistryMeetings: ReadonlyArray<DosAppMeeting> = [],
+): MyRecordTimelineItem[] {
   const encounterItems = buildMyRecordEncounters(record, people).map((encounter) => {
     const kind = myRecordEncounterKind(encounter);
 
@@ -31257,7 +31279,18 @@ function buildMyRecordTimeline(record: DosAppUserRecord, people: DosAppPerson[])
     title: "Life Plan",
   }] : [];
 
-  return [...encounterItems, ...mentorItems, ...assessmentItems, ...externalAssessmentItems, ...propheticWordItems, ...learningBookItems, ...learningChapterItems, ...lifePlanItems]
+  const sharedMinistryItems = sharedMinistryMeetings.map((meeting) => ({
+    badge: myRecordRecordVisual("ministry").label,
+    body: meeting.notes,
+    date: meeting.date,
+    icon: myRecordRecordVisual("ministry").icon,
+    id: `shared-ministry-${meeting.id}`,
+    kind: "ministry" as const,
+    meta: [meetingActivityTitle(meeting), meeting.durationMinutes ? formatRecordDuration(meeting.durationMinutes) : null].filter(Boolean).join(" · "),
+    title: dosSharedMinistryTitle(meeting.participantNames),
+  }));
+
+  return [...encounterItems, ...mentorItems, ...sharedMinistryItems, ...assessmentItems, ...externalAssessmentItems, ...propheticWordItems, ...learningBookItems, ...learningChapterItems, ...lifePlanItems]
     .sort((first, second) => myRecordDateValue(second.date) - myRecordDateValue(first.date));
 }
 
@@ -32334,6 +32367,7 @@ function myRecordTimelineFilterOf(kind: MyRecordRecordKind): MyRecordTimelineFil
     case "reflection":
       return "walk";
     case "mentor":
+    case "ministry":
       return "meeting";
     case "prophetic":
     case "life_plan":
@@ -32658,6 +32692,7 @@ function MyRecordWorkspace({
   reminders,
   resourceAssignments,
   resourceShareAssignments,
+  sharedMinistryMeetings,
   returnLabel = null,
   tab,
 }: {
@@ -32702,6 +32737,9 @@ function MyRecordWorkspace({
   reminders: DosAppRelationshipReminder[];
   resourceAssignments: DosAppResourceAssignment[];
   resourceShareAssignments: DosAppResourceShareAssignment[];
+  /* USA-276: canonical meetings this account holder ministered at, resolved by
+     the app shell. Displayed on the Timeline; never counted, and never a copy. */
+  sharedMinistryMeetings: DosAppMeeting[];
   /* USA-268: "Reports" when a discipleship meeting was opened from Reports,
      so Back returns there. The same prop Person and the meeting record use. */
   returnLabel?: string | null;
@@ -32738,10 +32776,10 @@ function MyRecordWorkspace({
       })),
     ];
 
-    return [...buildMyRecordTimeline(record, people), ...shareItems].sort((first, second) => (
+    return [...buildMyRecordTimeline(record, people, sharedMinistryMeetings), ...shareItems].sort((first, second) => (
       (parseDisplayDate(second.date)?.getTime() ?? 0) - (parseDisplayDate(first.date)?.getTime() ?? 0)
     ));
-  }, [myResourceShares, people, record]);
+  }, [myResourceShares, people, record, sharedMinistryMeetings]);
   const activeMyRecordTab = normalizeMyRecordTab(tab);
   const recordScrollRef = useRef<HTMLDivElement>(null);
   const [isMyRecordFabOpen, setIsMyRecordFabOpen] = useState(false);
@@ -36472,6 +36510,7 @@ function PersonDetailOverlay({
   participantTestimonies,
   person,
   personNames,
+  sharedMinistryTeamMemberPersonIds,
   prayerRequests,
   workspace,
 }: {
@@ -36497,6 +36536,9 @@ function PersonDetailOverlay({
   index: number;
   leaderReflections: DosAppLeaderReflection[];
   meetings: DosAppMeeting[];
+  /* USA-276: household roster member id → Person id, resolved once by the app
+     shell. Lets this record find the meetings this person ministered at. */
+  sharedMinistryTeamMemberPersonIds: ReadonlyMap<string, string>;
   /* USA-275: the one discipleship graph and its actions. */
   multiplication: PersonMultiplicationProps;
   /* USA-265: My Record discipleship meetings and their saved relationships.
@@ -36615,6 +36657,11 @@ function PersonDetailOverlay({
   const personLoggedMeetings = personMeetings
     .filter((meeting) => meeting.meetingStatus === "logged")
     .sort((first, second) => dateSortValue(second.date) - dateSortValue(first.date));
+  /* USA-276: the same canonical meetings, seen from the other side -- the ones
+     this person ministered AT rather than the ones they were met with. Anybody
+     who is also a participant is excluded by the resolver, so a person never
+     appears twice and Samuel and Skylar's records are untouched. */
+  const personMinistryMeetings = dosPersonSharedMinistryMeetings(meetings, person.id, sharedMinistryTeamMemberPersonIds);
   const personDiscipleshipMeetings = discipleshipMeetings
     .filter((meeting) => dosDiscipleshipMeetingPersonId(meeting, discipleshipRelationships) === person.id)
     .sort((first, second) => dateSortValue(second.meetingDate) - dateSortValue(first.meetingDate));
@@ -36709,10 +36756,20 @@ function PersonDetailOverlay({
     reviews: personReviewItems.filter((item) => item.kind === "quick_review"),
     testimonies: personReviewItems.filter((item) => item.kind === "testimony_review"),
   });
-  const lastMeetingDate = [personLoggedMeetings[0]?.date, personDiscipleshipMeetings[0]?.meetingDate, accountabilityCheckIns[0]?.checkInDate, person.lastActivityAt]
+  const lastMeetingDate = [personLoggedMeetings[0]?.date, personMinistryMeetings[0]?.date, personDiscipleshipMeetings[0]?.meetingDate, accountabilityCheckIns[0]?.checkInDate, person.lastActivityAt]
     .filter((date): date is string => Boolean(date))
     .sort((first, second) => dateSortValue(second) - dateSortValue(first))[0] ?? null;
-  const lastMeeting = personLoggedMeetings[0] ?? null;
+  /* USA-276: Overview stops reading "Nothing logged yet" when the only thing
+     on the record is ministry this person did. A meeting they were met with
+     still wins a tie: that is their own relationship, and it is the stronger
+     claim on the card. */
+  const lastParticipantMeeting = personLoggedMeetings[0] ?? null;
+  const lastSharedMinistryMeeting = personMinistryMeetings[0] ?? null;
+  const lastMeetingIsSharedMinistry = Boolean(
+    lastSharedMinistryMeeting
+    && (!lastParticipantMeeting || dateSortValue(lastSharedMinistryMeeting.date) > dateSortValue(lastParticipantMeeting.date)),
+  );
+  const lastMeeting = lastMeetingIsSharedMinistry ? lastSharedMinistryMeeting : lastParticipantMeeting;
   /* A discipleship meeting at least as recent as the last logged meeting is
      the last meeting with this person (USA-265). */
   const lastDiscipleshipMeeting = personDiscipleshipMeetings[0] && (!lastMeeting || dateSortValue(personDiscipleshipMeetings[0].meetingDate) >= dateSortValue(lastMeeting.date))
@@ -36910,6 +36967,18 @@ function PersonDetailOverlay({
       // On a person's own timeline the person is already known — prefer the
       // meeting's human title ("Coffee") over "Ministered to {name}".
       title: meeting.title?.trim() || meetingActivityTitle(meeting),
+    })),
+    /* USA-276: ministry this person did, on the record that holds their
+       history. The row opens the one canonical meeting -- it is not a copy --
+       and its title says they ministered WITH the people it was with, never
+       that they were ministered to. */
+    ...personMinistryMeetings.map((meeting) => ({
+      date: meeting.date,
+      description: meetingActivityPreview(meeting, personReflections),
+      id: `history-ministry-meeting-${meeting.id}`,
+      kind: "meeting" as const,
+      onClick: () => onOpenMeeting(meeting.id, person.id),
+      title: dosSharedMinistryTitle(meeting.participantNames),
     })),
     ...personDiscipleshipMeetings.map((meeting) => ({
       date: meeting.meetingDate,
@@ -37267,7 +37336,7 @@ function PersonDetailOverlay({
               {chevron}
             </span>
             <span className={leadClass}>{formatRelativeDate(lastMeeting.date)}</span>
-            <span className={bodyClass}>{lastTimeTopic || meetingActivityTitle(lastMeeting)}</span>
+            <span className={bodyClass}>{lastMeetingIsSharedMinistry ? dosSharedMinistryTitle(lastMeeting.participantNames) : (lastTimeTopic || meetingActivityTitle(lastMeeting))}</span>
             {lastMeetingDurationLabel ? <span className={metaClass}>{lastMeetingDurationLabel}</span> : null}
           </Card>
         ) : (
@@ -39903,6 +39972,14 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     ? `Capture what mattered with ${workflowPersonLabel}.`
     : "Capture what mattered while it is fresh.";
   const ministryTeamPeopleOptions = useMemo(() => filteredPeople(people, ministryTeamQuery), [people, ministryTeamQuery]);
+  /* USA-276: household roster member → Person, so a meeting whose Ministry Team
+     names the "Team" copy of somebody reaches the Person record that carries
+     their history. Resolved once here and handed to every surface that needs
+     it, rather than each one pairing the two lists its own way. */
+  const sharedMinistryTeamMemberPersonIds = useMemo(
+    () => dosSharedMinistryTeamMemberPersonIds(data.householdMembers, people),
+    [data.householdMembers, people],
+  );
   const supportingAttendeeOptions = useMemo(() => filteredPeople(people, supportingAttendeeQuery), [people, supportingAttendeeQuery]);
   const draftRecommendedResources = useMemo(() => (
     buildMeetingRecommendations(selectedConversationFlow, conversationResponses)
@@ -39962,6 +40039,12 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 
     return userPersonId ? people.find((person) => person.id === userPersonId) ?? null : null;
   }, [data.workspace.userPersonId, people]);
+  /* USA-276: the canonical meetings the account holder ministered at, for My
+     Record's Timeline. Empty until their DOS account is linked to a Person,
+     which is the same link the rest of My Record already depends on. */
+  const myRecordSharedMinistryMeetings = useMemo(() => (
+    myRecordPerson ? dosPersonSharedMinistryMeetings(data.meetings, myRecordPerson.id, sharedMinistryTeamMemberPersonIds) : []
+  ), [data.meetings, myRecordPerson, sharedMinistryTeamMemberPersonIds]);
   const myRecordResourceAssignments = useMemo(() => (
     myRecordPerson ? data.resourceAssignments.filter((assignment) => assignment.personId === myRecordPerson.id) : []
   ), [data.resourceAssignments, myRecordPerson]);
@@ -47801,6 +47884,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             list keeps its search, circle filter and scroll for the way back. */}
         {activeTab === "people" && isMyRecordOpen && !selectedPerson ? (
           <MyRecordWorkspace
+            sharedMinistryMeetings={myRecordSharedMinistryMeetings}
             groups={groups}
             commitments={myRecordCommitments}
             commitmentsEnabled={commitmentsEnabled}
@@ -47861,6 +47945,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
               discipleshipRelationships={data.myRecord.mentorRelationships}
               reminders={data.reminders}
               personNames={personNamesById}
+              sharedMinistryTeamMemberPersonIds={sharedMinistryTeamMemberPersonIds}
               resourceAssignments={selectedPersonResourceAssignments}
               resourceShareAssignments={dosResourceSharesForPerson(data.resourceShareAssignments, selectedPerson.id)}
               onOpenShareResult={setShareResultId}
