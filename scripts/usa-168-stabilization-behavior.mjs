@@ -934,7 +934,12 @@ await check("Creating an Accountability and progressing one look different", asy
   /* Row actions moved inside the record. The Overview row is now the doorway
      to the Accountability itself, so the action that fits it lives in its
      detail sheet rather than on a surface meant to be scanned. */
-  assert(sectionBody.includes("<PersonRecordRow"), "A row opens its record.");
+  /* USA-280 follow-up: the row no longer navigates on tap. It is the doorway
+     to the Accountability exactly as before, but through a named action in its
+     own menu rather than a whole-row button with an arrow, which is what the
+     founder reported as direct arrow navigation. */
+  assert(sectionBody.includes("<PersonRecordItem"), "A row opens its record.");
+  assert(sectionBody.includes('label: "View commitment"'), "USA-280: the row names the action that opens the commitment.");
   assert(!sectionBody.includes("topic.actionLabel"), "The Overview no longer carries per-record actions.");
   assert(
     client.includes('row.progressKind === "people" ? "Add person" : row.progressKind === "count" ? "Add progress" : "Check in"'),
@@ -1166,9 +1171,16 @@ await check("Fruit and Feedback are separate everywhere on the Person", async ()
   const fruitBody = fruitSection.slice(0, fruitSection.indexOf("\n  };"));
   assert(!fruitBody.includes("Reviews &amp; testimonies"), "Fruit must not link to reviews and testimonies.");
   assert(!fruitBody.includes("testimonyCount") && !fruitBody.includes("reviewCount"), "Fruit must not count what people reported.");
-  /* Fruit records are now rows you open directly, so the section no longer
-     needs its own navigation action at all. */
-  assert(fruitBody.includes("<PersonRecordRow"), "A Fruit record opens itself.");
+  /* Fruit records are rows you open from the row's own menu, so the section
+     still needs no navigation action of its own.
+
+     USA-280 follow-up: derived fruit keeps its provenance. The menu offers to
+     read it and to open the meeting it was observed in, and deliberately
+     offers no edit or delete, because changing the evidence without changing
+     its source is how the two drift apart. */
+  assert(fruitBody.includes("<PersonRecordItem"), "A Fruit record opens itself.");
+  assert(fruitBody.includes('label: "View meeting"'), "USA-280: derived fruit can reach the meeting it came from.");
+  assert(!/label: "(Edit|Delete|Remove)"/.test(fruitBody), "USA-280: derived fruit is not edited or deleted apart from its source.");
   assert(fruitBody.includes("setSelectedOutcomeEntry(entry)"), "And opens the purpose-built Fruit detail.");
 
   // Feedback is its own section, present even when empty.
@@ -1330,8 +1342,22 @@ await check("Person Prayer opens their requests, not the resource library", asyn
   const prayerSection = personDetail.slice(personDetail.indexOf('aria-label="Prayer"'));
   const prayerSectionBody = prayerSection.slice(0, prayerSection.indexOf("</section>"));
   /* USA-264: an individual prayer opens that prayer, not an undifferentiated
-     list; the list is the fallback for rows with no record of their own. */
-  assert(prayerSectionBody.includes("onOpen={item.onOpen ?? (() => setIsPersonPrayerOpen(true))}"), "A prayer record opens that prayer.");
+     list; the list is the fallback for rows with no record of their own.
+
+     USA-280 follow-up: that guarantee is kept and made honest. Three different
+     things were listed as one. A request has its own record and opens it. A
+     reminder is a reminder and says so. A prayer typed into a meeting
+     reflection has no request record at all, so it no longer offers to open
+     one: it names the meeting it came from and opens that instead. */
+  assert(prayerSectionBody.includes('label: "View prayer request", onSelect: item.onOpen'), "A prayer record opens that prayer.");
+  assert(prayerSectionBody.includes('label: "View reminder"'), "USA-280: a reminder is named as a reminder.");
+  assert(prayerSectionBody.includes('label: "View meeting"') && prayerSectionBody.includes('label: "View group"'), "USA-280: origin destinations are separate explicit actions.");
+  assert(prayerSectionBody.includes("{item.origin}"), "USA-280: a row states where the prayer came from.");
+  const prayerItemsSource = personDetail.slice(personDetail.indexOf("const conceptPrayerItems"), personDetail.indexOf("const openPrayerCount"));
+  assert(
+    !/originKind: "meeting" as const,\s*text/.test(prayerItemsSource) || prayerItemsSource.includes("onOpen: undefined"),
+    "USA-280: a meeting-origin prayer never claims a request record it does not have.",
+  );
   assert(personDetail.includes("onOpen: (() => setOpenPrayerRequestId(request.id))"), "Each request row carries its own record.");
   assert(personDetail.includes("<PrayerRequestDetailSheet"), "That record's detail is mounted from the Person.");
   /* USA-280 Person record actions: creating another request is the floating
@@ -1371,14 +1397,14 @@ await check("Person Overview cards carry a visible action, not an invisible one"
   const fruitBody = fruit.slice(0, fruit.indexOf("\n  };"));
   /* Fruit records open themselves, so the section carries no action at all:
      observed fruit is captured while logging a meeting, never typed in here. */
-  assert(fruitBody.includes("<PersonRecordRow"), "A Fruit record is a row you open.");
+  assert(fruitBody.includes("<PersonRecordItem"), "A Fruit record is a row you open.");
   assert(!fruitBody.includes("+ Add"), "Fruit offers no manual creation.");
 
   const feedback = personDetail.slice(personDetail.indexOf('aria-label="Feedback"'));
   const feedbackBody = feedback.slice(0, feedback.indexOf("</section>"));
   /* The record is the doorway and Request is the section action, so there is
      no separate View button competing with either. */
-  assert(feedbackBody.includes("<PersonRecordRow"), "A feedback record opens itself.");
+  assert(feedbackBody.includes("<PersonRecordItem"), "A feedback record opens itself.");
   assert.equal((feedbackBody.match(/View all/g) ?? []).length, 0, "No competing navigation on that small card.");
   /* USA-280 Person record actions: Request moved to the floating plus with
      every other creation action, on the same condition it always had. */
@@ -1435,15 +1461,22 @@ await check("Person Overview is one interaction system: the plus creates, the re
   const fruitBody = fruit.slice(0, fruit.indexOf("\n  };"));
   assert(!fruitBody.includes("+ Add"), "Fruit must not offer manual creation.");
 
-  // Records are the doorway, with a visible affordance rather than hover.
-  assert(client.includes("function PersonRecordRow("), "There is one record row.");
-  const row = client.slice(client.indexOf("function PersonRecordRow("));
-  const rowBody = row.slice(0, row.indexOf("\nfunction "));
-  assert(rowBody.includes("<ChevronRight"), "A record row shows that it opens.");
+  /* Records are the doorway, and there is still exactly one row primitive.
+
+     USA-280 follow-up: the visible affordance is no longer a chevron drawn on
+     a whole-row button. It is the trailing three-dot control every section
+     shares, and the destination is a named action inside it. The chevron went
+     because a row carrying one alongside a menu told the reader two different
+     stories about what a tap does. */
+  const rowMenuModule = readFileSync(new URL("../src/components/dos/RowActionMenu.tsx", import.meta.url), "utf8");
+  assert(rowMenuModule.includes("export function PersonRecordItem("), "There is one record row.");
+  assert(!client.includes("function PersonRecordRow("), "The clickable-row-with-chevron primitive stays retired.");
+  const row = rowMenuModule.slice(rowMenuModule.indexOf("export function PersonRecordItem("));
+  assert(row.includes("<RowActionMenu"), "A record row shows that it opens.");
   for (const surface of ["Accountability", "Prayer", "Feedback"]) {
-    assert(section(surface).includes("<PersonRecordRow"), `${surface} records are rows you open.`);
+    assert(section(surface).includes("<PersonRecordItem"), `${surface} records are rows you open.`);
   }
-  assert(fruitBody.includes("<PersonRecordRow"), "Fruit records are rows you open.");
+  assert(fruitBody.includes("<PersonRecordItem"), "Fruit records are rows you open.");
 
   // The Overview stops carrying per-record action buttons.
   assert(!section("Accountability").includes("topic.actionLabel"), "Row actions moved into the record.");

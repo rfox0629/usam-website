@@ -1,7 +1,8 @@
 "use client";
 
-import { ChevronDown, ChevronRight, MoreHorizontal } from "lucide-react";
+import { ChevronDown, ChevronRight } from "lucide-react";
 import { useId, useState } from "react";
+import { RowActionMenu, type RowActionMenuItem } from "@/src/components/dos/RowActionMenu";
 import {
   dosDiscipleshipGraphLimits,
   dosMultiplicationCountLabel,
@@ -16,17 +17,26 @@ import {
  * profile, in the read-only connected view and in Reports, over the one
  * discipleship graph. No descriptions, cadence or creator attribution. */
 
+/* USA-280 follow-up: this row was the worst case of the pattern the founder
+   reported. It carried a navigation chevron inside a full-width button, an
+   expand chevron next to it, and a dots button that opened a sheet directly.
+   Three controls, two of them chevrons, and a tap near the dots usually hit
+   the row button instead, which is what "unresponsive dots" was.
+
+   The row is now text. The disclosure chevron stays, because expanding is not
+   navigation. Everything else is a named action in the shared row menu. */
 type TreeProps = {
   entries: DosDiscipleEntry[];
   graph: DosDiscipleshipGraph;
   /* Shown when there are no entries at the top level. */
   emptyText?: string | null;
-  /* Row-level manage action (End / Remove), when the viewer may correct it. */
-  onManage?: (entry: DosDiscipleEntry) => void;
+  /* Lifecycle actions the viewer may take on this row, appended after the
+     View connection action. Absent where the viewer may not correct the row. */
+  lifecycleItems?: (entry: DosDiscipleEntry) => ReadonlyArray<RowActionMenuItem>;
   onOpen: (entry: DosDiscipleEntry) => void;
 };
 
-export function MultiplicationTree({ emptyText = dosMultiplicationEmptyState, entries, graph, onManage, onOpen }: TreeProps) {
+export function MultiplicationTree({ emptyText = dosMultiplicationEmptyState, entries, graph, lifecycleItems, onOpen }: TreeProps) {
   if (!entries.length) {
     return emptyText ? <p className="text-[14.5px] leading-[1.5] text-dos-body">{emptyText}</p> : null;
   }
@@ -34,7 +44,7 @@ export function MultiplicationTree({ emptyText = dosMultiplicationEmptyState, en
   return (
     <ul className="divide-y divide-dos-rule" role="list">
       {entries.map((entry) => (
-        <MultiplicationNode ancestors={[]} depth={0} entry={entry} graph={graph} key={entry.key} onManage={onManage} onOpen={onOpen} />
+        <MultiplicationNode ancestors={[]} depth={0} entry={entry} graph={graph} key={entry.key} lifecycleItems={lifecycleItems} onOpen={onOpen} />
       ))}
     </ul>
   );
@@ -45,14 +55,14 @@ function MultiplicationNode({
   depth,
   entry,
   graph,
-  onManage,
+  lifecycleItems,
   onOpen,
 }: {
   ancestors: string[];
   depth: number;
   entry: DosDiscipleEntry;
   graph: DosDiscipleshipGraph;
-  onManage?: (entry: DosDiscipleEntry) => void;
+  lifecycleItems?: (entry: DosDiscipleEntry) => ReadonlyArray<RowActionMenuItem>;
   onOpen: (entry: DosDiscipleEntry) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -63,25 +73,21 @@ function MultiplicationNode({
   const canExpand = count > 0 && depth < dosDiscipleshipGraphLimits.maxDepth - 1 && !ancestors.includes(entry.key);
   const children = expanded && canExpand ? graph.directDisciples(entry.ref) : [];
   const status = entry.state === "awaiting_confirmation" ? "Awaiting confirmation" : entry.state === "declined" ? "Not confirmed" : null;
-  const canManage = Boolean(onManage && entry.connectionId);
+  /* Only a row this workspace recorded can be corrected here, and only a row
+     with a stored connection has anything to correct. A viewer without that
+     right sees View connection alone rather than actions that would fail. */
+  const lifecycle = entry.connectionId ? lifecycleItems?.(entry) ?? [] : [];
 
   return (
     <li className="py-1 first:pt-0 last:pb-0">
       <div className="flex min-h-11 items-center gap-1">
-        <button
-          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-dos-1 py-1.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
-          onClick={() => onOpen(entry)}
-          type="button"
-        >
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-[16px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">
-              {entry.name}
-              {count ? <span className="font-semibold text-dos-secondary"> · {count}</span> : null}
-            </span>
-            {status ? <span className="mt-0.5 block text-[12.5px] font-semibold text-dos-secondary">{status}</span> : null}
+        <span className="min-w-0 flex-1 py-1.5">
+          <span className="block truncate text-[16px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">
+            {entry.name}
+            {count ? <span className="font-semibold text-dos-secondary"> · {count}</span> : null}
           </span>
-          {canExpand ? null : <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-eyebrow" strokeWidth={2} />}
-        </button>
+          {status ? <span className="mt-0.5 block text-[12.5px] font-semibold text-dos-secondary">{status}</span> : null}
+        </span>
         {canExpand ? (
           <button
             aria-controls={childListId}
@@ -96,16 +102,12 @@ function MultiplicationNode({
               : <ChevronRight aria-hidden="true" className="h-4 w-4" strokeWidth={2} />}
           </button>
         ) : null}
-        {canManage ? (
-          <button
-            aria-label={`Manage ${entry.name}`}
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-dos-secondary hover:bg-dos-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
-            onClick={() => onManage?.(entry)}
-            type="button"
-          >
-            <MoreHorizontal aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
-          </button>
-        ) : null}
+        <span className="flex shrink-0 items-center">
+          <RowActionMenu
+            items={[{ label: "View connection", onSelect: () => onOpen(entry) }, ...lifecycle]}
+            label={`Actions for ${entry.name}`}
+          />
+        </span>
       </div>
       {expanded && canExpand ? (
         <ul className="mb-1 ml-2 border-l border-dos-rule pl-3" id={childListId} role="list">
@@ -116,7 +118,7 @@ function MultiplicationNode({
               entry={child}
               graph={graph}
               key={child.key}
-              onManage={undefined}
+              lifecycleItems={undefined}
               onOpen={onOpen}
             />
           ))}

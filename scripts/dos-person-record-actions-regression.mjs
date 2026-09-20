@@ -224,15 +224,26 @@ assert.ok(
   "the journey row has no button beside its menu",
 );
 
-/* Groups rows open the group and nothing else, so the row is the control. */
+/* USA-280 follow-up: the dots open the menu first and View group then
+   navigates. Groups used to be the one section where a tap navigated, which is
+   the inconsistency the screenshot audit reported. */
 assert.ok(
-  personSection("Groups").includes("<PersonRecordRow key={group.id} onOpen={() => onOpenGroup(group.id)}>"),
+  personSection("Groups").includes('label: "View group", onSelect: () => onOpenGroup(group.id)'),
   "a group row opens the group",
 );
 assert.ok(!personSection("Groups").includes("<PDButton"), "a group row carries no competing button");
+assert.ok(!personSection("Groups").includes("<PersonRecordRow"), "a group row is not itself a button");
+
+/* Nothing on the record navigates on tap any more: no row is a button and no
+   row draws a navigation chevron. This is the whole point of the change, so it
+   is asserted over the record as a whole rather than section by section. */
+assert.ok(!client.includes("function PersonRecordRow"), "the clickable-row primitive is gone");
+assert.ok(!/<ChevronRight[^>]*text-dos-eyebrow/.test(personDetail), "no record row draws a navigation chevron");
 
 /* Removal is last, set apart, and worded as removal. */
-const rowMenu = client.slice(client.indexOf("function RowActionMenu("), client.indexOf("/* USA-281: several assignments can exist"));
+/* The menu is a shared primitive in its own module now, so the Multiplication
+   tree uses the same control instead of a dots button of its own. */
+const rowMenu = readFileSync(new URL("../src/components/dos/RowActionMenu.tsx", import.meta.url), "utf8");
 assert.ok(rowMenu.includes("const startsDangerGroup = Boolean(item.danger) && !items[index - 1]?.danger;"), "the danger group is detected");
 assert.ok(/startsDangerGroup && index > 0 \?/.test(rowMenu), "and separated from what precedes it");
 assert.ok(rowMenu.includes("close();"), "the menu closes before it runs an action");

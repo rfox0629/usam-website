@@ -200,6 +200,11 @@ import {
   type PersonRecordActionKey,
 } from "@/src/lib/dos/person-record-sections";
 import {
+  PersonRecordItem,
+  RowActionMenu,
+  type RowActionMenuItem,
+} from "@/src/components/dos/RowActionMenu";
+import {
   cleanShareParticipantName,
   dosResourceActionLabels,
   dosResourceShareStatusLabel,
@@ -12783,104 +12788,9 @@ function resourceAssignmentResource(assignment: DosAppResourceAssignment) {
    the copy-link that people expect of it. The menu closes before it runs the
    action, which is what keeps a confirmation from opening underneath its own
    menu. */
-type RowActionMenuItem = {
-  danger?: boolean;
-  href?: string;
-  label: string;
-  onSelect?: () => void;
-};
-
-function RowActionMenu({
-  items,
-  label,
-}: {
-  items: ReadonlyArray<RowActionMenuItem>;
-  label: string;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement | null>(null);
-
-  if (!items.length) {
-    return null;
-  }
-
-  const close = (returnFocus = false) => {
-    setIsOpen(false);
-
-    if (returnFocus) {
-      triggerRef.current?.focus();
-    }
-  };
-
-  return (
-    <div
-      className="relative"
-      onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-          setIsOpen(false);
-        }
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && isOpen) {
-          event.stopPropagation();
-          close(true);
-        }
-      }}
-    >
-      <button
-        aria-expanded={isOpen}
-        aria-haspopup="menu"
-        aria-label={label}
-        className="flex h-11 w-11 items-center justify-center rounded-full text-dos-secondary transition-colors hover:bg-dos-blue50 hover:text-dos-primary"
-        onClick={() => setIsOpen((open) => !open)}
-        ref={triggerRef}
-        type="button"
-      >
-        <MoreHorizontal aria-hidden="true" className="h-5 w-5" strokeWidth={2} />
-      </button>
-      {isOpen ? (
-        <div className="absolute right-0 z-dos-popover mt-1 w-48 rounded-2xl border border-dos-line bg-white p-1.5 shadow-[0_18px_45px_rgba(42,37,29,0.14)]" role="menu">
-          {items.map((item, index) => {
-            const itemClassName = `flex min-h-11 w-full items-center rounded-xl px-3 text-left text-dos-label font-semibold hover:bg-dos-blue50 ${item.danger ? "text-[#B42318] hover:bg-[#FEF2F2]" : "text-dos-primary"}`;
-            /* Removal is last and set apart, so it is never the thing a
-               thumb lands on by accident. */
-            const startsDangerGroup = Boolean(item.danger) && !items[index - 1]?.danger;
-
-            return (
-              <Fragment key={item.label}>
-                {startsDangerGroup && index > 0 ? (
-                  <span aria-hidden="true" className="my-1.5 block h-px bg-dos-rule" />
-                ) : null}
-                {item.href ? (
-                  <a
-                    className={itemClassName}
-                    href={item.href}
-                    onClick={() => close()}
-                    role="menuitem"
-                  >
-                    {item.label}
-                  </a>
-                ) : (
-                  <button
-                    className={itemClassName}
-                    onClick={() => {
-                      close();
-                      item.onSelect?.();
-                    }}
-                    role="menuitem"
-                    type="button"
-                  >
-                    {item.label}
-                  </button>
-                )}
-              </Fragment>
-            );
-          })}
-        </div>
-      ) : null}
-    </div>
-  );
-}
+/* USA-280 Person record actions: the row menu moved to
+   `src/components/dos/RowActionMenu.tsx` so the Multiplication tree can use
+   the same control instead of its own dots button. */
 
 /* USA-281: several assignments can exist for one resource. They are grouped
    for DISPLAY only: nothing is merged, nothing is deleted, and each row keeps
@@ -12930,6 +12840,10 @@ function groupResourceAssignmentsByResource(assignments: readonly DosAppResource
 function resourceAssignmentIdentityLabel(
   assignment: DosAppResourceAssignment,
   groups: readonly DosAppGroup[],
+  /* USA-280 follow-up: the caller may already have read real session progress,
+     which is stronger evidence than the lifecycle column. Passing it in keeps
+     this line and the progress line beside it from contradicting each other. */
+  derivedStatus: DosAppResourceAssignment["status"] | null = null,
 ) {
   const source = assignment.sourceGroupId
     ? groups.find((group) => group.id === assignment.sourceGroupId)?.name ?? "Group"
@@ -12940,13 +12854,17 @@ function resourceAssignmentIdentityLabel(
   return [
     source,
     assignment.startDate ? `Started ${formatShortDate(assignment.startDate)}` : null,
-    resourceAssignmentStateLabel(assignment),
+    resourceAssignmentStateLabel(derivedStatus ? { ...assignment, status: derivedStatus } : assignment),
   ].filter(Boolean).join(" · ");
 }
 
 function resourceAssignmentStateLabel(assignment: DosAppResourceAssignment) {
   if (assignment.status === "paused") {
     return "Paused";
+  }
+
+  if (assignment.status === "completed") {
+    return "Completed";
   }
 
   if (assignment.status === "in_progress") {
@@ -31897,27 +31815,38 @@ function MyRecordSheetContent({
    Nothing about the stored record changes -- every panel below reads exactly
    the fields the retired Walk / Growth / Purpose / Faithfulness panels read. */
 
-/* One record row, in Person's Overview typography. */
+/* One record row, in Person's Overview typography.
+
+   USA-280 follow-up: the row is no longer a button. Opening the saved item is
+   a named action in the row's own menu, so My Record behaves the way a People
+   record does and a tap can only ever mean one thing. */
 function MyRecordSectionRow({
+  extraItems = [],
   meta,
   onOpen,
+  openLabel = "View",
   primary,
   secondary,
 }: {
+  extraItems?: ReadonlyArray<RowActionMenuItem>;
   meta?: string | null;
   onOpen: () => void;
+  openLabel?: string;
   primary: string;
   secondary?: string | null;
 }) {
   return (
-    <PersonRecordRow onOpen={onOpen}>
+    <PersonRecordItem
+      menuItems={[{ label: openLabel, onSelect: onOpen }, ...extraItems]}
+      menuLabel={`Actions for ${primary}`}
+    >
       <span className="block text-[15.5px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">{primary}</span>
       {/* No `block` here: Tailwind's line-clamp needs display:-webkit-box, and
           a `block` alongside it wins in the stylesheet, so the clamp silently
           does nothing and a long preview runs down the page. */}
       {secondary ? <span className="mt-0.5 line-clamp-2 text-[13px] leading-[1.5] text-dos-body">{secondary}</span> : null}
       {meta ? <span className="mt-0.5 block text-[12.5px] text-dos-secondary">{meta}</span> : null}
-    </PersonRecordRow>
+    </PersonRecordItem>
   );
 }
 
@@ -36295,30 +36224,14 @@ type PersonMultiplicationProps = {
   onAction: DiscipleshipAction;
   onAdd: (input?: { initialName?: string }) => void;
   onInviteAccount: () => void;
-  onManageEntry: (entry: DosDiscipleEntry) => void;
+  onManageEntry: (entry: DosDiscipleEntry, intent: "end" | "remove") => void;
   onOpenEntry: (entry: DosDiscipleEntry) => void;
   onViewConnectedActivity: (workspaceId: string) => void;
 };
 
-function PersonRecordRow({
-  children,
-  onOpen,
-}: {
-  children: ReactNode;
-  onOpen: () => void;
-}) {
-  return (
-    <button
-      className="flex min-h-11 w-full items-start gap-3 py-3 text-left transition-colors first:pt-1.5 last:pb-1.5 hover:bg-[#F8FBFF]"
-      onClick={onOpen}
-      type="button"
-    >
-      <span className="min-w-0 flex-1">{children}</span>
-      {/* A visible affordance, because mobile has no hover. */}
-      <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-dos-eyebrow" aria-hidden="true" strokeWidth={2} />
-    </button>
-  );
-}
+/* USA-280 follow-up: `PersonRecordRow` is gone. It made the whole row a button
+   and drew a chevron on it, which is exactly the "clickable-row shortcut and
+   competing chevron" this change removes. `PersonRecordItem` replaces it. */
 
 function PersonDetailLabel({ children }: { children: string }) {
   return <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">{children}</p>;
@@ -37250,20 +37163,53 @@ function PersonDetailOverlay({
   const answeredPrayerCount = answeredPersonPrayerRequests.length + answeredPrayerReminders.length;
   const agreedNextStep = lastMeeting?.growthReflection.actionStep?.trim() || lastConversationReflection?.nextStep?.trim() || null;
   const lastConversationPrayer = lastConversationReflection?.prayerNeeds?.trim() || null;
-  const conceptPrayerItems = [
-    ...activePersonPrayerRequests.map((request) => ({
-      id: `request-${request.id}`,
-      onOpen: (() => setOpenPrayerRequestId(request.id)) as (() => void) | undefined,
-      text: request.request?.trim() || request.title,
-    })),
+  /* USA-280 follow-up: three different things were being listed as though they
+     were one, and the row's single tap sent all three somewhere different.
+     A request opened its own record, a reminder opened the reminder editor,
+     and a prayer written into a meeting reflection opened THE MEETING. That
+     last one is the reported "View prayer request goes to the wrong place":
+     there is no separate request record behind it, so the row could only ever
+     reach the meeting it was typed into.
+
+     Each row now states where it came from, and its menu offers only the
+     destinations that really exist for it. A meeting-origin prayer never
+     claims to have a request to open, and a request that belongs to a group
+     offers View group as its own explicit action rather than folding the group
+     into the tap. */
+  const conceptPrayerItems: Array<{
+    groupId?: string | null;
+    id: string;
+    meetingId?: string | null;
+    onOpen?: (() => void) | undefined;
+    origin: string | null;
+    originKind: "group" | "meeting" | "personal" | "reminder";
+    text: string;
+  }> = [
+    ...activePersonPrayerRequests.map((request) => {
+      const requestGroup = request.groupId ? groups.find((group) => group.id === request.groupId) ?? null : null;
+
+      return {
+        groupId: requestGroup?.id ?? null,
+        id: `request-${request.id}`,
+        onOpen: (() => setOpenPrayerRequestId(request.id)) as (() => void) | undefined,
+        origin: requestGroup ? `From ${requestGroup.name}` : null,
+        originKind: (requestGroup ? "group" : "personal") as "group" | "personal",
+        text: request.request?.trim() || request.title,
+      };
+    }),
     ...activePrayerReminders.map((reminder) => ({
       id: `reminder-${reminder.id}`,
       onOpen: (() => onEditReminder(reminder.id)) as (() => void) | undefined,
+      origin: "Reminder",
+      originKind: "reminder" as const,
       text: reminderVisibleNotes(reminder.notes) || reminder.title?.replace(/^Prayer:\s*/i, "").trim() || "Prayer request",
     })),
     ...reflectionPrayerRows.map((reflection) => ({
       id: `reflection-${reflection.id}`,
-      onOpen: () => onOpenMeeting(reflection.meetingId, person.id),
+      meetingId: reflection.meetingId,
+      onOpen: undefined,
+      origin: "From a meeting",
+      originKind: "meeting" as const,
       text: reflection.prayerNeeds?.trim() ?? "",
     })),
   ].filter((item) => Boolean(item.text));
@@ -37282,15 +37228,44 @@ function PersonDetailOverlay({
     const sessions = isInAppJourney && resource ? guidedResourceSessions(resource) : [];
 
     const rawSessionTitle = currentUnit ? sessions[currentUnit - 1]?.title ?? null : null;
+    /* USA-280 follow-up: "Week 2 of 7" and "Not started" on the same row.
+       They are two different readings and only one of them was current.
+
+       "Week 2" came from real session progress: `completed + 1`, the session
+       the person is up to. "Not started" came from `assignment.status`, a
+       lifecycle column that nothing updates when a session is completed in the
+       guided reader. So a person one session in read as not started.
+
+       The stale read is corrected here rather than in the database: recorded
+       progress is the stronger evidence, so a row with completed sessions is
+       in progress whatever the column says. Nothing is written, no progress is
+       invented, and a journey with no completed sessions still reads as not
+       started. The count is stated as sessions done rather than as a position,
+       so it can no longer contradict the state beside it. */
+    const completedUnits = completion?.completed ?? 0;
+    const derivedState: DosAppResourceAssignment["status"] = assignment.status === "paused"
+      ? "paused"
+      : completion && completion.total > 0 && completedUnits >= completion.total
+        ? "completed"
+        : completedUnits > 0
+          ? "in_progress"
+          : assignment.status;
 
     return {
       assignment,
       completion,
       currentSessionTitle: rawSessionTitle ? rawSessionTitle.replace(/^(?:week|day)\s+\d+\s*[·:—-]\s*/i, "") : null,
       isInAppJourney,
+      derivedState,
       percent: completion?.percent ?? 0,
       resource,
-      stageLabel: currentUnit && completion ? `${unitLabel} ${currentUnit} of ${completion.total}` : resourceAssignmentTypeLabel(assignment),
+      stageLabel: completion && completion.total > 0
+        ? completedUnits === 0
+          ? `Not started · ${completion.total} ${unitLabel.toLowerCase()}s`
+          : completedUnits >= completion.total
+            ? `All ${completion.total} ${unitLabel.toLowerCase()}s complete`
+            : `${completedUnits} of ${completion.total} ${unitLabel.toLowerCase()}s complete`
+        : resourceAssignmentTypeLabel(assignment),
       title: resourceAssignmentTitle(assignment),
     };
   });
@@ -37410,14 +37385,36 @@ function PersonDetailOverlay({
         <Eyebrow>Fruit</Eyebrow>
         {recentOutcomes.length ? (
           <div className="divide-y divide-dos-rule">
-            {recentOutcomes.map((entry) => (
-              <PersonRecordRow key={entry.id} onOpen={() => setSelectedOutcomeEntry(entry)}>
-                <span className="block text-[15.5px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">
-                  {entry.type === "fruit" ? fruitOutcomeLabel(entry.event) : "Testimony shared"}
-                </span>
-                <span className="mt-0.5 block text-[12.5px] text-dos-secondary">{formatShortDate(entry.date)}</span>
-              </PersonRecordRow>
-            ))}
+            {recentOutcomes.map((entry) => {
+              const outcomeLabel = entry.type === "fruit" ? fruitOutcomeLabel(entry.event) : "Testimony shared";
+              /* Fruit is derived evidence: it was observed while logging a
+                 meeting and it belongs to that meeting. The menu therefore
+                 offers to read it and to open the meeting it came from, and
+                 never to edit or delete it on its own. Changing the evidence
+                 without changing its source is how the two drift apart. */
+              const sourceMeetingId = entry.event.meetingId ?? null;
+
+              return (
+                <PersonRecordItem
+                  key={entry.id}
+                  menuItems={[
+                    { label: "View details", onSelect: () => setSelectedOutcomeEntry(entry) },
+                    ...(sourceMeetingId
+                      ? [{ label: "View meeting", onSelect: () => onOpenMeeting(sourceMeetingId, person.id) }]
+                      : []),
+                  ]}
+                  menuLabel={`Actions for ${outcomeLabel}, ${formatShortDate(entry.date)}`}
+                >
+                  <span className="block text-[15.5px] font-bold leading-[1.3] tracking-[-0.015em] text-dos-primary">
+                    {outcomeLabel}
+                  </span>
+                  <span className="mt-0.5 block text-[12.5px] text-dos-secondary">
+                    {formatShortDate(entry.date)}
+                    {sourceMeetingId ? " · from a meeting" : ""}
+                  </span>
+                </PersonRecordItem>
+              );
+            })}
           </div>
         ) : (
           <p className="text-[14.5px] leading-[1.5] text-dos-body">No fruit recorded yet.</p>
@@ -37680,9 +37677,14 @@ function PersonDetailOverlay({
         </p>
       </section>
 
-      <div className="mt-5 md:mx-auto md:max-w-md">
-        <MeetingActionRow onLogMeeting={onLogMeeting} onScheduleMeeting={onScheduleMeeting} />
-      </div>
+      {/* USA-280 follow-up: the Log Meeting / Schedule Meeting pair is gone
+          from the person record. Both were already in the plus menu, in the
+          Meetings position, so this row was the last place on the record where
+          creating something happened outside the plus. Existing meetings are
+          managed from the meeting cards below and from Timeline.
+
+          Neither action was removed, only its duplicate button: the plus menu
+          entries were verified working before this row came out. */}
 
       <div className="sticky top-0 z-20 -mx-4 mt-4 bg-white/95 px-4 py-2 backdrop-blur md:mx-0 md:px-0">
         <div className="grid grid-cols-3 gap-1 rounded-full border border-[#E2E8F0] bg-white p-1 shadow-[0_10px_28px_rgba(15,23,42,0.06)]">
@@ -37735,7 +37737,20 @@ function PersonDetailOverlay({
                     section's place in it. */}
                 <PersonOverviewGroup label="Multiplication">
                   <div className="pb-3">
-                    <MultiplicationTree entries={multiplicationEntries} graph={multiplication.graph} onManage={multiplication.onManageEntry} onOpen={multiplication.onOpenEntry} />
+                    {/* USA-280 follow-up: the dots open a menu, and each
+                        lifecycle action names itself. End and Remove stay
+                        separate because they are different: ending keeps the
+                        connection as history, removing takes back a row added
+                        by mistake. Neither deletes the person. */}
+                    <MultiplicationTree
+                      entries={multiplicationEntries}
+                      graph={multiplication.graph}
+                      lifecycleItems={(entry) => [
+                        { label: "End discipleship connection", onSelect: () => multiplication.onManageEntry(entry, "end") },
+                        { danger: true, label: "Remove, added by mistake", onSelect: () => multiplication.onManageEntry(entry, "remove") },
+                      ]}
+                      onOpen={multiplication.onOpenEntry}
+                    />
                     {!multiplicationEntries.length && hasLegacyMultiplication && multiplication.discipleship.supported ? (
                       <div className="mt-2">
                         <p className="text-[13px] font-semibold text-dos-secondary">Earlier records mention discipling others.</p>
@@ -37782,7 +37797,7 @@ function PersonDetailOverlay({
                                   date. Two group journeys for one resource are
                                   two studies, not one listed twice. */}
                               <p className="mt-1 text-[12.5px] leading-[1.35] text-dos-eyebrow">
-                                {resourceAssignmentIdentityLabel(journey.assignment, groups)}
+                                {resourceAssignmentIdentityLabel(journey.assignment, groups, journey.derivedState)}
                               </p>
                               {journey.completion && journey.completion.total > 0 ? (
                                 <span className="mt-2 block h-[3px] max-w-[168px] overflow-hidden rounded-full bg-[#DCE4F2]">
@@ -37812,7 +37827,7 @@ function PersonDetailOverlay({
                                       : []),
                                   { danger: true, label: "Remove", onSelect: () => onRemoveResourceAssignment(journey.assignment) },
                                 ]}
-                                label={`Actions for ${journey.title}, ${resourceAssignmentIdentityLabel(journey.assignment, groups)}`}
+                                label={`Actions for ${journey.title}, ${resourceAssignmentIdentityLabel(journey.assignment, groups, journey.derivedState)}`}
                               />
                             </span>
                           </div>
@@ -37840,8 +37855,16 @@ function PersonDetailOverlay({
                   <section aria-label="Accountability" className="border-b border-dos-rule py-3 last:border-b-0">
                     <Eyebrow>Accountability</Eyebrow>
                     <div className={accountabilityTopics.length ? "divide-y divide-dos-rule" : "contents"}>
+                      {/* USA-280 follow-up: the row used to navigate straight
+                          into the commitment, with an arrow for an affordance.
+                          The named action does it now, so opening and managing
+                          are in the same place. */}
                       {cappedRows("accountability", accountabilityTopics).map((topic) => (
-                        <PersonRecordRow key={topic.id} onOpen={topic.onOpen}>
+                        <PersonRecordItem
+                          key={topic.id}
+                          menuItems={[{ label: "View commitment", onSelect: topic.onOpen }]}
+                          menuLabel={`Actions for ${topic.title}`}
+                        >
                           <span className="block text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{topic.title}</span>
                           {topic.meta ? <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">{topic.meta}</span> : null}
                           {/* Who has been confirmed, one line each and one line
@@ -37858,7 +37881,7 @@ function PersonDetailOverlay({
                               ))}
                             </span>
                           ) : null}
-                        </PersonRecordRow>
+                        </PersonRecordItem>
                       ))}
                       {/* Same element, same type ramp and the same absence of
                           extra padding as "No prayer requests yet." and "No
@@ -37878,17 +37901,26 @@ function PersonDetailOverlay({
                     {personGroups.length ? (
                       <div className="divide-y divide-dos-rule">
                         {personGroups.map((group) => (
-                          /* USA-280 Person record actions: opening the group is
-                             the only thing this row does, so the row itself
-                             does it, the way every other record row does. A
-                             three-dot menu holding one item that repeats the
-                             row would be a menu for its own sake. */
-                          <PersonRecordRow key={group.id} onOpen={() => onOpenGroup(group.id)}>
+                          /* USA-280 follow-up: the dots open the menu first and
+                             View group then navigates. The previous reasoning
+                             was that a one-item menu is a menu for its own
+                             sake, but that left Groups as the one section
+                             where a tap navigated, which is the inconsistency
+                             the founder actually reported.
+
+                             View attendance is deliberately absent: there is
+                             no attendance destination scoped to one member, and
+                             a generic one would be a fabricated destination. */
+                          <PersonRecordItem
+                            key={group.id}
+                            menuItems={[{ label: "View group", onSelect: () => onOpenGroup(group.id) }]}
+                            menuLabel={`Actions for ${group.name}`}
+                          >
                             <span className="block text-[16.5px] font-bold leading-[1.25] tracking-[-0.01em] text-dos-primary">{group.name}</span>
                             {group.leaderPersonId === person.id ? (
                               <span className="mt-0.5 block text-[13px] font-semibold text-dos-secondary">Leader</span>
                             ) : null}
-                          </PersonRecordRow>
+                          </PersonRecordItem>
                         ))}
                       </div>
                     ) : (
@@ -37909,9 +37941,28 @@ function PersonDetailOverlay({
                     {conceptPrayerItems.length ? (
                       <div className="divide-y divide-dos-rule">
                         {cappedRows("prayer", conceptPrayerItems).map((item) => (
-                          <PersonRecordRow key={item.id} onOpen={item.onOpen ?? (() => setIsPersonPrayerOpen(true))}>
+                          <PersonRecordItem
+                            key={item.id}
+                            menuItems={[
+                              ...(item.originKind === "reminder"
+                                ? [{ label: "View reminder", onSelect: item.onOpen ?? (() => setIsPersonPrayerOpen(true)) }]
+                                : item.onOpen
+                                  ? [{ label: "View prayer request", onSelect: item.onOpen }]
+                                  : []),
+                              ...(item.groupId
+                                ? [{ label: "View group", onSelect: () => onOpenGroup(item.groupId as string) }]
+                                : []),
+                              ...(item.meetingId
+                                ? [{ label: "View meeting", onSelect: () => onOpenMeeting(item.meetingId as string, person.id) }]
+                                : []),
+                            ]}
+                            menuLabel={`Actions for ${item.text.slice(0, 60)}`}
+                          >
                             <span className="block text-[15px] font-semibold leading-[1.45] text-dos-body">{item.text}</span>
-                          </PersonRecordRow>
+                            {item.origin ? (
+                              <span className="mt-1 block text-[12.5px] font-semibold text-dos-eyebrow">{item.origin}</span>
+                            ) : null}
+                          </PersonRecordItem>
                         ))}
                       </div>
                     ) : (
@@ -37935,7 +37986,10 @@ function PersonDetailOverlay({
                     <Eyebrow>Feedback</Eyebrow>
                     {latestPersonFeedback ? (
                       <div className="divide-y divide-dos-rule">
-                        <PersonRecordRow onOpen={() => setSelectedFeedbackItem(latestPersonFeedback.item)}>
+                        <PersonRecordItem
+                          menuItems={[{ label: "View feedback", onSelect: () => setSelectedFeedbackItem(latestPersonFeedback.item) }]}
+                          menuLabel={`Actions for feedback from ${formatShortDate(latestPersonFeedback.date)}`}
+                        >
                           <span className="block text-[15px] font-semibold leading-[1.35] text-dos-primary">
                             {[latestPersonFeedback.overallRating, formatShortDate(latestPersonFeedback.date)].filter(Boolean).join(" · ")}
                           </span>
@@ -37945,7 +37999,7 @@ function PersonDetailOverlay({
                           {latestPersonFeedback.wantsFollowUp ? (
                             <span className="mt-1.5 block text-[13px] font-bold text-dos-blue">Follow-up requested</span>
                           ) : null}
-                        </PersonRecordRow>
+                        </PersonRecordItem>
                       </div>
                     ) : (
                       /* Restrained rather than absent, so what someone submits
@@ -39572,7 +39626,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   const discipleshipGraph = useMemo(() => createDosDiscipleshipGraph(data.discipleship.graph), [data.discipleship.graph]);
   const [connectedView, setConnectedView] = useState<{ personId: string | null; workspaceId: string } | null>(null);
   const [addConnectionFor, setAddConnectionFor] = useState<{ initialName?: string; personId: string } | null>(null);
-  const [managedDiscipleEntry, setManagedDiscipleEntry] = useState<DosDiscipleEntry | null>(null);
+  const [managedDiscipleEntry, setManagedDiscipleEntry] = useState<{ entry: DosDiscipleEntry; intent: "end" | "remove" | "view" } | null>(null);
   const [inviteAccountPersonId, setInviteAccountPersonId] = useState<string | null>(null);
   const [isDiscipleshipConnectionsOpen, setIsDiscipleshipConnectionsOpen] = useState(false);
   const runDiscipleshipAction = useCallback<DiscipleshipAction>(async (action, payload) => {
@@ -42387,7 +42441,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
      inside a connected workspace, or -- for a name alone -- its entry. */
   function openDiscipleEntry(entry: DosDiscipleEntry) {
     if (entry.ref.kind === "name") {
-      setManagedDiscipleEntry(entry);
+      setManagedDiscipleEntry({ entry, intent: "view" });
       return;
     }
 
@@ -48136,7 +48190,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                 onAction: runDiscipleshipAction,
                 onAdd: (input) => setAddConnectionFor({ initialName: input?.initialName, personId: selectedPerson.id }),
                 onInviteAccount: () => setInviteAccountPersonId(selectedPerson.id),
-                onManageEntry: setManagedDiscipleEntry,
+                onManageEntry: (entry, intent) => setManagedDiscipleEntry({ entry, intent }),
                 onOpenEntry: openDiscipleEntry,
                 onViewConnectedActivity: (workspaceId) => setConnectedView({ personId: null, workspaceId }),
               }}
@@ -48173,7 +48227,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
         })() : null}
 
         {managedDiscipleEntry ? (() => {
-          const entry = managedDiscipleEntry;
+          const { entry, intent } = managedDiscipleEntry;
           const connectionId = entry.connectionId;
           /* Only a row recorded in this workspace can be ended or removed here. */
           const isOwnRow = Boolean(connectionId) && data.discipleship.graph.connections.some((connection) => connection.id === connectionId && connection.workspaceId === data.discipleship.workspaceId);
@@ -48181,6 +48235,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
           return (
             <DiscipleshipEntrySheet
               entry={entry}
+              initialConfirming={isOwnRow && intent !== "view" ? intent : null}
               onClose={() => setManagedDiscipleEntry(null)}
               onEnd={isOwnRow ? () => runDiscipleshipAction("end_connection", { connectionId }) : null}
               onOpen={entry.ref.kind === "person" ? () => {
