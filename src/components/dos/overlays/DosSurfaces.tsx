@@ -614,6 +614,7 @@ export function MobileBottomSheet({
 export function DosDetailSheet({
   actions,
   children,
+  fit = "full",
   identity,
   isEditing = false,
   onClose,
@@ -622,6 +623,11 @@ export function DosDetailSheet({
   /* Type-specific actions, rendered in the fixed area at the bottom. */
   actions?: ReactNode;
   children: ReactNode;
+  /* USA-280 follow-up: the sheet was always a fixed near-full height, whatever
+     it held, so three short lines of observed Fruit opened an almost empty
+     screen. "content" sizes the panel to what is in it and keeps the same
+     ceiling, so long content still scrolls exactly as before. */
+  fit?: "content" | "full";
   /* The Person this record belongs to, shown once, compactly, in the header. */
   identity?: string | null;
   isEditing?: boolean;
@@ -689,7 +695,7 @@ export function DosDetailSheet({
       <div
         aria-labelledby="dos-detail-sheet-title"
         aria-modal="true"
-        className="fixed inset-x-0 bottom-0 flex h-[calc(100dvh-2.75rem)] flex-col overflow-hidden rounded-t-[28px] border border-white/80 bg-white shadow-[0_-18px_60px_rgba(15,23,42,0.18)] outline-none md:static md:h-[min(720px,calc(100dvh-4rem))] md:w-[min(560px,calc(100vw-4rem))] md:rounded-[28px] md:shadow-[0_26px_90px_rgba(37,99,235,0.16)]"
+        className={`fixed inset-x-0 bottom-0 flex flex-col overflow-hidden rounded-t-[28px] border border-white/80 bg-white shadow-[0_-18px_60px_rgba(15,23,42,0.18)] outline-none md:static md:w-[min(560px,calc(100vw-4rem))] md:rounded-[28px] md:shadow-[0_26px_90px_rgba(37,99,235,0.16)] ${fit === "content" ? "max-h-[calc(100dvh-2.75rem)] md:max-h-[min(720px,calc(100dvh-4rem))]" : "h-[calc(100dvh-2.75rem)] md:h-[min(720px,calc(100dvh-4rem))]"}`}
         data-dos-detail-sheet=""
         onMouseDown={(event) => event.stopPropagation()}
         ref={panelRef}
@@ -713,7 +719,7 @@ export function DosDetailSheet({
             </button>
           </div>
         </header>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4" ref={bodyRef}>
+        <div className={`min-h-0 overflow-y-auto overscroll-contain px-5 py-4 ${fit === "content" ? "shrink" : "flex-1"}`} ref={bodyRef}>
           {children}
         </div>
         {actions ? (

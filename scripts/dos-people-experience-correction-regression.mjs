@@ -63,8 +63,13 @@ assert.ok(
 
 /* ---- 3. One detail shell ------------------------------------------------ */
 const shell = surfaces.slice(surfaces.indexOf("export function DosDetailSheet({"), surfaces.indexOf("export function DosDetailSection("));
+/* USA-280 follow-up: fixed height is still the default and still what most
+   sheets get. A sheet may opt into `fit="content"`, which keeps the same
+   ceiling so long content scrolls; the header and the action bar stay fixed
+   either way. */
 assert.ok(shell.includes('h-[calc(100dvh-2.75rem)]') && shell.includes("md:h-[min(720px,calc(100dvh-4rem))]"), "fixed height on mobile and desktop");
-assert.ok(shell.includes('<header className="shrink-0') && shell.includes("min-h-0 flex-1 overflow-y-auto") && shell.includes('className="shrink-0 border-t'), "fixed header and actions, scrolling body");
+assert.ok(shell.includes('fit = "full"'), "and it is the default");
+assert.ok(shell.includes('<header className="shrink-0') && shell.includes("min-h-0 overflow-y-auto") && shell.includes('className="shrink-0 border-t'), "fixed header and actions, scrolling body");
 assert.ok(shell.includes("pb-[calc(env(safe-area-inset-bottom)+0.85rem)]"), "the action area respects the safe area");
 assert.ok(shell.includes("panelRef.current?.focus"), "keyboard focus moves into the dialog");
 for (const name of [
