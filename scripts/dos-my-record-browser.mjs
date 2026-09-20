@@ -66,7 +66,18 @@ try {
     await sheet.getByRole("button", { name: "Close", exact: true }).click();
     await page.screenshot({ path: `test-results/usa-272/${width}-my-life.png` });
     await page.getByRole("button", { name: "Overview", exact: true }).click();
-    await record.locator('section[aria-label="Time with God"]').getByRole("button", { name: /Add|Log/ }).click();
+    /* USA-280 Person record actions: the Time with God section no longer
+       carries its own + Add. The same editor is opened from the record's
+       floating plus, which is now the one place a record is added to, so this
+       drives it from there. The guarantee is unchanged: the entry opens, the
+       unsaved-work guard still protects what is typed into it. */
+    assert.equal(
+      await record.locator('section[aria-label="Time with God"]').getByRole("button", { name: /^\+ Add$/ }).count(),
+      0,
+      "USA-280: the section carries no add of its own",
+    );
+    await page.getByRole("button", { name: "Open My Record actions" }).click();
+    await page.getByRole("button", { name: "Time With God", exact: true }).click();
     const notes = page.locator('[data-dos-my-record-sheet] textarea[name="notes"]');
     await notes.fill("USA-272 isolated unsaved-work verification");
     await page.keyboard.press("Escape");
