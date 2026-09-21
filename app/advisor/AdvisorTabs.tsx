@@ -82,7 +82,7 @@ export function AdvisorTabs({ note, panels }: { note?: string; panels: AdvisorTa
         );
       })}
 
-      {note ? <p className="mt-2.5 text-[13px] leading-6 text-[#6B7686]">{note}</p> : null}
+      {note ? <p className="mt-3 text-[15.5px] leading-[1.75] text-[#5A6473]">{note}</p> : null}
     </div>
   );
 }

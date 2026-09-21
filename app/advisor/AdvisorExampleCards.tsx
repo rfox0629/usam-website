@@ -47,7 +47,7 @@ export function AdvisorExampleCards({ examples, note }: { examples: AdvisorExamp
           </Link>
         ))}
       </div>
-      {note ? <p className="mt-3 max-w-[36rem] text-[13.5px] leading-[1.65] text-[#6B7686]">{note}</p> : null}
+      {note ? <p className="mt-4 text-[15.5px] leading-[1.75] text-[#5A6473]">{note}</p> : null}
     </div>
   );
 }

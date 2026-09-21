@@ -31,7 +31,7 @@ export function AdvisorLinkAccordion({ groups }: { groups: AdvisorLinkGroup[] })
               type="button"
             >
               <span
-                className="text-[14px] font-medium text-[#0B1220]"
+                className="text-[15.5px] font-medium text-[#0B1220]"
                 style={{ fontFamily: font.rajdhani }}
               >
                 {group.title}
@@ -47,12 +47,12 @@ export function AdvisorLinkAccordion({ groups }: { groups: AdvisorLinkGroup[] })
               id={`advisor-links-${group.title.replace(/\W+/g, "-").toLowerCase()}`}
             >
               <p
-                className="hidden pb-3 text-[14px] font-medium text-[#0B1220] print:block"
+                className="hidden pb-3 text-[15.5px] font-medium text-[#0B1220] print:block"
                 style={{ fontFamily: font.rajdhani }}
               >
                 {group.title}
               </p>
-              {group.note ? <p className="mb-3 text-[14px] leading-[1.6] text-[#6B7686]">{group.note}</p> : null}
+              {group.note ? <p className="mb-3 text-[15.5px] leading-[1.75] text-[#5A6473]">{group.note}</p> : null}
               <ul className="space-y-3">
                 {group.links.map((link) => (
                   <li key={`${group.title}-${link.href}-${link.label}`}>
@@ -65,7 +65,7 @@ export function AdvisorLinkAccordion({ groups }: { groups: AdvisorLinkGroup[] })
                       {link.label}
                     </a>
                     {link.description ? (
-                      <p className="mt-1 text-[13.5px] leading-6 text-[#6B7686]">{link.description}</p>
+                      <p className="mt-1 text-[15.5px] leading-[1.7] text-[#5A6473]">{link.description}</p>
                     ) : null}
                   </li>
                 ))}

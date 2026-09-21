@@ -45,6 +45,22 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
  * change can narrow the prose again without touching every block.
  */
 const COLUMN = "mx-auto max-w-[52rem]";
+
+/*
+ * One size for every run of reading text: paragraphs, ledes, notes, captions,
+ * table cells, callouts and questions. Only headings, small uppercase labels
+ * and the figure values step away from it, so a section never looks like it
+ * changes typeface partway down.
+ */
+const BODY = "text-[15.5px] leading-[1.75]";
+
+/*
+ * The site header sits above this document, and its brand mark should line up
+ * with the document column rather than hugging the window. Padding has to live
+ * outside the measure for the edges to meet, so the max width here is the
+ * column plus the gutters the sections use.
+ */
+export const ADVISOR_NAV_CONTAINER = "mx-auto w-full max-w-[55rem] px-6 lg:max-w-[57rem] lg:px-10";
 const PROSE = COLUMN;
 const WIDE = COLUMN;
 const CONTAINER = COLUMN;
@@ -78,7 +94,7 @@ function SectionHeading({ children }: { children: ReactNode }) {
 
 function Lede({ children }: { children: ReactNode }) {
   return (
-    <p className={`mt-4 ${PROSE} break-words text-[18.5px] leading-[1.6] text-[#1F2937]`}>{children}</p>
+    <p className={`mt-4 ${PROSE} break-words text-[15.5px] leading-[1.75] text-[#3D4654]`}>{children}</p>
   );
 }
 
@@ -115,12 +131,12 @@ function Figures({
                 together; a grid of bare numbers invites a reader to take one
                 for another. */}
             {figure.note ? (
-              <p className="mt-2.5 text-[13px] leading-[1.55] text-[#5A6473]">{figure.note}</p>
+              <p className="mt-2.5 text-[15.5px] leading-[1.7] text-[#5A6473]">{figure.note}</p>
             ) : null}
           </div>
         ))}
       </dl>
-      {note ? <p className={`mt-3 ${PROSE} text-[13.5px] leading-[1.65] text-[#6B7686]`}>{note}</p> : null}
+      {note ? <p className={`mt-4 ${PROSE} ${BODY} text-[#5A6473]`}>{note}</p> : null}
     </div>
   );
 }
@@ -140,7 +156,7 @@ function Table({ caption, columns, rows }: { caption?: string; columns: string[]
             className="rounded-md border border-[#E5E8EF] bg-white p-4"
             key={`card-${rowIndex}-${row[0] ?? ""}`}
           >
-            <p className="break-words text-[15px] font-semibold leading-[1.4] text-[#0B1220]">
+            <p className="break-words text-[15.5px] font-semibold leading-[1.5] text-[#0B1220]">
               {row[0]}
             </p>
             <dl className="mt-3 space-y-2">
@@ -156,7 +172,7 @@ function Table({ caption, columns, rows }: { caption?: string; columns: string[]
                     <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6B7686]">
                       {column}
                     </dt>
-                    <dd className="mt-0.5 break-words text-[14px] leading-[1.6] text-[#3D4654]">{cell}</dd>
+                    <dd className="mt-0.5 break-words text-[15.5px] leading-[1.6] text-[#3D4654]">{cell}</dd>
                   </div>
                 );
               })}
@@ -185,7 +201,7 @@ function Table({ caption, columns, rows }: { caption?: string; columns: string[]
               <tr className="border-b border-[#E5E8EF]" key={`row-${rowIndex}-${row[0] ?? ""}`}>
                 {row.map((cell, cellIndex) => (
                   <td
-                    className={`break-words px-3 py-3 align-top text-[14.5px] leading-[1.6] ${
+                    className={`break-words px-3 py-3 align-top text-[15.5px] leading-[1.6] ${
                       cellIndex === 0 ? "font-medium text-[#0B1220]" : "text-[#3D4654]"
                     }`}
                     key={`cell-${rowIndex}-${cellIndex}`}
@@ -200,7 +216,7 @@ function Table({ caption, columns, rows }: { caption?: string; columns: string[]
       </div>
 
       {caption ? (
-        <figcaption className="mt-2.5 text-[13px] leading-6 text-[#6B7686]">{caption}</figcaption>
+        <figcaption className={`mt-3 ${BODY} text-[#5A6473]`}>{caption}</figcaption>
       ) : null}
     </figure>
   );
@@ -226,7 +242,7 @@ function Callout({
       {title ? (
         <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8A6D1F]">{title}</p>
       ) : null}
-      <p className={`break-words text-[15px] leading-[1.7] text-[#3D4654] ${title ? "mt-2" : ""}`}>
+      <p className={`break-words ${BODY} text-[#3D4654] ${title ? "mt-2" : ""}`}>
         {text}
       </p>
     </div>
@@ -242,11 +258,11 @@ function Questions({ items }: { items: { detail?: string; prompt: string }[] }) 
             {index + 1}
           </span>
           <div className="min-w-0">
-            <p className="break-words text-[16px] font-medium leading-[1.55] text-[#0B1220]">
+            <p className="break-words text-[15.5px] font-medium leading-[1.7] text-[#0B1220]">
               {question.prompt}
             </p>
             {question.detail ? (
-              <p className="mt-1.5 text-[14.5px] leading-[1.65] text-[#5A6473]">{question.detail}</p>
+              <p className={`mt-1.5 ${BODY} text-[#5A6473]`}>{question.detail}</p>
             ) : null}
           </div>
         </li>
@@ -277,23 +293,37 @@ function Block({ block, examples }: { block: AdvisorBlock; examples: AdvisorExam
       );
 
     case "steps": {
-      // One column on a phone, two from `sm` up. An odd final item spans
-      // both columns so the grid never ends with a lone half-width cell.
-      const count = block.items.length;
+      /*
+       * The sequence reads left to right, 1 through n, so the order itself
+       * carries the meaning. Cards share a row on a large screen and take
+       * whatever height the longest item needs; below that they fall to two
+       * columns and then to one, rather than squeezing the text.
+       */
+      const columns: Record<number, string> = {
+        2: "lg:grid-cols-2",
+        3: "lg:grid-cols-3",
+        4: "lg:grid-cols-4",
+        5: "lg:grid-cols-5",
+        6: "lg:grid-cols-6",
+      };
 
       return (
-        <ol className={`mt-6 ${WIDE} grid grid-cols-1 gap-3 sm:grid-cols-2`}>
+        <ol
+          className={`mt-6 ${WIDE} grid grid-cols-1 items-stretch gap-2.5 sm:grid-cols-2 ${
+            columns[block.items.length] ?? "lg:grid-cols-3"
+          }`}
+        >
           {block.items.map((step, index) => (
             <li
-              className={`flex items-start gap-3 border border-[#E5E8EF] bg-white px-4 py-3.5 ${
-                count % 2 === 1 && index === count - 1 ? "sm:col-span-2" : ""
-              }`}
+              className="flex h-full flex-col gap-2 border border-[#E5E8EF] bg-white px-3.5 py-3.5"
               key={step}
             >
-              <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-[#C2A14E] text-[11px] font-semibold text-[#8A6D1F]">
+              <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-[#C2A14E] text-[11px] font-semibold text-[#8A6D1F]">
                 {index + 1}
               </span>
-              <span className="min-w-0 break-words text-[14.5px] leading-[1.6] text-[#3D4654]">{step}</span>
+              <span className="break-words text-[15.5px] leading-[1.6] text-[#3D4654]" style={{ hyphens: "auto" }}>
+                {step}
+              </span>
             </li>
           ))}
         </ol>
@@ -303,7 +333,7 @@ function Block({ block, examples }: { block: AdvisorBlock; examples: AdvisorExam
     case "quote":
       return (
         <blockquote className={`mt-6 ${PROSE} border-l-2 border-[#C2A14E] pl-5`}>
-          <p className="break-words text-[17px] leading-[1.65] text-[#0B1220]">{block.text}</p>
+          <p className={`break-words ${BODY} text-[#0B1220]`}>{block.text}</p>
           {block.attribution ? (
             <footer className="mt-2 text-[12.5px] text-[#6B7686]">{block.attribution}</footer>
           ) : null}
@@ -415,18 +445,22 @@ function SectionRail({ sections }: { sections: AdvisorSection[] }) {
       className="advisor-rail no-print sticky z-30 overflow-x-auto border-b border-[#E5E8EF] bg-white/95 px-6 py-2.5 lg:px-10"
       style={{ backdropFilter: "blur(8px)" }}
     >
-      <ul className={`${CONTAINER} flex w-max gap-5 lg:w-auto`}>
-        {sections.map((section) => (
-          <li key={section.id}>
-            <a
-              className="whitespace-nowrap text-[12px] font-medium text-[#6B7686] transition-colors hover:text-[#0B1220]"
-              href={`#${section.id}`}
-            >
-              {section.navLabel}
-            </a>
-          </li>
-        ))}
-      </ul>
+      {/* The list is wider than the column on a phone and scrolls; wrapping it
+          keeps its first item on the column's left edge at every width. */}
+      <div className={CONTAINER}>
+        <ul className="flex w-max gap-5 lg:w-auto">
+          {sections.map((section) => (
+            <li key={section.id}>
+              <a
+                className="whitespace-nowrap text-[12px] font-medium text-[#6B7686] transition-colors hover:text-[#0B1220]"
+                href={`#${section.id}`}
+              >
+                {section.navLabel}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
     </nav>
   );
 }
@@ -454,7 +488,7 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
             {meta.title}
           </h1>
           {meta.subtitle ? (
-            <p className={`mt-4 ${PROSE} break-words text-[17px] leading-[1.7] text-[#3D4654]`}>
+            <p className={`mt-4 ${PROSE} break-words text-[15.5px] leading-[1.75] text-[#3D4654]`}>
               {meta.subtitle}
             </p>
           ) : null}
@@ -472,7 +506,7 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
                     <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6B7686]">
                       {item.label}
                     </dt>
-                    <dd className="mt-1 text-[15px] leading-6 text-[#0B1220]">{item.value}</dd>
+                    <dd className="mt-1 text-[15.5px] leading-6 text-[#0B1220]">{item.value}</dd>
                   </div>
                 ))}
             </dl>
@@ -483,7 +517,7 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
           </div>
 
           {meta.confidentialNote ? (
-            <p className={`mt-8 ${PROSE} border-l-2 border-[#C2A14E] pl-4 text-[13.5px] leading-[1.65] text-[#6B7686]`}>
+            <p className={`mt-8 ${PROSE} border-l-2 border-[#C2A14E] pl-4 ${BODY} text-[#5A6473]`}>
               {meta.confidentialNote}
             </p>
           ) : null}
@@ -496,7 +530,7 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
 
       {content.footerNote ? (
         <footer className="border-t border-[#E5E8EF] px-6 py-10 lg:px-10">
-          <p className={`${CONTAINER} text-[13.5px] leading-[1.65] text-[#6B7686]`}>
+          <p className={`${CONTAINER} ${BODY} text-[#5A6473]`}>
             {content.footerNote}
           </p>
         </footer>

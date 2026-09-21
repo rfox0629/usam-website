@@ -7,7 +7,7 @@ import {
 } from "@/src/lib/advisor-access";
 import { getAdvisorBriefingContent } from "@/src/lib/advisor-content";
 import { AdvisorAccessGateForm } from "./AdvisorAccessGateForm";
-import { AdvisorBriefing } from "./AdvisorBriefing";
+import { ADVISOR_NAV_CONTAINER, AdvisorBriefing } from "./AdvisorBriefing";
 
 // The gate decision depends on a cookie, so this page can never be statically
 // rendered or cached. a cached copy would either leak the briefing or serve a
@@ -105,7 +105,7 @@ export default async function AdvisorPage() {
 
   return (
     <main className="min-h-screen bg-white">
-      <PrimaryNav minimal />
+      <PrimaryNav containerClassName={ADVISOR_NAV_CONTAINER} minimal />
       <AdvisorBriefing content={content} />
     </main>
   );
