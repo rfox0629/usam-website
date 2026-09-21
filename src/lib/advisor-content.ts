@@ -1,19 +1,13 @@
 import "server-only";
+import advisorBriefingContent from "@/src/content/advisor-briefing.json";
 
 /**
- * The advisor briefing is private: names, financial figures, ministry detail,
- * partner lists, and meeting questions never live in this repository, which is
- * public. The layout in `app/advisor` is generic and content-driven; the
- * content itself arrives at runtime from ADVISOR_BRIEFING_CONTENT, a
- * server-side Vercel environment variable holding base64-encoded JSON.
+ * The advisor briefing content is committed with the application by the
+ * ministry owner's explicit choice. The website remains protected by the
+ * advisor access gate, but the repository itself is public.
  *
- * Base64 is transport encoding only. it is not a secret. The privacy comes
- * from the variable being server-side and encrypted at rest in Vercel, and
- * from `getAdvisorBriefingContent()` only ever being called after the access
- * cookie has been validated.
- *
- * Deliberately NOT a NEXT_PUBLIC_ variable: that would inline the payload into
- * the client bundle and defeat the whole design.
+ * Keep this module server-only so the content is rendered after the access
+ * cookie is validated and is not bundled into client-side JavaScript.
  */
 
 export type AdvisorFigure = {
@@ -546,38 +540,20 @@ export function parseAdvisorBriefingContent(value: unknown): AdvisorBriefingCont
 /* LOADER                                                                  */
 /* ---------------------------------------------------------------------- */
 
+const committedAdvisorBriefingContent = parseAdvisorBriefingContent(advisorBriefingContent);
+
 /**
  * Only call this once the advisor access cookie has been validated.
- *
- * Returns null. never throws and never logs the payload. when the variable
- * is missing, is not valid base64, is not valid JSON, or does not match the
- * schema above. The page renders a generic "unavailable" state in that case,
- * so a misconfiguration can never leak a partial payload or a stack trace
- * containing one.
  */
 export function getAdvisorBriefingContent(): AdvisorBriefingContent | null {
-  const encoded = process.env.ADVISOR_BRIEFING_CONTENT?.trim();
-
-  if (!encoded) {
-    return null;
-  }
-
-  try {
-    const decoded = Buffer.from(encoded, "base64").toString("utf8");
-
-    return parseAdvisorBriefingContent(JSON.parse(decoded));
-  } catch {
-    return null;
-  }
+  return committedAdvisorBriefingContent;
 }
 
 /** Only call after the access cookie has been validated. */
 export function getAdvisorExample(slug: string): AdvisorExample | null {
-  const content = getAdvisorBriefingContent();
-
-  return content?.examples?.find((example) => example.slug === slug) ?? null;
+  return committedAdvisorBriefingContent?.examples?.find((example) => example.slug === slug) ?? null;
 }
 
 export function isAdvisorBriefingContentConfigured() {
-  return Boolean(process.env.ADVISOR_BRIEFING_CONTENT?.trim());
+  return committedAdvisorBriefingContent !== null;
 }
