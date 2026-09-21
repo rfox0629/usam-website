@@ -4,8 +4,8 @@
 //
 //   node scripts/validate-advisor-content.mjs /path/to/advisor-private-content.json
 //
-// Point it at a file OUTSIDE this repository. The payload is private and must
-// never be committed.
+// The content is committed at src/content/advisor-briefing.json; run this
+// before committing a change to it. CI runs it too.
 
 import { readFileSync } from "node:fs";
 
@@ -290,4 +290,4 @@ if (errors.length > 0) {
 
 const sectionCount = Array.isArray(parsed.sections) ? parsed.sections.length : 0;
 console.log(`OK. valid advisor briefing content (${sectionCount} sections).`);
-console.log("Encode with:  base64 -w0 <file>");
+console.log("This file is committed at src/content/advisor-briefing.json and loaded server-side after the access cookie is validated.");
