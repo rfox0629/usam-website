@@ -1,9 +1,17 @@
 #!/usr/bin/env node
-// Guards the privacy contract of the /advisor briefing.
+// Guards the access contract of the /advisor briefing.
 //
-// This repository is public. The briefing's names, financial figures, and
-// links live only in ADVISOR_BRIEFING_CONTENT, a server-side Vercel variable.
-// These checks fail the build if that separation is ever eroded.
+// The briefing content is intentionally committed to this public repository
+// at src/content/advisor-briefing.json, at the owner's direction. What the
+// page protects is not the repository; it is the rendered page. So the
+// contract these checks enforce is:
+//
+//   - the access code stays secret and server-side (never in source);
+//   - the page and its example routes stay behind the password gate;
+//   - the content is read only after the server validates the cookie;
+//   - the content is never bundled into client-side JavaScript, so an
+//     unauthenticated visitor's browser never receives it;
+//   - the committed content is valid, and carries no em dash.
 
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -16,6 +24,9 @@ const check = (label, condition, detail) => {
 };
 
 const read = (path) => readFileSync(path, "utf8");
+
+// Built from its code point so this file does not contain the character it forbids.
+const EM_DASH = String.fromCharCode(0x2014);
 
 const access = read("src/lib/advisor-access.ts");
 const contentLib = read("src/lib/advisor-content.ts");
@@ -35,23 +46,19 @@ const contentDoc = read("docs/advisor-briefing-content.md");
 const contentExample = read("docs/examples/advisor-briefing-content.example.json");
 const envExample = read(".env.example");
 
-/* -- the private payload never reaches the client ---------------------- */
+/* -- the content never reaches the client before authentication ------- */
 
+check("advisor-access.ts is server-only", /^import "server-only";/m.test(access));
+check("advisor-content.ts is server-only", /^import "server-only";/m.test(contentLib));
 check(
-  "advisor-access.ts is server-only",
-  /^import "server-only";/m.test(access),
-);
-check(
-  "advisor-content.ts is server-only",
-  /^import "server-only";/m.test(contentLib),
+  "advisor-content.ts is where the committed content is imported",
+  /from "@\/src\/content\/advisor-briefing\.json"/.test(contentLib),
 );
 check(
   "AdvisorBriefing.tsx is a server component (no 'use client')",
   !/^["']use client["']/m.test(briefing),
 );
 
-// A NEXT_PUBLIC_ variable is inlined into the client bundle, which would put
-// the whole briefing in the public JavaScript.
 const trackedFiles = execFileSync("git", ["ls-files"], { encoding: "utf8" })
   .split("\n")
   .filter(Boolean);
@@ -78,10 +85,33 @@ check(
   publicAdvisorVars.join(", "),
 );
 
+check("the committed content file exists and is tracked", trackedFiles.includes("src/content/advisor-briefing.json"));
+
+// The only thing that keeps the content out of the browser is that every
+// importer is a server-only module. A client component importing the JSON
+// would ship the whole briefing to unauthenticated visitors.
+const jsonImporters = trackedFiles.filter((file) => {
+  if (!/\.(ts|tsx|js|jsx|mjs)$/.test(file) || file === selfPath) return false;
+  try {
+    // An import or require of the JSON, not merely a mention of its name
+    // (the validator and this file talk about it without loading it).
+    return /(from\s*["'][^"']*advisor-briefing\.json["']|require\(\s*["'][^"']*advisor-briefing\.json["']\s*\))/.test(
+      readFileSync(file, "utf8"),
+    );
+  } catch {
+    return false;
+  }
+});
 check(
-  "the private payload JSON is not tracked by git",
-  !trackedFiles.some((file) => /advisor-private-content\.json$/.test(file)),
+  "the committed content is imported by exactly one module",
+  jsonImporters.length === 1 && jsonImporters[0] === "src/lib/advisor-content.ts",
+  `importers: ${jsonImporters.join(", ") || "none"}`,
 );
+for (const importer of jsonImporters) {
+  const source = readFileSync(importer, "utf8");
+  check(`${importer} is server-only`, /^import "server-only";/m.test(source));
+  check(`${importer} is not a client component`, !/^["']use client["']/m.test(source));
+}
 
 /* -- the gate is checked before the content is read -------------------- */
 
@@ -145,10 +175,11 @@ check("the page is noindex", /index:\s*false/.test(page));
 check("the page is nofollow", /follow:\s*false/.test(page));
 check("the page is never statically cached", /export const dynamic = "force-dynamic";/.test(page));
 
-/* -- no private content in the committed source ------------------------- */
+/* -- components stay content-free ---------------------------------------- */
 
-// Values and names that belong only in the Vercel variable. The public source
-// must not reintroduce them.
+// Content belongs in src/content/advisor-briefing.json, never in a component.
+// A figure hardcoded in a component would render before the gate is checked
+// and would drift from the committed content.
 const forbiddenInAdvisorSource = [
   /\$\s?\d{1,3},\d{3}/, // any concrete dollar figure
   /\b\d{1,3},\d{3}\s*\/\s*mo\b/i,
@@ -180,8 +211,16 @@ check(
   /^ADVISOR_ACCESS_KEY=\s*$/m.test(envExample),
 );
 check(
-  ".env.example ships ADVISOR_BRIEFING_CONTENT with no value",
-  /^ADVISOR_BRIEFING_CONTENT=\s*$/m.test(envExample),
+  ".env.example no longer references the retired ADVISOR_BRIEFING_CONTENT variable",
+  !/ADVISOR_BRIEFING_CONTENT/.test(envExample),
+);
+check(
+  "the access code is never hardcoded: advisor-access.ts reads it from the environment only",
+  /process\.env\.ADVISOR_ACCESS_KEY/.test(access) && !/ADVISOR_ACCESS_KEY\s*=\s*["'][^"']+["']/.test(access),
+);
+check(
+  "the committed content does not contain the access-key variable name or a value for it",
+  !/ADVISOR_ACCESS_KEY/.test(read("src/content/advisor-briefing.json")),
 );
 
 /* -- failed-attempt throttling ------------------------------------------ */
@@ -231,30 +270,14 @@ for (const [label, source] of [
   check(`the ${label} logs nothing`, !/console\.(log|warn|error|info|debug)/.test(source));
 }
 
-/* -- the public docs reveal no subject matter --------------------------- */
-
-// The repository should disclose only that /advisor is a generic protected
-// briefing system. never what any particular briefing is about.
-// The guarded terms are base64-encoded so that this file does not itself
-// restate, in the public repository, the subject matter it exists to keep
-// out of it. Decode to read or extend the list.
-const subjectMatter = new RegExp(
-  Buffer.from("Y3VtdWxhdGl2ZSBnaXZpbmd8YmFuayBiYWxhbmNlfG1vbnRobHkgc3VwcG9ydHxjYXNoIG9uIGhhbmR8XGJTSElORVxifHNjb3JlY2FyZHxwYXJ0bmVyc2hpcHx3ZWVrbHl8Y2FkZW5jZQ==", "base64").toString("utf8"),
-  "i",
-);
+/* -- docs describe the real design -------------------------------------- */
 
 check(
-  "docs/advisor-briefing-content.md stays generic",
-  !subjectMatter.test(contentDoc),
-  "found subject-matter wording in the public schema doc",
+  "the docs say the content is committed, not held in an environment variable",
+  /src\/content\/advisor-briefing\.json/.test(contentDoc) && !/ADVISOR_BRIEFING_CONTENT/.test(contentDoc),
 );
 check(
-  "the example payload stays generic",
-  !subjectMatter.test(contentExample),
-  "found subject-matter wording in the public example",
-);
-check(
-  "the example uses neutral figure labels",
+  "the example template still uses neutral figure labels",
   /"label": "Measure A"/.test(contentExample),
 );
 check(
@@ -312,7 +335,6 @@ check(
 
 // Ryan asked for these gone: they read as machine-written. The character is
 // built from its code point so this check does not contain one itself.
-const EM_DASH = String.fromCharCode(0x2014);
 
 const advisorSurface = execFileSync("git", ["ls-files"], { encoding: "utf8" })
   .split("\n")
@@ -322,6 +344,7 @@ const advisorSurface = execFileSync("git", ["ls-files"], { encoding: "utf8" })
       file.startsWith("app/advisor/")
       || /^src\/lib\/advisor-/.test(file)
       || /^scripts\/(advisor-|validate-advisor)/.test(file)
+      || file === "src/content/advisor-briefing.json"
       || file === "docs/advisor-briefing-content.md"
       || file === "docs/examples/advisor-briefing-content.example.json",
   );
@@ -409,6 +432,26 @@ check(
 check(
   "the desktop table cannot push the page wider than the viewport",
   /table-fixed/.test(briefing) && !/min-w-\[\d/.test(briefing),
+);
+
+/* -- the committed content is valid and has no em dash ------------------ */
+
+try {
+  execFileSync("node", ["scripts/validate-advisor-content.mjs", "src/content/advisor-briefing.json"], { stdio: "pipe" });
+  check("src/content/advisor-briefing.json validates against the schema", true);
+} catch (error) {
+  check(
+    "src/content/advisor-briefing.json validates against the schema",
+    false,
+    String(error.stdout || error.stderr || error.message).trim().split("\n").slice(-6).join(" / "),
+  );
+}
+
+const committedContentText = read("src/content/advisor-briefing.json");
+check("the committed content has no em dash", !committedContentText.includes(EM_DASH));
+check(
+  "the committed content links its dashboard concepts through exampleCards",
+  /"type": "exampleCards"/.test(committedContentText) && /"examples": \[/.test(committedContentText),
 );
 
 /* -- the documented template stays valid -------------------------------- */

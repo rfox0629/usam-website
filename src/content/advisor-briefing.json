@@ -1,469 +1,382 @@
 {
   "meta": {
-    "title": "What are we called to carry—and what now requires a team?",
-    "subtitle": "A candid view of the ministry, the systems already built, the demands on Ryan and Brooke, and the decisions needed for the next 90 days.",
+    "title": "Jon, here is what I believe we are called to carry, and where I need your help",
+    "subtitle": "This is not a pitch. It is me trying to write down, honestly, what the Lord has put in front of us, what is already happening, what I am carrying, and the decisions I cannot make well on my own.",
     "preparedFor": "Jon Perron",
     "preparedBy": "Ryan Fox",
-    "date": "September 20, 2026",
-    "confidentialNote": "Private working material prepared for Ryan Fox and Jon Perron. Please do not forward the page or access code."
+    "date": "September 21, 2026",
+    "confidentialNote": "Private working notes between Ryan Fox and Jon Perron. Please do not forward the page or the access code."
   },
   "sections": [
     {
-      "id": "assignment",
-      "navLabel": "Assignment",
-      "eyebrow": "01 · The core assignment",
-      "heading": "The table is the ministry. The systems exist to support and multiply it.",
-      "lede": "USA Missionaries provides the covering. Kitchen Table Gospel is the frontline practice. DOS continues the relationship and makes multiplication visible. Operations supports the people, stewardship, and administration underneath it.",
+      "id": "calling",
+      "navLabel": "The calling",
+      "eyebrow": "01. Where this starts",
+      "heading": "What I believe the Lord has called us to",
+      "lede": "Before any of the systems or the money, this is the part I want you to hear clearly. Everything else on this page is downstream of it.",
       "variant": "plain",
       "blocks": [
         {
-          "type": "steps",
-          "items": [
-            "USA Missionaries — Covering: Recruit, equip, support, and connect missionaries across the United States.",
-            "Kitchen Table Gospel — Frontline practice: Disciple-making in homes, groups, coffee shops, and everyday relationships.",
-            "Discipleship Operating System — Continue & multiply: Help people act, grow, disciple others, and make aggregate fruit visible.",
-            "Operations — Support & steward: Onboarding, giving, finance, communication, compliance, and reporting."
-          ]
-        },
-        {
-          "type": "callout",
-          "title": "Meeting outcome",
-          "text": "Protect the core assignment, name what pauses, and identify the first responsibilities that must move off Ryan and Brooke.",
-          "tone": "gold"
+          "type": "paragraph",
+          "text": "The table is the ministry. Making disciples who make disciples, in homes and at kitchen tables and in ordinary weeks, with people whose names we know. The systems and the organization exist to support that and to help it multiply. They are not the point."
         },
         {
           "type": "paragraph",
-          "text": "Weekly: alternating in person and phone / Google Meet"
+          "text": "Here is how I understand the pieces fitting together right now."
+        },
+        {
+          "type": "steps",
+          "items": [
+            "USA Missionaries is the covering. It recruits, equips, supports, and connects missionaries across the United States, and it holds the 501(c)(3), the giving, and the accountability.",
+            "Kitchen Table Gospel is the ministry itself. It is what happens at the table and through everyday relationships: homes, groups, coffee shops, a couple sitting with another couple.",
+            "Discipleship Operating System helps those relationships continue, get supported, and multiply. It helps me remember, follow up, and see where fruit is actually forming.",
+            "Mission of Reconciliation helps people walk in freedom, reconciliation, purpose, and service.",
+            "Fourth Quarter is an emerging pathway for recruiting mature believers to disciple the next generation."
+          ]
+        },
+        {
+          "type": "paragraph",
+          "text": "I want to say more about Mission of Reconciliation, because it is easy to file it as a freedom ministry and stop there. It is more than that. Freedom is where it starts, but the deeper work is helping people walk in reconciliation: with God, with the people they have hurt or been hurt by, and with the purpose they have been avoiding. And a large part of who we are meant to reach is not the young. It is seasoned believers in the fourth quarter of their lives who have been sidelined, or who sidelined themselves, and who are carrying decades of walking with God that nobody is asking them for."
+        },
+        {
+          "type": "callout",
+          "title": "Fourth Quarter",
+          "text": "That is the idea I am calling Fourth Quarter. Recruit mature believers, people in the last quarter of life, into purposeful service, and specifically into discipling the next generation. It is still forming. One of the questions further down is whether it should become a real pathway inside DOS or stay a conviction I carry informally for now.",
+          "tone": "gold"
+        },
+        {
+          "type": "quote",
+          "text": "The harvest is plentiful, but the workers are few. I do not think our problem has ever been the harvest. It has been workers who know how to reproduce.",
+          "attribution": "What I keep coming back to"
         }
       ]
     },
     {
-      "id": "evidence",
-      "navLabel": "Evidence",
-      "eyebrow": "02 · Evidence of movement",
-      "heading": "This is no longer only vision or infrastructure.",
-      "lede": "Real relationships, referrals, groups, giving, and multiplication are already present. The question is how to steward the momentum without allowing the work to consume the people carrying it.",
+      "id": "happening",
+      "navLabel": "Already happening",
+      "eyebrow": "02. Not theory",
+      "heading": "What is already happening",
+      "lede": "I want you to see that this is no longer just vision. Real relationships, referrals, groups, giving, and the beginnings of multiplication are already here.",
       "variant": "panel",
       "blocks": [
         {
-          "type": "callout",
-          "title": "Frontline ministry",
-          "text": "Two weekly men's groups • Individual discipleship relationships • Couples and individuals arriving through referrals • Prospective couple apprenticeships across several states",
-          "tone": "neutral"
+          "type": "paragraph",
+          "text": "At the table, week to week: two men's groups, individual discipleship relationships, and couples and individuals arriving through referrals faster than I expected. Several couples in different states are in conversations about apprenticing beside Brooke and me. I will name them further down."
         },
         {
-          "type": "callout",
-          "title": "Visible fruit",
-          "text": "15 meetings and 21 hours invested in a verified reporting period • Tanner moving from being discipled toward discipling others • Resources, journeys, prayer, and follow-up active in DOS • Stories and testimonies ready to communicate",
-          "tone": "neutral"
+          "type": "figures",
+          "items": [
+            {
+              "label": "Meetings logged",
+              "value": "15",
+              "note": "Verified from DOS over the most recent reporting period. Real, not illustrative."
+            },
+            {
+              "label": "Hours invested",
+              "value": "21",
+              "note": "Same period, same source. Time actually spent sitting with people."
+            }
+          ],
+          "note": "These two are the only real activity figures on this page. Every organization wide number you will see in the dashboard examples is invented for illustration."
         },
         {
-          "type": "callout",
-          "title": "Built foundation",
-          "text": "501(c)(3) organization and missionary application • DOS operating with real ministry data • Giving, finance, documents, and onboarding in Operations • Communications platform and newsletter nearing release",
-          "tone": "neutral"
+          "type": "paragraph",
+          "text": "The fruit I am most encouraged by is Tanner, who is moving from being discipled toward discipling others. That is the whole thing, in one person. Resources, journeys, prayer, and follow up are all live in DOS with real ministry data, and there are stories and testimonies ready to share."
+        },
+        {
+          "type": "paragraph",
+          "text": "Underneath it, the foundation is real too: the 501(c)(3), the missionary application, giving and finance and documents and onboarding running in Operations, and the communications platform and newsletter close to release."
         }
       ]
     },
     {
-      "id": "dos-vision",
-      "navLabel": "DOS Vision",
-      "eyebrow": "03 · The DOS vision",
-      "heading": "From one discipler's relationships to organization-wide ministry intelligence.",
-      "lede": "DOS can remain simple for the person doing the ministry while giving church and ministry leaders a clear, privacy-aware view of participation, follow-through, fruit, and multiplication.",
+      "id": "carrying",
+      "navLabel": "What I carry",
+      "eyebrow": "03. The honest part",
+      "heading": "What I am carrying right now",
+      "lede": "This is the section I would most like to skip, which is probably why it belongs here. I need you to see the whole load, not the parts that look good.",
+      "variant": "plain",
+      "blocks": [
+        {
+          "type": "paragraph",
+          "text": "First, the things that come before any of the ministry: my quiet time, my marriage, and our five children. Brooke homeschools all five, runs the household, and helps me with the ministry on top of it. Any plan that quietly assumes more of her is not a plan."
+        },
+        {
+          "type": "paragraph",
+          "text": "Then the ministry itself. Two long weekly men's groups, Tuesday morning and Wednesday evening. Individual discipleship. Couples ministry. Referrals that keep increasing. Training couples at the table."
+        },
+        {
+          "type": "paragraph",
+          "text": "Then the organization. Fundraising. Product direction and review for DOS. Operations. Partnerships. The newsletter. And everything under finance: donor stewardship, accounting, legal, and compliance."
+        },
+        {
+          "type": "callout",
+          "title": "Brooke and SHINE",
+          "text": "Brooke is contracting with SHINE to coordinate one event, SHINE Founders Weekend, October 1 through October 4, 2026. It could lead to more work with them later, but nothing beyond that one event is committed, and I do not want to describe it as though it were. Her goal is to do this one well, document it, and hand it off cleanly.",
+          "tone": "neutral"
+        },
+        {
+          "type": "callout",
+          "title": "What I cannot keep doing",
+          "text": "I cannot sustain the current pace alone, and I know it. What I uniquely bring is the spiritual vision, the frontline relationships, the training, the product direction, and the fundraising. Routine execution keeps landing on me anyway. We need development capacity, and we need redundancy, so that the ministry does not depend on one person staying upright.",
+          "tone": "warning"
+        }
+      ]
+    },
+    {
+      "id": "dos",
+      "navLabel": "DOS",
+      "eyebrow": "04. What I can see",
+      "heading": "What I can see DOS becoming",
+      "lede": "Right now DOS helps me remember what is happening with the people I disciple. I think it can do considerably more than that, and I would rather show you than describe it.",
       "variant": "feature",
       "blocks": [
         {
-          "type": "tabs",
-          "note": "Sample organization-wide data for discussion only. This is not a live account, current partnership, or representation of private ministry records.",
-          "tabs": [
-            {
-              "id": "church",
-              "label": "Church",
-              "caption": "River Valley Church — Sample organization-wide data for discussion only. This is not a live account, current partnership, or representation of private ministry records.",
-              "blocks": [
-                {
-                  "type": "figures",
-                  "items": [
-                    {
-                      "label": "Active disciplers",
-                      "value": "24",
-                      "note": "Illustrative sample data for discussion only."
-                    },
-                    {
-                      "label": "People engaged",
-                      "value": "87",
-                      "note": "Illustrative sample data for discussion only."
-                    },
-                    {
-                      "label": "Meetings",
-                      "value": "142",
-                      "note": "Illustrative sample data for discussion only."
-                    },
-                    {
-                      "label": "Fruit markers",
-                      "value": "36",
-                      "note": "Illustrative sample data for discussion only."
-                    }
-                  ],
-                  "note": "This is not a live account, current partnership, or representation of private participant records."
-                },
-                {
-                  "type": "table",
-                  "columns": [
-                    "Discipleship network",
-                    "Activity",
-                    "View"
-                  ],
-                  "rows": [
-                    [
-                      "Ryan Fox",
-                      "15 meetings · 21 hours invested",
-                      "Verified personal example"
-                    ],
-                    [
-                      "Disciplers",
-                      "Relationships, groups, and assigned journeys",
-                      "Illustrative rollup"
-                    ],
-                    [
-                      "Multiplication",
-                      "Disciplers beginning to disciple others",
-                      "Organization insight"
-                    ]
-                  ],
-                  "caption": "Multiplication becoming visible. The first personal example is verified where identified; all organizational rollups are illustrative."
-                },
-                {
-                  "type": "bullets",
-                  "items": [
-                    "Leadership can see: Where disciple-making is active",
-                    "Leadership can see: Fruit and multiplication",
-                    "Leadership can see: People needing attention",
-                    "Leadership can see: Aggregate trends without private notes"
-                  ]
-                }
-              ]
-            },
-            {
-              "id": "veterans",
-              "label": "Veteran ministry",
-              "caption": "Engage Your Destiny — Sample organization-wide data for discussion only. This is not a live account, current partnership, or representation of private ministry records.",
-              "blocks": [
-                {
-                  "type": "figures",
-                  "items": [
-                    {
-                      "label": "Regional leaders",
-                      "value": "12",
-                      "note": "Illustrative sample data for discussion only."
-                    },
-                    {
-                      "label": "Veterans engaged",
-                      "value": "148",
-                      "note": "Illustrative sample data for discussion only."
-                    },
-                    {
-                      "label": "Active groups",
-                      "value": "31",
-                      "note": "Illustrative sample data for discussion only."
-                    },
-                    {
-                      "label": "Journey progress",
-                      "value": "68%",
-                      "note": "Illustrative sample data for discussion only."
-                    }
-                  ],
-                  "note": "This is not a live account, current partnership, or representation of private participant records."
-                },
-                {
-                  "type": "table",
-                  "columns": [
-                    "Regional ministry network",
-                    "Activity",
-                    "View"
-                  ],
-                  "rows": [
-                    [
-                      "Regional leaders",
-                      "Activity and follow-up by state",
-                      "Leadership view"
-                    ],
-                    [
-                      "Veteran groups",
-                      "Journey progress and upcoming meetings",
-                      "Field view"
-                    ],
-                    [
-                      "Multiplication",
-                      "Participants becoming peer disciplers",
-                      "Outcome view"
-                    ]
-                  ],
-                  "caption": "Progress across regions. The first personal example is verified where identified; all organizational rollups are illustrative."
-                },
-                {
-                  "type": "bullets",
-                  "items": [
-                    "Leadership can see: Regional engagement",
-                    "Leadership can see: Journey and resource progress",
-                    "Leadership can see: Follow-up due",
-                    "Leadership can see: Testimonies and aggregate outcomes"
-                  ]
-                }
-              ]
-            }
-          ]
+          "type": "paragraph",
+          "text": "I can see DOS becoming more than a tool for one discipler. It could help a church or a ministry see where discipleship is actually happening, where people are following through, where multiplication is starting, and where someone may need attention before they quietly drop off."
+        },
+        {
+          "type": "paragraph",
+          "text": "The part I care most about is that the individual experience stays simple. The person being discipled should never feel like they are inside a reporting system. Leadership sees the fruit in aggregate. Nobody's private conversation gets exposed to make that possible."
+        },
+        {
+          "type": "paragraph",
+          "text": "I had two concept views built, one for a multi campus church and one for a ministry working with service members and veterans across regions. Both are mockups with invented numbers. Neither organization has seen them, and neither has agreed to anything. They are here so you can picture what a tailored view of DOS could become."
+        },
+        {
+          "type": "exampleCards",
+          "slugs": [
+            "river-valley-church",
+            "engage-your-destiny"
+          ],
+          "note": "Both are illustrative concepts. The figures are invented. Neither is a live account, a current integration, or an existing partnership."
         }
       ]
     },
     {
-      "id": "people",
-      "navLabel": "People",
-      "eyebrow": "04 · People and multiplication",
-      "heading": "A developing pipeline—not a list of finished commitments.",
-      "lede": "The next practical model is apprenticeship: couples serve beside Ryan and Brooke at the table, grow into leading, and eventually help train others.",
-      "variant": "plain",
+      "id": "training",
+      "navLabel": "Training",
+      "eyebrow": "05. Praying through",
+      "heading": "Who we are praying through, training, and considering",
+      "lede": "The model that seems to work is apprenticeship: a couple serves beside Brooke and me at the table, grows into leading, and eventually helps train others. These are the people in that process right now.",
+      "variant": "panel",
       "blocks": [
+        {
+          "type": "paragraph",
+          "text": "I want to be careful here. These are people we are praying through, training, vetting, or simply considering. It is not a roster and nobody on it has signed anything. The status column is the honest one."
+        },
         {
           "type": "table",
           "columns": [
             "People",
-            "Location / role",
-            "Current stage"
+            "Where",
+            "Where things stand"
           ],
           "rows": [
             [
-              "Marty & Lauri Fox",
+              "Marty and Lauri Fox",
               "Proposed missionaries",
               "Application and onboarding"
             ],
             [
-              "Brian & Erica Morgan",
+              "Brian and Erica Morgan",
               "Illinois",
               "Training conversation"
             ],
             [
-              "Samuel & Skyler Gaffney",
+              "Samuel and Skyler Gaffney",
               "Wisconsin",
               "Training conversation"
             ],
             [
-              "Jeremy & Jenny Knox",
+              "Jeremy and Jenny Knox",
               "Arizona",
               "Training conversation"
             ],
             [
-              "Danny & Netta Lundquist",
-              "Minnesota → Florida",
+              "Danny and Netta Lundquist",
+              "Minnesota, moving to Florida",
               "Training conversation"
             ],
             [
-              "Couple to be introduced",
+              "A couple to be introduced",
               "Moving to Tennessee",
               "Introduction pending"
             ],
             [
-              "Leaf & Tammy Nemo",
+              "Leaf and Tammy Nemo",
               "Possibly Minnesota",
-              "Vetting"
+              "Still being vetted"
             ],
             [
-              "Rich & Laura Lucas",
+              "Rich and Laura Lucas",
               "To confirm",
               "Possible trainers"
             ]
           ],
-          "caption": "A developing pipeline for discernment and training—not a list of finished commitments."
+          "caption": "People we are praying through and training, not finished commitments. The last column is what keeps me from hearing interest and filing it as a yes."
         }
       ]
     },
     {
-      "id": "portfolio",
-      "navLabel": "Portfolio",
-      "eyebrow": "05 · Portfolio triage",
-      "heading": "Not every good opportunity should receive the same kind of yes.",
-      "lede": "The portfolio needs clear categories so the core ministry remains protected while partnerships, paid work, and future ideas are handled deliberately.",
-      "variant": "panel",
+      "id": "exploring",
+      "navLabel": "Exploring",
+      "eyebrow": "06. Held loosely",
+      "heading": "What we are exploring",
+      "lede": "These are real conversations and real ideas, and some of them are good. None of them is an established commitment, and I do not want to talk about them as if they were.",
+      "variant": "plain",
       "blocks": [
         {
-          "type": "table",
-          "columns": [
-            "Direction",
-            "Category",
-            "Includes",
-            "Boundary"
-          ],
-          "rows": [
-            [
-              "Protect",
-              "Core assignment",
-              "USA Missionaries · Kitchen Table Gospel · DOS · Frontline ministry",
-              "These receive leadership attention and define the next 90 days."
-            ],
-            [
-              "Staff",
-              "Essential support",
-              "Operations · Communications · Finance · Development",
-              "These must become dependable without remaining founder-owned execution."
-            ],
-            [
-              "Bound",
-              "Partnerships",
-              "Mission of Reconciliation · ZOE Church · Engage Your Destiny · SAVE Standard",
-              "Define scope, pilot, owner, time limit, and what success means before expanding."
-            ],
-            [
-              "Discern",
-              "Separate ventures and ideas",
-              "Tent Maiker · The Lord's Army · Fourth Quarter",
-              "Decide structure, sequence, ownership, and what should wait."
-            ]
-          ],
-          "caption": "A working triage model for the meeting—not a final organizational decision."
+          "type": "callout",
+          "title": "Read this first",
+          "text": "Everything in this section is being evaluated. Some are conversations that have happened. Some are ideas I keep returning to. If I had to guess, most will not happen, or will not happen soon. I am listing them so you can see what is pulling on my attention, not so you can count them as commitments.",
+          "tone": "warning"
         },
         {
           "type": "bullets",
           "items": [
-            "Mission of Reconciliation / Fourth Quarter: More than freedom ministry: call seasoned believers into reconciliation, purposeful service, and discipling the next generation. Decide whether Fourth Quarter becomes a focused recruiting pathway inside DOS.",
-            "ZOE Church marriage ministry: A possible church partnership centered on training couples through apprenticeship at the table. Clarify scope, leaders, curriculum, timing, and ownership before launch.",
-            "Organization-specific DOS: River Valley Church and Engage Your Destiny illustrate how one operating system could be tailored to churches, veteran ministry, and para-ministry partners such as Mac Ministries.",
-            "SAVE Standard / The Lord's Army: Related but separate initiatives. Define Ryan's role, organizational boundaries, ownership, and time limits so each effort has a clear home and does not blur the core assignment."
+            "ZOE Church marriage ministry. A possible church partnership built around training couples through apprenticeship at the table. Scope, leaders, curriculum, timing, and who owns it would all need to be clear before anything launched.",
+            "Engage Your Destiny. A ministry to service members and veterans where a tailored DOS view might genuinely help. Nothing agreed. The concept page above is my imagination, not their request.",
+            "SAVE Standard. Related to our work but separate from it. My role, the organizational boundary, and a time limit would need defining so it does not blur into the core calling.",
+            "The Lord's Army. Same category as SAVE Standard: related, separate, and needing a clear home before I give it more than conversation.",
+            "Tent Maiker. The biggest of these. I describe it below.",
+            "Other church and para ministry partnerships, including organizations like Mac Ministries that could use a customized DOS experience.",
+            "Whether Fourth Quarter becomes a formal pathway within DOS, or stays a conviction I carry informally for now."
           ]
         },
         {
           "type": "callout",
-          "title": "Earned-revenue vision: Tent Maiker",
-          "text": "An AI development company helping contractors, businesses, churches, and ministries build systems and organizational capacity without immediately hiring a full internal team. Viable first pilots: Chicken Coop Company · Come to Life Concrete. Initial proof of the model, followed by carefully scoped work with other contractors and ministry partners.",
+          "title": "Tent Maiker",
+          "text": "Tent Maiker is a possible AI development company. The idea is that it could help contractors, businesses, churches, and ministries build systems and capacity without each of them hiring a full internal team, while creating revenue that helps fund Kingdom work and a development team of our own. Chicken Coop Company and Come to Life Concrete are viable first pilots. If the initial model works, other contractors and ministry partners could follow. Possible, not decided, and one of the questions below is whether it is a real path or a distraction.",
           "tone": "gold"
         },
         {
-          "type": "callout",
-          "title": "Fixed-duration contract: SHINE Founders Weekend",
-          "text": "Brooke is contracted by SHINE to coordinate one event, October 1–4, 2026. It could lead to future event work, but there is no assumed ongoing commitment today. Current objective: Complete this event well, document the work, and establish a clean handoff afterward.",
-          "tone": "neutral"
+          "type": "paragraph",
+          "text": "I am trying to be careful with the word partnership. A conversation is not a partnership. A pilot is not a partnership. Please push back where you think I am holding one of these more tightly than I should."
         }
       ]
     },
     {
-      "id": "capacity",
-      "navLabel": "Capacity",
-      "eyebrow": "06 · Time, talent, treasure",
-      "heading": "The opportunity is real. So is the capacity limit.",
-      "lede": "The immediate need is not more ideas. It is a truthful picture of what Ryan uniquely needs to lead, what can be delegated, and what the current financial position can responsibly support.",
+      "id": "stretched",
+      "navLabel": "Money and help",
+      "eyebrow": "07. Where I need help",
+      "heading": "Where the money actually is, and what needs to move off me",
+      "lede": "Two things here. The financial picture, stated exactly, and the responsibilities that cannot keep converging on one person.",
       "variant": "feature",
       "blocks": [
+        {
+          "type": "paragraph",
+          "text": "These figures get confused with each other constantly, so I want to say plainly what each one is and is not."
+        },
         {
           "type": "figures",
           "items": [
             {
               "label": "Cumulative giving",
               "value": "$80,689",
-              "note": "43 Planning Center records · synced Aug. 20, 2026"
+              "note": "Everything given since we started, across 43 Planning Center records synced August 20, 2026. This is a total over time. It is not money we have."
             },
             {
               "label": "Current bank balance",
               "value": "$47,042",
-              "note": "Current cash reported Sept. 20, 2026"
+              "note": "What is actually in the account, reported September 20, 2026. This is the cash figure."
             },
             {
               "label": "Monthly support",
               "value": "$3,454",
-              "note": "Current public profile · 41% funded"
+              "note": "Committed recurring monthly support. The public profile shows this as 41% funded."
             },
             {
               "label": "Monthly goal",
               "value": "$8,333",
-              "note": "$4,879 monthly gap"
+              "note": "What full monthly support would look like."
+            },
+            {
+              "label": "Monthly gap",
+              "value": "$4,879",
+              "note": "The difference between committed monthly support and the goal. If one number stays with you, make it this one."
             }
           ],
-          "note": "Cumulative giving, cash on hand, monthly support, and monthly need are different measures. No runway is stated until monthly organizational burn and household obligations are confirmed."
+          "note": "Cumulative giving is not cash on hand, and monthly support is not either. I am deliberately not stating a runway, because I have not yet verified monthly operating expenses and household obligations, and a runway figure built on guesses would be worse than none."
         },
         {
-          "type": "table",
-          "columns": [
-            "Dimension",
-            "Current reality"
-          ],
-          "rows": [
-            [
-              "Time",
-              "Quiet time, marriage, five children, two long men's groups, individual discipleship, table ministry, couple training, fundraising, product review, operations, partnerships, and temporary commitments."
-            ],
-            [
-              "Talent",
-              "Ryan uniquely brings spiritual vision, frontline relationships, training, product direction, fundraising, and partner development. Routine execution cannot continue converging on him."
-            ],
-            [
-              "Treasure",
-              "The organization has meaningful cash and giving momentum, but still faces a $4,879 monthly support gap. Hiring decisions require a verified burn rate and runway."
-            ]
-          ],
-          "caption": "A truthful capacity review across time, talent, and treasure."
+          "type": "paragraph",
+          "text": "The opportunity is real. So is the limit. What I uniquely need to lead is the spiritual direction, the frontline relationships, the training, product direction, fundraising, and partner development. Almost everything else should be able to move to someone else eventually, and right now most of it has not."
         },
         {
           "type": "steps",
           "items": [
-            "Likely seats to size and sequence: Ministry operations and executive support",
-            "Likely seats to size and sequence: Couple training and field leadership",
-            "Likely seats to size and sequence: Technical lead and development capacity",
-            "Likely seats to size and sequence: Finance and donor stewardship"
+            "Ministry operations and executive support",
+            "Couple training and field leadership",
+            "Technical lead and development capacity",
+            "Finance and donor stewardship"
           ]
+        },
+        {
+          "type": "paragraph",
+          "text": "Those are the four seats I think need sizing and sequencing. I am not asking to fill all of them. I am asking which one comes first, and what we can responsibly afford given the numbers above."
         }
       ]
     },
     {
-      "id": "decisions",
-      "navLabel": "Decisions",
-      "eyebrow": "07 · Decisions for the meeting",
-      "heading": "Leave with a plan—not simply a better understanding.",
-      "variant": "feature",
+      "id": "discerning",
+      "navLabel": "Discerning",
+      "eyebrow": "08. Where I need you",
+      "heading": "What I need Jon's help discerning",
+      "lede": "You have been generous with your time already. These are the things I genuinely cannot see clearly from the inside.",
+      "variant": "plain",
       "blocks": [
         {
           "type": "questions",
           "items": [
             {
-              "prompt": "What is the primary assignment for the next 90 days?"
+              "prompt": "What is the primary assignment for the next 90 days?",
+              "detail": "If I could only protect one thing, what should it be?"
             },
             {
-              "prompt": "What should Ryan explicitly pause, decline, or defer?"
+              "prompt": "What should I explicitly pause, decline, or defer?",
+              "detail": "I am better at adding than subtracting. I would like your read on what to close, out loud."
             },
             {
-              "prompt": "What weekly ceiling protects spiritual health, marriage, family, and frontline ministry?"
+              "prompt": "What weekly ceiling protects my spiritual health, my marriage, our family, and the frontline ministry?",
+              "detail": "A number, if you have one. I will hold to it better if it comes from you."
             },
             {
-              "prompt": "What is the first responsibility or role that must move off Ryan?"
+              "prompt": "What is the first responsibility or role that must move off me?",
+              "detail": "Of the four seats above, which one first, and what can we afford?"
             },
             {
-              "prompt": "Should Tent Maiker help fund development capacity—and under what safeguards?"
+              "prompt": "Should Tent Maiker help fund development capacity, and under what safeguards?",
+              "detail": "It is the one idea that could change the funding picture. It is also the one that could quietly consume a year."
             },
             {
-              "prompt": "What short scorecard should Ryan and Jon review every week?"
+              "prompt": "What short scorecard should you and I review each week?",
+              "detail": "We have already settled on meeting weekly. What I do not know is which handful of numbers we should look at every time, so the meeting stays useful instead of drifting."
             }
           ]
         },
         {
           "type": "callout",
-          "title": "Weekly advisory rhythm is already decided.",
-          "text": "In person every other week; phone or Google Meet on alternating weeks. Ongoing accountability.",
+          "title": "Our rhythm is already decided",
+          "text": "We meet weekly: in person every other week, and by phone or Google Meet on the alternating weeks. Question six is about what we look at when we meet, not whether we meet.",
           "tone": "gold"
         }
       ]
     },
     {
-      "id": "appendix",
-      "navLabel": "Built Work",
-      "eyebrow": "08 · Appendix",
-      "heading": "Explore what has already been built.",
-      "lede": "These links provide evidence and context without controlling the meeting. Open only what is useful to the question being discussed.",
-      "variant": "plain",
+      "id": "built",
+      "navLabel": "Already built",
+      "eyebrow": "09. If you want to look",
+      "heading": "What has already been built",
+      "lede": "Links, grouped so you can open only what is useful to the question we are on. Some need a sign in; I have marked those.",
+      "variant": "panel",
       "blocks": [
         {
           "type": "links",
           "groups": [
             {
               "title": "USA Missionaries",
-              "note": "Public mission, people, support, prayer, and application experiences.",
+              "note": "The public site: mission, people, support, prayer, and application.",
               "links": [
                 {
                   "label": "USA Missionaries home",
@@ -478,7 +391,7 @@
                   "href": "https://usamissionaries.org/missionaries"
                 },
                 {
-                  "label": "Ryan & Brooke Fox",
+                  "label": "Ryan and Brooke Fox",
                   "href": "https://usamissionaries.org/missionaries/ryan-brooke-fox"
                 },
                 {
@@ -501,7 +414,7 @@
             },
             {
               "title": "Kitchen Table Gospel",
-              "note": "The frontline practice: relational ministry in homes, groups, and everyday life.",
+              "note": "The ministry at the table and through everyday relationships.",
               "links": [
                 {
                   "label": "Kitchen Table Gospel",
@@ -522,8 +435,26 @@
               ]
             },
             {
+              "title": "Mission of Reconciliation and Fourth Quarter",
+              "note": "Freedom, reconciliation, purpose, and service. Fourth Quarter is still forming and does not have its own page yet.",
+              "links": [
+                {
+                  "label": "Mission of Reconciliation",
+                  "href": "https://usamissionaries.org/mission-of-reconciliation"
+                },
+                {
+                  "label": "Stories",
+                  "href": "https://usamissionaries.org/mission-of-reconciliation/stories"
+                },
+                {
+                  "label": "Restoration",
+                  "href": "https://usamissionaries.org/restoration"
+                }
+              ]
+            },
+            {
               "title": "Discipleship Operating System",
-              "note": "People, meetings, groups, journeys, prayer, fruit, reporting, and multiplication.",
+              "note": "People, meetings, groups, journeys, prayer, fruit, and multiplication.",
               "links": [
                 {
                   "label": "DOS public site",
@@ -536,13 +467,23 @@
                 {
                   "label": "Ryan's workspace",
                   "href": "https://usamissionaries.org/dos/app?workspace=ryan-brooke-fox",
-                  "description": "Sign-in required"
+                  "description": "Sign in required"
+                },
+                {
+                  "label": "The multi campus church concept",
+                  "href": "/advisor/examples/river-valley-church",
+                  "description": "Illustrative. Uses the same code as this page."
+                },
+                {
+                  "label": "The service member and veteran concept",
+                  "href": "/advisor/examples/engage-your-destiny",
+                  "description": "Illustrative. Uses the same code as this page."
                 }
               ]
             },
             {
               "title": "Operations",
-              "note": "Onboarding, giving, finance, communications, documents, compliance, and reporting.",
+              "note": "Onboarding, giving, finance, communications, documents, and reporting.",
               "links": [
                 {
                   "label": "Operations home",
@@ -577,8 +518,8 @@
               ]
             },
             {
-              "title": "Partnerships and related work",
-              "note": "Active collaborations, potential deployments, and separate initiatives under discernment.",
+              "title": "Partnerships and organizations we are exploring",
+              "note": "Conversations and ideas, not commitments. See the Exploring section.",
               "links": [
                 {
                   "label": "Partnership vision",
@@ -586,12 +527,9 @@
                   "description": "Separate access"
                 },
                 {
-                  "label": "Mission of Reconciliation",
-                  "href": "https://usamissionaries.org/mission-of-reconciliation"
-                },
-                {
-                  "label": "MOR stories",
-                  "href": "https://usamissionaries.org/mission-of-reconciliation/stories"
+                  "label": "ZOE Church",
+                  "href": "https://www.zchurch.org",
+                  "description": "Possible marriage ministry partnership"
                 },
                 {
                   "label": "SAVE Standard",
@@ -604,22 +542,18 @@
                 {
                   "label": "River Valley Church",
                   "href": "https://www.rivervalley.org",
-                  "description": "DOS vision example"
+                  "description": "Public site. Referenced for the DOS concept only."
                 },
                 {
                   "label": "Engage Your Destiny",
                   "href": "https://engageyourdestiny.org",
-                  "description": "DOS vision example"
-                },
-                {
-                  "label": "ZOE Church marriage ministry",
-                  "href": "https://www.zchurch.org",
-                  "description": "Potential partnership"
-                },
-                {
-                  "label": "Restoration",
-                  "href": "https://usamissionaries.org/restoration"
-                },
+                  "description": "Public site. Referenced for the DOS concept only."
+                }
+              ]
+            },
+            {
+              "title": "Other related work",
+              "links": [
                 {
                   "label": "Remnant",
                   "href": "https://usamissionaries.org/remnant"
@@ -631,5 +565,347 @@
       ]
     }
   ],
-  "footerNote": "Illustrative dashboards are clearly labeled and contain no private participant records. Current as of September 20, 2026."
+  "examples": [
+    {
+      "slug": "river-valley-church",
+      "name": "River Valley Church",
+      "theme": "contemporary",
+      "kicker": "Multi campus discipleship view",
+      "intro": "What church leadership could see across campuses without ever opening someone's private meeting notes. Every organization wide number on this page is invented.",
+      "disclaimer": "This is an illustrative concept. It is not a live account. It does not represent an existing partnership, and River Valley Church has not seen or agreed to it. It does not contain private participant data. All organization wide figures are sample data.",
+      "segmentLabel": "Campus",
+      "stats": [
+        {
+          "label": "Active disciplers",
+          "value": "24",
+          "note": "People currently discipling someone else."
+        },
+        {
+          "label": "People engaged",
+          "value": "87",
+          "note": "People currently being discipled."
+        },
+        {
+          "label": "Meetings",
+          "value": "142",
+          "note": "In the selected period."
+        },
+        {
+          "label": "Fruit markers",
+          "value": "36",
+          "note": "Testimonies, decisions, baptisms, first time serving."
+        }
+      ],
+      "segments": [
+        {
+          "name": "North campus",
+          "stats": [
+            {
+              "label": "Active disciplers",
+              "value": "9"
+            },
+            {
+              "label": "People engaged",
+              "value": "31"
+            },
+            {
+              "label": "Meetings",
+              "value": "54"
+            },
+            {
+              "label": "Fruit markers",
+              "value": "14"
+            }
+          ]
+        },
+        {
+          "name": "Downtown",
+          "stats": [
+            {
+              "label": "Active disciplers",
+              "value": "8"
+            },
+            {
+              "label": "People engaged",
+              "value": "29"
+            },
+            {
+              "label": "Meetings",
+              "value": "47"
+            },
+            {
+              "label": "Fruit markers",
+              "value": "12"
+            }
+          ]
+        },
+        {
+          "name": "West campus",
+          "stats": [
+            {
+              "label": "Active disciplers",
+              "value": "7"
+            },
+            {
+              "label": "People engaged",
+              "value": "27"
+            },
+            {
+              "label": "Meetings",
+              "value": "41"
+            },
+            {
+              "label": "Fruit markers",
+              "value": "10"
+            }
+          ],
+          "attention": "Four relationships here have not met in over three weeks. This is the kind of thing that stays invisible until someone has already drifted."
+        }
+      ],
+      "progress": [
+        {
+          "label": "Foundations journey",
+          "value": 18,
+          "max": 24,
+          "note": "People who have finished the first journey."
+        },
+        {
+          "label": "Beginning to disciple someone else",
+          "value": 11,
+          "max": 24,
+          "note": "The number that actually matters. Multiplication, not attendance."
+        }
+      ],
+      "lists": [
+        {
+          "title": "Starting to disciple someone else",
+          "note": "Where multiplication begins.",
+          "items": [
+            {
+              "label": "North campus",
+              "value": "5",
+              "meta": "Up from 2 last quarter"
+            },
+            {
+              "label": "Downtown",
+              "value": "4",
+              "meta": "Steady"
+            },
+            {
+              "label": "West campus",
+              "value": "2",
+              "meta": "New this quarter"
+            }
+          ]
+        },
+        {
+          "title": "Needs attention",
+          "note": "Surfaced from meeting rhythm alone. No notes are read to produce this.",
+          "items": [
+            {
+              "label": "Relationships with no meeting in 21 days",
+              "value": "4"
+            },
+            {
+              "label": "Journeys started but stalled",
+              "value": "6"
+            },
+            {
+              "label": "New people with no discipler yet",
+              "value": "3"
+            }
+          ]
+        }
+      ],
+      "activity": [
+        {
+          "when": "This week",
+          "what": "Two people finished the Foundations journey and both asked who they should start meeting with."
+        },
+        {
+          "when": "This week",
+          "what": "A new group started at West campus, led by someone who was being discipled last year."
+        },
+        {
+          "when": "Last week",
+          "what": "Three testimonies recorded across two campuses."
+        }
+      ],
+      "verified": {
+        "title": "My own activity, for comparison",
+        "note": "These two figures are verified, pulled from my own use of DOS over the most recent reporting period. They are the only real numbers on this page. I wanted you to see the difference between a verified figure and an illustrative one.",
+        "stats": [
+          {
+            "label": "Meetings",
+            "value": "15"
+          },
+          {
+            "label": "Hours invested",
+            "value": "21"
+          }
+        ]
+      }
+    },
+    {
+      "slug": "engage-your-destiny",
+      "name": "Engage Your Destiny",
+      "theme": "tactical",
+      "kicker": "National engagement view",
+      "intro": "What national leadership of a ministry to service members and veterans could see across regions. Every number on this page is invented.",
+      "disclaimer": "This is an illustrative concept. It is not a live account. It does not represent an existing partnership, and Engage Your Destiny has not seen or agreed to it. It does not contain private participant data. All figures are sample data. This is a discipleship and engagement view only: it holds no health information and no individual risk tracking of any kind.",
+      "segmentLabel": "Region",
+      "stats": [
+        {
+          "label": "Regional leaders",
+          "value": "12"
+        },
+        {
+          "label": "Veterans engaged",
+          "value": "148"
+        },
+        {
+          "label": "Active groups",
+          "value": "31"
+        },
+        {
+          "label": "Journey progress",
+          "value": "68%",
+          "note": "Average completion across active journeys."
+        }
+      ],
+      "segments": [
+        {
+          "name": "Northeast",
+          "stats": [
+            {
+              "label": "Regional leaders",
+              "value": "4"
+            },
+            {
+              "label": "Veterans engaged",
+              "value": "52"
+            },
+            {
+              "label": "Active groups",
+              "value": "11"
+            },
+            {
+              "label": "Journey progress",
+              "value": "71%"
+            }
+          ]
+        },
+        {
+          "name": "Southeast",
+          "stats": [
+            {
+              "label": "Regional leaders",
+              "value": "5"
+            },
+            {
+              "label": "Veterans engaged",
+              "value": "58"
+            },
+            {
+              "label": "Active groups",
+              "value": "12"
+            },
+            {
+              "label": "Journey progress",
+              "value": "66%"
+            }
+          ],
+          "attention": "Two groups here have not met this month. Worth a call from the regional leader."
+        },
+        {
+          "name": "West",
+          "stats": [
+            {
+              "label": "Regional leaders",
+              "value": "3"
+            },
+            {
+              "label": "Veterans engaged",
+              "value": "38"
+            },
+            {
+              "label": "Active groups",
+              "value": "8"
+            },
+            {
+              "label": "Journey progress",
+              "value": "64%"
+            }
+          ]
+        }
+      ],
+      "progress": [
+        {
+          "label": "Spiritual readiness journey",
+          "value": 68,
+          "max": 100,
+          "note": "Average progress across everyone currently in it."
+        },
+        {
+          "label": "Participants beginning to disciple peers",
+          "value": 19,
+          "max": 31,
+          "note": "Group members who have started leading or discipling a peer."
+        }
+      ],
+      "lists": [
+        {
+          "title": "Resources in use",
+          "items": [
+            {
+              "label": "Spiritual readiness journey",
+              "value": "31",
+              "meta": "Groups currently using it"
+            },
+            {
+              "label": "Foundations",
+              "value": "18"
+            },
+            {
+              "label": "Marriage track",
+              "value": "9"
+            }
+          ]
+        },
+        {
+          "title": "Follow up due",
+          "note": "Engagement only. No clinical or risk data.",
+          "items": [
+            {
+              "label": "Check ins due this week",
+              "value": "14"
+            },
+            {
+              "label": "Groups with no meeting in 30 days",
+              "value": "2"
+            },
+            {
+              "label": "New contacts not yet placed in a group",
+              "value": "7"
+            }
+          ]
+        }
+      ],
+      "activity": [
+        {
+          "when": "This month",
+          "what": "Four group members began leading peers in their own units."
+        },
+        {
+          "when": "This month",
+          "what": "Two new regional leaders completed onboarding."
+        },
+        {
+          "when": "Last month",
+          "what": "Nine testimonies recorded across three regions."
+        }
+      ]
+    }
+  ],
+  "footerNote": "Jon, thank you for reading all of this. I would rather you see the gaps than a polished version that hides them. Current as of September 21, 2026."
 }
