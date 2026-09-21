@@ -23,6 +23,7 @@ import {
   dosMinistryDirectionForPerson,
   dosMinistryDiscipleshipMeetings,
   dosMinistryFruitEntriesFromAppData,
+  dosGatheringMinutes,
   dosMinistryGatheringsFromAppData,
   dosMinistryMetricDefinitions,
   dosMinistryMultiplicationCell,
@@ -608,26 +609,55 @@ const samuelEdge = edge.rows.find((row) => row.personId === "samuel");
 assert.deepEqual([samuelEdge.meetingCount, samuelEdge.meetingsMissingDuration, samuelEdge.completeness, samuelEdge.loggedMinutes], [3, 1, "partial", 150], "Missing duration is not zero duration: the meeting counts, adds no minutes, and marks the row Partial.");
 assert.equal(edge.totals.meetingsMissingDuration, 1);
 
-// 17b. Group attendance (USA-271) under the USA-268 contract: recorded
-// attendance is its own count, never a meeting, never contact time, never Fruit.
-const gatheringFixture = (id, offset, attendeePersonIds, extra = {}) => ({ attendeePersonIds, date: day(offset), groupId: "group-1", groupName: "Tuesday Men's Group", id, status: "completed", ...extra });
+// 17b. Group gatherings (USA-271, founder rule of 2026-09-21): each completed
+// gathering in range is ONE meeting with its saved duration, counted once in
+// the totals however many attended; every attendee's row shows it. It is
+// never Fruit, and a gathering already linked to a logged meeting never
+// counts the same time twice.
+const gatheringFixture = (id, offset, attendeePersonIds, extra = {}) => ({ attendeePersonIds, date: day(offset), durationMinutes: 60, groupId: "group-1", groupName: "Tuesday Men's Group", id, linkedMeetingId: null, status: "completed", ...extra });
 const withGatherings = build("30d", undefined, {
   gatherings: [
-    gatheringFixture("g-1", 5, ["tanner", "quiet", "quiet"]),
+    gatheringFixture("g-1", 5, ["tanner", "quiet", "quiet"], { durationMinutes: 90 }),
     gatheringFixture("g-2", 9, ["quiet"]),
+    // The founder's example: four men attended, so one meeting and one duration.
+    gatheringFixture("g-four", 2, ["tanner", "philip", "naomi", "austin"], { durationMinutes: 120 }),
+    // Someone discipling Ryan attends his group alongside Tanner.
+    gatheringFixture("g-mixed", 7, ["tanner", "dirk"], { durationMinutes: 30 }),
+    // Already logged as the meeting m-tanner-1: the meeting counts, not the gathering.
+    gatheringFixture("g-linked", 3, ["tanner"], { linkedMeetingId: "m-tanner-1" }),
+    gatheringFixture("g-no-duration", 4, [], { durationMinutes: null }),
     gatheringFixture("g-old", 45, ["quiet"]),
     gatheringFixture("g-scheduled", 3, ["quiet"], { status: "scheduled" }),
-    gatheringFixture("g-empty", 4, []),
   ],
 });
+const gatheringRecord = (id) => withGatherings.meetings.find((meeting) => meeting.id === id);
+assert.deepEqual(
+  [withGatherings.totals.meetings - report.totals.meetings, withGatherings.totals.investedMeetings - report.totals.investedMeetings, withGatherings.totals.receivedMeetings - report.totals.receivedMeetings],
+  [5, 5, 0],
+  "g-1, g-2, g-four, g-mixed and g-no-duration each add one meeting; the linked, out-of-range and scheduled ones add none.",
+);
+assert.equal(withGatherings.totals.uniqueLoggedMinutesInvested - report.totals.uniqueLoggedMinutesInvested, 90 + 60 + 120 + 30, "Each gathering's duration counts once in time invested, however many attended.");
+const fourRecord = gatheringRecord("g-four");
+assert.deepEqual([fourRecord.bucket, fourRecord.minutes, fourRecord.people.length, fourRecord.label, fourRecord.source], ["invested", 120, 4, "Group gathering · Tuesday Men's Group", "gathering"], "Four attendees: one meeting of 120 minutes, not four.");
+assert.deepEqual(fourRecord.open, { groupId: "group-1", id: "g-four", kind: "gathering" }, "The record opens the gathering itself.");
+assert.deepEqual(["tanner", "philip", "naomi", "austin"].map((id) => withGatherings.rows.find((row) => row.personId === id).records.find((record) => record.id === "g-four")?.minutes), [120, 120, 120, 120], "Each attendee's row shows the gathering and its duration.");
+assert.ok(withGatherings.rows.reduce((sum, row) => sum + row.loggedMinutes, 0) - report.rows.reduce((sum, row) => sum + row.loggedMinutes, 0) > 300, "Rows credit a gathering to everyone present, so rows exceed the totals, which count it once.");
+assert.equal(gatheringRecord("g-linked"), undefined, "A gathering linked to a logged meeting in range is left to that meeting: the time is never counted twice.");
+assert.equal(gatheringRecord("g-old"), undefined, "Out of range.");
+assert.equal(gatheringRecord("g-scheduled"), undefined, "A scheduled occurrence is not a meeting.");
+assert.deepEqual([gatheringRecord("g-no-duration").minutes, withGatherings.totals.meetingsMissingDuration - report.totals.meetingsMissingDuration], [null, 1], "A gathering without a saved duration counts as a meeting and adds no minutes: missing, not zero.");
+assert.deepEqual([gatheringRecord("g-mixed").bucket, withGatherings.rows.find((row) => row.personId === "dirk").records.find((record) => record.id === "g-mixed")?.bucket], ["invested", "received"], "Ryan's group is time he invested, and someone discipling him who attends is never ranked as his time investment.");
+assert.equal(withGatherings.totals.investedMeetings + withGatherings.totals.receivedMeetings, withGatherings.totals.meetings, "Every meeting, gatherings included, is in exactly one total.");
+assert.equal(withGatherings.totals.uniqueLoggedMinutesInvested + withGatherings.totals.uniqueLoggedMinutesReceived, withGatherings.meetings.reduce((sum, meeting) => sum + (meeting.minutes ?? 0), 0), "Invested + received minutes = the logged duration of every meeting, gatherings included.");
 const quietRow = withGatherings.rows.find((row) => row.personId === "quiet");
-assert.ok(quietRow, "A person with only recorded attendance is on the table, even with no meeting and no relationship.");
-assert.deepEqual([quietRow.gatheringsAttended, quietRow.meetingCount, quietRow.loggedMinutes, quietRow.fruitCount], [2, 0, 0, 0], "Attendance is counted once per gathering and adds no meeting, minute, or Fruit.");
-assert.equal(withGatherings.rows.find((row) => row.personId === "tanner").gatheringsAttended, 1);
-assert.deepEqual([withGatherings.totals.meetings, withGatherings.totals.uniqueLoggedMinutesInvested], [report.totals.meetings, report.totals.uniqueLoggedMinutesInvested], "Gatherings change no meeting count and no time total.");
-assert.equal(withGatherings.totals.gatheringsWithAttendance, 2, "Only completed gatherings in range with a recorded attendee count.");
+assert.ok(quietRow, "A person with only recorded attendance is on the table, even with no relationship.");
+assert.deepEqual([quietRow.gatheringsAttended, quietRow.meetingCount, quietRow.loggedMinutes, quietRow.fruitCount], [2, 2, 90 + 60, 0], "Attendance is counted once per gathering; each is a meeting on the row, and never Fruit.");
+assert.equal(withGatherings.rows.find((row) => row.personId === "tanner").gatheringsAttended, 4, "The attendance count still includes the linked gathering; only the meeting total leaves it to the logged meeting.");
+assert.equal(withGatherings.totals.gatheringsWithAttendance, 5, "Only completed gatherings in range with a recorded attendee count.");
 assert.deepEqual(withGatherings.fruitRows, report.fruitRows, "Attendance is never Fruit.");
-assert.equal(dosMinistryGatheringsFromAppData([{ gatherings: [{ attendance: [{ personId: "a", status: "present" }, { personId: "b", status: "absent" }, { personId: "c", status: "guest" }], completedAt: day(2), id: "g", startsAt: day(2), status: "completed" }], id: "group-1", name: "Tuesday Men's Group" }])[0].attendeePersonIds.join(","), "a,c", "Only present and guest attendance reaches the report.");
+const adaptedGathering = dosMinistryGatheringsFromAppData([{ gatherings: [{ attendance: [{ personId: "a", status: "present" }, { personId: "b", status: "absent" }, { personId: "c", status: "guest" }], completedAt: "2026-09-09T19:30:00Z", endsAt: "2026-09-09T19:30:00Z", id: "g", linkedTableEventId: "t-1", startsAt: "2026-09-09T18:00:00Z", status: "completed" }], id: "group-1", name: "Tuesday Men's Group" }])[0];
+assert.deepEqual([adaptedGathering.attendeePersonIds.join(","), adaptedGathering.durationMinutes, adaptedGathering.linkedMeetingId], ["a,c", 90, "t-1"], "Only present and guest attendance reaches the report; the saved start and end give the duration; the linked meeting is carried.");
+assert.deepEqual([dosGatheringMinutes("2026-09-09T18:00:00Z", null), dosGatheringMinutes("2026-09-09T18:00:00Z", "2026-09-09T18:00:00Z")], [null, null], "No end, or an end not after the start, is a missing duration, never zero or an estimate.");
 
 // 18. The revised surface (USA-268): one period surface, three figures, two tables, report-local detail.
 assert.ok(reportUiCode.includes("overflow-x-auto") && reportUiCode.includes("<table") && reportUiCode.includes("sticky left-0"), "The wide table scrolls inside its own container and keeps the Person column visible.");

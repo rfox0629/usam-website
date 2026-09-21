@@ -41961,7 +41961,9 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     setGatheringSheet({ gathering, groupId: resolvedGroupId });
   }
 
-  function openGatheringFromTimeline(groupId: string, gatheringId: string, originPersonId: string) {
+  /* Also opened from Reports (founder, 2026-09-21), where there is no
+     origin Person: the Reports return context brings the reader back. */
+  function openGatheringFromTimeline(groupId: string, gatheringId: string, originPersonId: string | null) {
     const group = groups.find((candidate) => candidate.id === groupId);
     const gathering = group?.gatherings.find((candidate) => candidate.id === gatheringId);
 
@@ -47522,6 +47524,9 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                     onOpenGroup={(groupId) => {
                       if (groupId) {
                         openGroupDetail(groupId);
+                      } else if (reportsReturn) {
+                        /* A gathering opened from Reports returns there. */
+                        backToReports();
                       } else if (groupOriginPersonId) {
                         const originPersonId = groupOriginPersonId;
 
@@ -48037,7 +48042,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                         workspaceId: data.discipleship.workspaceId,
                       }}
                       now={reportNow}
-                      onOpenMeeting={(meetingId, kind) => openRecordFromReports(() => (kind === "discipleship_meeting" ? openDiscipleshipMeeting(meetingId) : openMeetingDetail(meetingId)))}
+                      onOpenMeeting={(meetingId, kind, groupId) => openRecordFromReports(() => (kind === "discipleship_meeting" ? openDiscipleshipMeeting(meetingId) : kind === "gathering" && groupId ? openGatheringFromTimeline(groupId, meetingId, null) : openMeetingDetail(meetingId)))}
                       onOpenPerson={(personId) => openRecordFromReports(() => openPersonDetail(personId))}
                       storageKey={`dos-report-view:${data.workspace.id}`}
                     />
