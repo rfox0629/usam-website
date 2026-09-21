@@ -166,6 +166,32 @@ body:has([data-advisor-doc]) {
   color: #5a6473;
 }
 
+/*
+ * Two sticky bars stack on the briefing: the global USA Missionaries header
+ * and, directly beneath it, the briefing's own section rail. Their heights
+ * are published as custom properties by app/advisor/AdvisorStickyOffsets.tsx
+ * (measured, so they follow the viewport); the values here are the defaults
+ * that hold before that runs and wherever JavaScript is unavailable. Every
+ * offset below derives from these two numbers, so nothing else on the page
+ * needs to know how tall either bar is.
+ */
+:root {
+  --advisor-nav-h: 61px;
+  --advisor-rail-h: 45px;
+}
+
+html:has([data-advisor-doc]) {
+  scroll-padding-top: calc(var(--advisor-nav-h) + var(--advisor-rail-h) + 0.5rem);
+}
+
+[data-advisor-doc] .advisor-rail {
+  top: var(--advisor-nav-h);
+}
+
+[data-advisor-doc] .advisor-section {
+  scroll-margin-top: calc(var(--advisor-nav-h) + var(--advisor-rail-h) + 0.5rem);
+}
+
 @media print {
   /*
    * Printed briefings are black on white with no decoration: background

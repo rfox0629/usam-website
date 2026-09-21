@@ -198,6 +198,8 @@ export type AdvisorExampleNetwork = {
   generations?: { label: string; value: number; note?: string }[];
   /** Optional column headings for the tree, one per generation from the root. */
   columns?: string[];
+  /** Heading over the generation bars. Defaults to "People by generation". */
+  generationsTitle?: string;
   legend?: string;
 };
 
@@ -206,6 +208,9 @@ export type AdvisorExampleRhythm = {
   title: string;
   note?: string;
   days: { label: string; value: number; gathering?: boolean }[];
+  /** Legend wording. Default "Weekend gathering" and "Discipleship through the week". */
+  gatheringLabel?: string;
+  weekLabel?: string;
   places?: { label: string; value: string }[];
   callout?: string;
 };
@@ -509,6 +514,7 @@ function isExampleNetwork(value: unknown): value is AdvisorExampleNetwork {
     && isNonEmptyString(value.title)
     && optionalString(value.note)
     && optionalString(value.legend)
+    && optionalString(value.generationsTitle)
     && (value.columns === undefined || isStringArray(value.columns))
     && isNetworkNode(value.root)
     && (value.generations === undefined
@@ -530,6 +536,8 @@ function isExampleRhythm(value: unknown): value is AdvisorExampleRhythm {
     && isNonEmptyString(value.title)
     && optionalString(value.note)
     && optionalString(value.callout)
+    && optionalString(value.gatheringLabel)
+    && optionalString(value.weekLabel)
     && Array.isArray(value.days)
     && value.days.length > 0
     && value.days.every(

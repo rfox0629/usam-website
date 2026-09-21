@@ -9,6 +9,7 @@ import { AdvisorDashboardMockup } from "./AdvisorDashboardMockup";
 import { AdvisorExampleCards } from "./AdvisorExampleCards";
 import { AdvisorLinkAccordion } from "./AdvisorLinkAccordion";
 import { AdvisorPrintButton } from "./AdvisorPrintButton";
+import { AdvisorStickyOffsets } from "./AdvisorStickyOffsets";
 import { AdvisorTabs } from "./AdvisorTabs";
 import type { AdvisorTabPanel } from "./AdvisorTabs";
 
@@ -32,9 +33,17 @@ import type { AdvisorTabPanel } from "./AdvisorTabs";
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
-/* Measures: prose stays narrow enough to read; tables and mockups get room. */
-const PROSE = "max-w-[36rem]";
-const WIDE = "max-w-[52rem]";
+/*
+ * Measures. The page is a document, so running text keeps a readable line
+ * length (`PROSE`, about 75 characters at this size), while tables, figure
+ * grids, link groups, and dashboard cards may use the whole column (`WIDE`).
+ * `CONTAINER` is the centred column every section and the cover share; on a
+ * laptop or desktop it is wide enough to feel designed for the screen rather
+ * than a phone page floating in white space.
+ */
+const PROSE = "max-w-[44rem]";
+const WIDE = "max-w-[72rem]";
+const CONTAINER = "mx-auto max-w-[72rem]";
 
 /* ---------------------------------------------------------------------- */
 /* EDITORIAL PRIMITIVES                                                    */
@@ -367,10 +376,10 @@ function Section({ examples, section }: { examples: AdvisorExample[]; section: A
 
   return (
     <section
-      className={`scroll-mt-20 px-6 py-12 md:py-16 ${backgrounds[section.variant ?? "plain"]}`}
+      className={`advisor-section px-6 py-12 md:py-16 lg:px-10 ${backgrounds[section.variant ?? "plain"]}`}
       id={section.id}
     >
-      <div className="mx-auto max-w-[52rem]">
+      <div className={CONTAINER}>
         {section.eyebrow ? <Eyebrow>{section.eyebrow}</Eyebrow> : null}
         <SectionHeading>{section.heading}</SectionHeading>
         {section.lede ? <Lede>{section.lede}</Lede> : null}
@@ -384,10 +393,10 @@ function SectionRail({ sections }: { sections: AdvisorSection[] }) {
   return (
     <nav
       aria-label="Section navigation"
-      className="no-print sticky top-0 z-30 overflow-x-auto border-b border-[#E5E8EF] bg-white/95 px-6 py-2.5"
+      className="advisor-rail no-print sticky z-30 overflow-x-auto border-b border-[#E5E8EF] bg-white/95 px-6 py-2.5 lg:px-10"
       style={{ backdropFilter: "blur(8px)" }}
     >
-      <ul className="flex w-max gap-5">
+      <ul className={`${CONTAINER} flex w-max gap-5 lg:w-auto`}>
         {sections.map((section) => (
           <li key={section.id}>
             <a
@@ -408,10 +417,11 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
 
   return (
     <div className="bg-white" data-advisor-doc>
+      <AdvisorStickyOffsets />
       <SectionRail sections={sections} />
 
-      <header className="border-b border-[#E5E8EF] px-6 py-12 md:py-16" id="cover">
-        <div className="mx-auto max-w-[52rem]">
+      <header className="border-b border-[#E5E8EF] px-6 py-12 md:py-16 lg:px-10" id="cover">
+        <div className={CONTAINER}>
           <p
             className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8A6D1F]"
             style={{ fontFamily: font.rajdhani }}
@@ -419,13 +429,13 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
             USA Missionaries
           </p>
           <h1
-            className="mt-3 max-w-[36rem] break-words text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-[1.15] text-[#0B1220]"
+            className={`mt-3 ${PROSE} break-words text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-[1.15] text-[#0B1220]`}
             style={{ fontFamily: font.oswald }}
           >
             {meta.title}
           </h1>
           {meta.subtitle ? (
-            <p className="mt-4 max-w-[36rem] break-words text-[17px] leading-[1.7] text-[#3D4654]">
+            <p className={`mt-4 ${PROSE} break-words text-[17px] leading-[1.7] text-[#3D4654]`}>
               {meta.subtitle}
             </p>
           ) : null}
@@ -454,7 +464,7 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
           </div>
 
           {meta.confidentialNote ? (
-            <p className="mt-8 max-w-[36rem] border-l-2 border-[#C2A14E] pl-4 text-[13.5px] leading-[1.65] text-[#6B7686]">
+            <p className={`mt-8 ${PROSE} border-l-2 border-[#C2A14E] pl-4 text-[13.5px] leading-[1.65] text-[#6B7686]`}>
               {meta.confidentialNote}
             </p>
           ) : null}
@@ -466,8 +476,8 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
       ))}
 
       {content.footerNote ? (
-        <footer className="border-t border-[#E5E8EF] px-6 py-10">
-          <p className="mx-auto max-w-[52rem] text-[13.5px] leading-[1.65] text-[#6B7686]">
+        <footer className="border-t border-[#E5E8EF] px-6 py-10 lg:px-10">
+          <p className={`${CONTAINER} text-[13.5px] leading-[1.65] text-[#6B7686]`}>
             {content.footerNote}
           </p>
         </footer>

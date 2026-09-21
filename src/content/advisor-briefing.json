@@ -18,7 +18,7 @@
       "blocks": [
         {
           "type": "paragraph",
-          "text": "The table is the ministry. Making disciples who make disciples, in homes and at kitchen tables and in ordinary weeks, with people whose names we know. The systems and the organization exist to support that and to help it multiply. They are not the point."
+          "text": "I believe the Lord has called us to minister to believers. That includes helping people walk in freedom and reconciliation, grow into maturity, understand the purpose God has placed on their lives, and become people who disciple others. The table is where most of that happens: making disciples who make disciples, in homes and at kitchen tables and in ordinary weeks, with people whose names we know. The systems and the organization exist to support that and to help it multiply. They are not the point."
         },
         {
           "type": "paragraph",
@@ -30,18 +30,18 @@
             "USA Missionaries is the covering. It recruits, equips, supports, and connects missionaries across the United States, and it holds the 501(c)(3), the giving, and the accountability.",
             "Kitchen Table Gospel is the ministry itself. It is what happens at the table and through everyday relationships: homes, groups, coffee shops, a couple sitting with another couple.",
             "Discipleship Operating System helps those relationships continue, get supported, and multiply. It helps me remember, follow up, and see where fruit is actually forming.",
-            "Mission of Reconciliation helps people walk in freedom, reconciliation, purpose, and service.",
-            "Fourth Quarter is an emerging pathway for recruiting mature believers to disciple the next generation."
+            "Mission of Reconciliation is part of how we minister to believers. It helps people walk in freedom, reconciliation, purpose, and service.",
+            "Fourth Quarter is an additional ministry we are exploring: identifying seasoned Christians who still have a great deal to give and connecting them with real places to serve, disciple, and multiply."
           ]
         },
         {
           "type": "paragraph",
-          "text": "I want to say more about Mission of Reconciliation, because it is easy to file it as a freedom ministry and stop there. It is more than that. Freedom is where it starts, but the deeper work is helping people walk in reconciliation: with God, with the people they have hurt or been hurt by, and with the purpose they have been avoiding. And a large part of who we are meant to reach is not the young. It is seasoned believers in the fourth quarter of their lives who have been sidelined, or who sidelined themselves, and who are carrying decades of walking with God that nobody is asking them for."
+          "text": "I want to say more about Mission of Reconciliation, because it is easy to file it as a freedom ministry and stop there. It is more than that. Freedom is where it starts, but the deeper work is helping believers walk in reconciliation: with God, with the people they have hurt or been hurt by, and with the purpose they have been avoiding. Then it helps them step into service. That is why it belongs inside the calling rather than beside it. It is one of the main ways we help believers grow up into who God made them to be."
         },
         {
           "type": "callout",
-          "title": "Fourth Quarter",
-          "text": "That is the idea I am calling Fourth Quarter. Recruit mature believers, people in the last quarter of life, into purposeful service, and specifically into discipling the next generation. It is still forming. One of the questions further down is whether it should become a real pathway inside DOS or stay a conviction I carry informally for now.",
+          "title": "Fourth Quarter, still being explored",
+          "text": "Fourth Quarter could become an additional ministry where we identify seasoned Christians who still have a great deal to give and connect them with real ministry opportunities. Marty and Lauri are one example through Mission of Reconciliation. Rick Ronchak is another example through discipling youth. The opportunity is not limited to one type of ministry. It is about helping mature believers recognize what the Lord has placed in them and connecting them with people and places where they can serve, disciple, and multiply. It is not the whole calling and it has no structure yet. One of the questions further down is whether it should become a real pathway inside DOS or stay something I carry informally for now.",
           "tone": "gold"
         },
         {
@@ -285,19 +285,9 @@
               "label": "Monthly support",
               "value": "$3,454",
               "note": "Committed recurring monthly support. The public profile shows this as 41% funded."
-            },
-            {
-              "label": "Monthly goal",
-              "value": "$8,333",
-              "note": "What full monthly support would look like."
-            },
-            {
-              "label": "Monthly gap",
-              "value": "$4,879",
-              "note": "The difference between committed monthly support and the goal. If one number stays with you, make it this one."
             }
           ],
-          "note": "Cumulative giving is not cash on hand, and monthly support is not either. I am deliberately not stating a runway, because I have not yet verified monthly operating expenses and household obligations, and a runway figure built on guesses would be worse than none."
+          "note": "Cumulative giving is not cash on hand, and monthly support is not either. Each of these is a different measure, and I would rather you hold three clear numbers than five blurred ones. I am deliberately not stating a runway, because I have not yet verified monthly operating expenses and household obligations, and a runway figure built on guesses would be worse than none."
         },
         {
           "type": "paragraph",
@@ -436,7 +426,7 @@
             },
             {
               "title": "Mission of Reconciliation and Fourth Quarter",
-              "note": "Freedom, reconciliation, purpose, and service. Fourth Quarter is still forming and does not have its own page yet.",
+              "note": "Freedom, reconciliation, purpose, and service. Fourth Quarter is an additional ministry still being explored and does not have its own page yet.",
               "links": [
                 {
                   "label": "Mission of Reconciliation",
@@ -753,10 +743,10 @@
         }
       ],
       "spotlight": {
-        "title": "One discipler, in place",
+        "title": "One member, in place",
         "person": {
           "name": "Ryan Fox",
-          "role": "Discipling people in his community through the week",
+          "role": "A member of the campus, being discipled and discipling others in his community through the week",
           "photo": "/images/board/ryan-fox.webp"
         },
         "place": {
@@ -901,7 +891,8 @@
             "value": 2,
             "note": "Started this quarter."
           }
-        ]
+        ],
+        "generationsTitle": "People by generation, whole campus"
       },
       "rhythm": {
         "title": "When discipleship happens at Apple Valley",
@@ -1084,26 +1075,98 @@
       "name": "Engage Your Destiny",
       "theme": "tactical",
       "kicker": "National engagement view",
-      "intro": "What national leadership of a ministry to service members and veterans could see across regions. Every number on this page is invented.",
-      "disclaimer": "This is an illustrative concept. It is not a live account. It does not represent an existing partnership, and Engage Your Destiny has not seen or agreed to it. It does not contain private participant data. All figures are sample data. This is a discipleship and engagement view only: it holds no health information and no individual risk tracking of any kind.",
+      "intro": "What national leadership of a ministry to service members and veterans could see across regions, and down one line of peer multiplication, without ever opening a private conversation. Every number on this page is invented.",
+      "disclaimer": "This is an illustrative concept. It is not a live account. It does not represent an existing partnership, and Engage Your Destiny has not seen or agreed to it. It does not contain private participant data. All figures are sample data and every person named on this page is a placeholder, not a real person. This is a discipleship and engagement view only: it holds no health information and no individual risk tracking of any kind.",
+      "period": "Last 30 days",
+      "nav": [
+        "Overview",
+        "Regions",
+        "Peer leaders",
+        "Journeys",
+        "Fruit",
+        "Reports"
+      ],
       "segmentLabel": "Region",
       "stats": [
         {
           "label": "Regional leaders",
-          "value": "12"
+          "value": "12",
+          "delta": "+2 vs last period",
+          "note": "Leaders coordinating peer groups in a region.",
+          "trend": [
+            8,
+            8,
+            9,
+            9,
+            9,
+            10,
+            10,
+            10,
+            11,
+            11,
+            12,
+            12
+          ]
         },
         {
           "label": "Veterans engaged",
-          "value": "148"
+          "value": "148",
+          "delta": "+14 vs last period",
+          "note": "Service members and veterans in an active group or one to one relationship.",
+          "trend": [
+            96,
+            101,
+            104,
+            110,
+            114,
+            118,
+            121,
+            127,
+            131,
+            136,
+            142,
+            148
+          ]
         },
         {
           "label": "Active groups",
-          "value": "31"
+          "value": "31",
+          "delta": "+3 vs last period",
+          "note": "Groups that met at least twice this period.",
+          "trend": [
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            30,
+            31
+          ]
         },
         {
           "label": "Journey progress",
           "value": "68%",
-          "note": "Average completion across active journeys."
+          "delta": "+4 pts vs last period",
+          "note": "Average completion across active journeys.",
+          "trend": [
+            52,
+            54,
+            55,
+            57,
+            58,
+            60,
+            61,
+            63,
+            64,
+            65,
+            67,
+            68
+          ]
         }
       ],
       "segments": [
@@ -1172,6 +1235,226 @@
           ]
         }
       ],
+      "spotlight": {
+        "title": "One peer leader, in place",
+        "person": {
+          "name": "Mike R.",
+          "role": "A veteran in a group, being discipled and now leading two peers from his old unit"
+        },
+        "place": {
+          "name": "Southeast region",
+          "detail": "Meets on base, in homes, and online between drills"
+        },
+        "lead": {
+          "name": "Regional leader, Southeast",
+          "role": "Coordinates this region"
+        },
+        "stats": [
+          {
+            "label": "Check ins",
+            "value": "11",
+            "note": "Illustrative. This period."
+          },
+          {
+            "label": "Peers engaged",
+            "value": "2",
+            "note": "Illustrative."
+          },
+          {
+            "label": "Journey progress",
+            "value": "70%",
+            "note": "Illustrative."
+          },
+          {
+            "label": "Fruit markers",
+            "value": "2",
+            "note": "Illustrative."
+          }
+        ],
+        "tags": [
+          "Spiritual readiness journey",
+          "Peer group",
+          "Tuesday evenings"
+        ]
+      },
+      "network": {
+        "title": "Peer multiplication in one region",
+        "note": "Follow one line. A regional leader can see which veterans are leading peers, how far it reaches, and where fruit is showing up, without reading a single conversation. Every name here is a placeholder.",
+        "columns": [
+          "Regional leader",
+          "Peer leader",
+          "Generation 2",
+          "Generation 3"
+        ],
+        "legend": "Gold badge: fruit markers recorded for that person. A testimony, a decision, a baptism, a first time serving. Never a note, never a conversation, never anything clinical.",
+        "root": {
+          "name": "Regional leader",
+          "meta": "Southeast",
+          "children": [
+            {
+              "name": "Mike R.",
+              "meta": "Leads two peers from his unit",
+              "highlight": true,
+              "fruit": 2,
+              "children": [
+                {
+                  "name": "Luis",
+                  "meta": "Now leading one",
+                  "fruit": 1,
+                  "children": [
+                    {
+                      "name": "Terrance",
+                      "meta": "Readiness journey, week 2"
+                    }
+                  ]
+                },
+                {
+                  "name": "Jake",
+                  "meta": "Readiness journey, week 7",
+                  "fruit": 1
+                }
+              ]
+            },
+            {
+              "name": "Dana K.",
+              "meta": "Leads a group of three",
+              "fruit": 1,
+              "children": [
+                {
+                  "name": "Sam",
+                  "meta": "Now leading one",
+                  "children": [
+                    {
+                      "name": "Chris",
+                      "meta": "Started this month"
+                    }
+                  ]
+                },
+                {
+                  "name": "Aaron",
+                  "meta": "Readiness journey, week 4"
+                },
+                {
+                  "name": "Nate",
+                  "meta": "New this month"
+                }
+              ]
+            }
+          ]
+        },
+        "generations": [
+          {
+            "label": "Peer leaders",
+            "value": 5,
+            "note": "Generation 1, whole Southeast region."
+          },
+          {
+            "label": "Being discipled",
+            "value": 18,
+            "note": "Generation 2."
+          },
+          {
+            "label": "Now leading a peer",
+            "value": 6,
+            "note": "Generation 3 has begun."
+          },
+          {
+            "label": "Fourth generation",
+            "value": 1,
+            "note": "Started this quarter."
+          }
+        ],
+        "generationsTitle": "People by generation, whole region"
+      },
+      "rhythm": {
+        "title": "When engagement happens in the Southeast",
+        "note": "Check ins by day of the week, last 30 days. Saturday is group day. The rest of the week is peers reaching peers.",
+        "days": [
+          {
+            "label": "Sun",
+            "value": 4
+          },
+          {
+            "label": "Mon",
+            "value": 7
+          },
+          {
+            "label": "Tue",
+            "value": 11
+          },
+          {
+            "label": "Wed",
+            "value": 8
+          },
+          {
+            "label": "Thu",
+            "value": 9
+          },
+          {
+            "label": "Fri",
+            "value": 5
+          },
+          {
+            "label": "Sat",
+            "value": 12,
+            "gathering": true
+          }
+        ],
+        "places": [
+          {
+            "label": "On base",
+            "value": "19"
+          },
+          {
+            "label": "Homes",
+            "value": "16"
+          },
+          {
+            "label": "Online",
+            "value": "14"
+          },
+          {
+            "label": "Coffee shops",
+            "value": "7"
+          }
+        ],
+        "callout": "44 of 56 check ins this month happened somewhere other than group day. The relationship keeps going between meetings, which is exactly where it is needed most.",
+        "gatheringLabel": "Group day",
+        "weekLabel": "Peers reaching peers through the week"
+      },
+      "trend": {
+        "title": "Check ins per week, all regions",
+        "note": "Twelve weeks. Engagement, not attendance. No clinical or risk data of any kind.",
+        "labels": [
+          "Wk 1",
+          "Wk 2",
+          "Wk 3",
+          "Wk 4",
+          "Wk 5",
+          "Wk 6",
+          "Wk 7",
+          "Wk 8",
+          "Wk 9",
+          "Wk 10",
+          "Wk 11",
+          "Wk 12"
+        ],
+        "values": [
+          18,
+          21,
+          20,
+          24,
+          23,
+          27,
+          26,
+          29,
+          31,
+          30,
+          34,
+          33
+        ],
+        "unit": "check ins"
+      },
       "progress": [
         {
           "label": "Spiritual readiness journey",

@@ -387,7 +387,7 @@ export function ExampleDashboard({ example }: { example: AdvisorExample }) {
                   {example.network.generations ? (
                     <div className="mt-5 border-t pt-4" style={{ borderColor: theme.line }}>
                       <p className={`text-[11.5px] font-semibold ${labelCase}`} style={{ color: theme.label }}>
-                        People by generation, whole campus
+                        {example.network.generationsTitle ?? "People by generation"}
                       </p>
                       <div className="mt-3">
                         <GenerationBars items={example.network.generations} theme={theme} />
