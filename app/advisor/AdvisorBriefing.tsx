@@ -34,20 +34,20 @@ import type { AdvisorTabPanel } from "./AdvisorTabs";
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
 /*
- * Measures. The page is a document, so running text keeps a readable line
- * length (`PROSE`, about 75 characters at this size), while tables, figure
- * grids, link groups, and dashboard cards may use the whole column (`WIDE`).
- * `CONTAINER` is the column every section and the cover share; on a laptop
- * or desktop it is wide enough to feel designed for the screen rather than a
- * phone page floating in white space.
+ * Measures. The page is one centred document column: running text, tables,
+ * figure grids, link groups, and dashboard cards all share the same left and
+ * right edges, so every element lines up and the margins either side are
+ * equal. The column is 52rem wide (832px), which on a laptop or desktop fills
+ * the screen comfortably without stretching a paragraph past about a hundred
+ * characters; text inside the column stays left-aligned.
  *
- * Every measure is centred inside the container (`mx-auto`), so a prose
- * block sits with equal margins either side of it while its text stays
- * left-aligned, and a wide element is centred on the same axis.
+ * `PROSE`, `WIDE` and `CONTAINER` are kept as separate names so a future
+ * change can narrow the prose again without touching every block.
  */
-const PROSE = "mx-auto max-w-[44rem]";
-const WIDE = "mx-auto max-w-[72rem]";
-const CONTAINER = "mx-auto max-w-[72rem]";
+const COLUMN = "mx-auto max-w-[52rem]";
+const PROSE = COLUMN;
+const WIDE = COLUMN;
+const CONTAINER = COLUMN;
 
 /* ---------------------------------------------------------------------- */
 /* EDITORIAL PRIMITIVES                                                    */
@@ -259,7 +259,7 @@ function Block({ block, examples }: { block: AdvisorBlock; examples: AdvisorExam
   switch (block.type) {
     case "paragraph":
       return (
-        <p className={`mt-4 ${PROSE} break-words text-[15.5px] leading-[1.75] text-[#3D4654]`}>
+        <p className={`mt-4 ${PROSE} break-words text-[16px] leading-[1.75] text-[#3D4654]`}>
           {block.text}
         </p>
       );
@@ -268,7 +268,7 @@ function Block({ block, examples }: { block: AdvisorBlock; examples: AdvisorExam
       return (
         <ul className={`mt-4 ${PROSE} space-y-2.5`}>
           {block.items.map((item) => (
-            <li className="flex gap-3 break-words text-[15.5px] leading-[1.7] text-[#3D4654]" key={item}>
+            <li className="flex gap-3 break-words text-[16px] leading-[1.7] text-[#3D4654]" key={item}>
               <span aria-hidden="true" className="mt-[12px] h-px w-3 flex-shrink-0 bg-[#C2A14E]" />
               <span>{item}</span>
             </li>
