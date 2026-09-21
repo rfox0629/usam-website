@@ -117,6 +117,12 @@ export type AdvisorExampleStat = {
   label: string;
   value: string;
   note?: string;
+  /** Signed change against a named period, for example "+12 vs last period". */
+  delta?: string;
+  /** Twelve or so points for a sparkline; the last one is the current period. */
+  trend?: number[];
+  /** A short tag rendered beside the label, for example "Verified". */
+  tag?: string;
 };
 
 export type AdvisorExampleSegment = {
@@ -150,6 +156,69 @@ export type AdvisorExampleActivity = {
   what: string;
 };
 
+/** One person, shown in place: who they are, which campus, who leads that campus. */
+export type AdvisorExampleSpotlight = {
+  title: string;
+  note?: string;
+  person: {
+    name: string;
+    role: string;
+    /** A path under /public. The photo must already be public elsewhere on the site. */
+    photo?: string;
+  };
+  place: {
+    name: string;
+    detail?: string;
+  };
+  lead: {
+    name: string;
+    role: string;
+  };
+  stats: AdvisorExampleStat[];
+  tags?: string[];
+};
+
+/** A node in the multiplication tree: one person and the people they disciple. */
+export type AdvisorExampleNetworkNode = {
+  name: string;
+  role?: string;
+  photo?: string;
+  /** Fruit markers recorded for this person. */
+  fruit?: number;
+  meta?: string;
+  highlight?: boolean;
+  children?: AdvisorExampleNetworkNode[];
+};
+
+export type AdvisorExampleNetwork = {
+  title: string;
+  note?: string;
+  root: AdvisorExampleNetworkNode;
+  /** Optional bars beside the tree, for example people per generation. */
+  generations?: { label: string; value: number; note?: string }[];
+  /** Optional column headings for the tree, one per generation from the root. */
+  columns?: string[];
+  legend?: string;
+};
+
+/** Meetings by day of the week, to show ministry continuing past Sunday. */
+export type AdvisorExampleRhythm = {
+  title: string;
+  note?: string;
+  days: { label: string; value: number; gathering?: boolean }[];
+  places?: { label: string; value: string }[];
+  callout?: string;
+};
+
+/** One measure over time, for example meetings per week. */
+export type AdvisorExampleTrend = {
+  title: string;
+  note?: string;
+  labels: string[];
+  values: number[];
+  unit?: string;
+};
+
 /** Real, verified numbers shown beside the illustrative ones, clearly apart. */
 export type AdvisorExampleVerified = {
   title: string;
@@ -169,8 +238,16 @@ export type AdvisorExample = {
   /** Overrides the default "Illustrative figures" wording. */
   illustrativeLabel?: string;
   segmentLabel?: string;
+  /** The reporting period shown in the dashboard chrome, for example "Last 30 days". */
+  period?: string;
+  /** Decorative navigation labels for the dashboard chrome. The first is the active one. */
+  nav?: string[];
   stats: AdvisorExampleStat[];
   segments?: AdvisorExampleSegment[];
+  spotlight?: AdvisorExampleSpotlight;
+  network?: AdvisorExampleNetwork;
+  rhythm?: AdvisorExampleRhythm;
+  trend?: AdvisorExampleTrend;
   progress?: AdvisorExampleProgress[];
   lists?: AdvisorExampleList[];
   activity?: AdvisorExampleActivity[];
@@ -371,12 +448,116 @@ function isDashboard(value: unknown): value is AdvisorDashboard {
   return Boolean(value.metrics || value.panels || value.progress);
 }
 
+function isNumberArray(value: unknown): value is number[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "number" && Number.isFinite(item));
+}
+
 function isExampleStat(value: unknown): value is AdvisorExampleStat {
   return (
     isRecord(value)
     && isNonEmptyString(value.label)
     && isNonEmptyString(value.value)
     && optionalString(value.note)
+    && optionalString(value.delta)
+    && optionalString(value.tag)
+    && (value.trend === undefined || (isNumberArray(value.trend) && value.trend.length >= 2))
+  );
+}
+
+function isExampleSpotlight(value: unknown): value is AdvisorExampleSpotlight {
+  return (
+    isRecord(value)
+    && isNonEmptyString(value.title)
+    && optionalString(value.note)
+    && isRecord(value.person)
+    && isNonEmptyString(value.person.name)
+    && isNonEmptyString(value.person.role)
+    && optionalString(value.person.photo)
+    && isRecord(value.place)
+    && isNonEmptyString(value.place.name)
+    && optionalString(value.place.detail)
+    && isRecord(value.lead)
+    && isNonEmptyString(value.lead.name)
+    && isNonEmptyString(value.lead.role)
+    && Array.isArray(value.stats)
+    && value.stats.length > 0
+    && value.stats.every(isExampleStat)
+    && (value.tags === undefined || isStringArray(value.tags))
+  );
+}
+
+function isNetworkNode(value: unknown, depth = 0): value is AdvisorExampleNetworkNode {
+  // Six generations is far past anything the tree can draw legibly.
+  if (depth > 6 || !isRecord(value) || !isNonEmptyString(value.name)) {
+    return false;
+  }
+
+  return (
+    optionalString(value.role)
+    && optionalString(value.photo)
+    && optionalString(value.meta)
+    && (value.fruit === undefined || (typeof value.fruit === "number" && value.fruit >= 0))
+    && (value.highlight === undefined || typeof value.highlight === "boolean")
+    && (value.children === undefined
+      || (Array.isArray(value.children) && value.children.every((child) => isNetworkNode(child, depth + 1))))
+  );
+}
+
+function isExampleNetwork(value: unknown): value is AdvisorExampleNetwork {
+  return (
+    isRecord(value)
+    && isNonEmptyString(value.title)
+    && optionalString(value.note)
+    && optionalString(value.legend)
+    && (value.columns === undefined || isStringArray(value.columns))
+    && isNetworkNode(value.root)
+    && (value.generations === undefined
+      || (Array.isArray(value.generations)
+        && value.generations.every(
+          (item) =>
+            isRecord(item)
+            && isNonEmptyString(item.label)
+            && typeof item.value === "number"
+            && item.value >= 0
+            && optionalString(item.note),
+        )))
+  );
+}
+
+function isExampleRhythm(value: unknown): value is AdvisorExampleRhythm {
+  return (
+    isRecord(value)
+    && isNonEmptyString(value.title)
+    && optionalString(value.note)
+    && optionalString(value.callout)
+    && Array.isArray(value.days)
+    && value.days.length > 0
+    && value.days.every(
+      (day) =>
+        isRecord(day)
+        && isNonEmptyString(day.label)
+        && typeof day.value === "number"
+        && day.value >= 0
+        && (day.gathering === undefined || typeof day.gathering === "boolean"),
+    )
+    && (value.places === undefined
+      || (Array.isArray(value.places)
+        && value.places.every(
+          (place) => isRecord(place) && isNonEmptyString(place.label) && isNonEmptyString(place.value),
+        )))
+  );
+}
+
+function isExampleTrend(value: unknown): value is AdvisorExampleTrend {
+  return (
+    isRecord(value)
+    && isNonEmptyString(value.title)
+    && optionalString(value.note)
+    && optionalString(value.unit)
+    && isStringArray(value.labels)
+    && isNumberArray(value.values)
+    && value.values.length >= 2
+    && value.labels.length === value.values.length
   );
 }
 
@@ -415,7 +596,25 @@ function isExample(value: unknown): value is AdvisorExample {
     || !optionalString(value.intro)
     || !optionalString(value.illustrativeLabel)
     || !optionalString(value.segmentLabel)
+    || !optionalString(value.period)
+    || (value.nav !== undefined && !isStringArray(value.nav))
   ) {
+    return false;
+  }
+
+  if (value.spotlight !== undefined && !isExampleSpotlight(value.spotlight)) {
+    return false;
+  }
+
+  if (value.network !== undefined && !isExampleNetwork(value.network)) {
+    return false;
+  }
+
+  if (value.rhythm !== undefined && !isExampleRhythm(value.rhythm)) {
+    return false;
+  }
+
+  if (value.trend !== undefined && !isExampleTrend(value.trend)) {
     return false;
   }
 
