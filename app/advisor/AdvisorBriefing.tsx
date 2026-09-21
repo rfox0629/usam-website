@@ -68,7 +68,7 @@ function Eyebrow({ children }: { children: ReactNode }) {
 function SectionHeading({ children }: { children: ReactNode }) {
   return (
     <h2
-      className={`mt-3 ${PROSE} break-words text-[clamp(1.45rem,2.8vw,1.95rem)] font-semibold leading-[1.22] text-[#0B1220]`}
+      className={`mt-3 ${PROSE} break-words text-[clamp(1.6rem,3vw,2.15rem)] font-semibold leading-[1.2] text-[#0B1220]`}
       style={{ fontFamily: font.oswald }}
     >
       {children}
@@ -78,7 +78,7 @@ function SectionHeading({ children }: { children: ReactNode }) {
 
 function Lede({ children }: { children: ReactNode }) {
   return (
-    <p className={`mt-3 ${PROSE} break-words text-[17px] leading-[1.7] text-[#3D4654]`}>{children}</p>
+    <p className={`mt-4 ${PROSE} break-words text-[18.5px] leading-[1.6] text-[#1F2937]`}>{children}</p>
   );
 }
 
@@ -259,7 +259,7 @@ function Block({ block, examples }: { block: AdvisorBlock; examples: AdvisorExam
   switch (block.type) {
     case "paragraph":
       return (
-        <p className={`mt-4 ${PROSE} break-words text-[16px] leading-[1.75] text-[#3D4654]`}>
+        <p className={`mt-4 ${PROSE} break-words text-[15.5px] leading-[1.75] text-[#3D4654]`}>
           {block.text}
         </p>
       );
@@ -268,7 +268,7 @@ function Block({ block, examples }: { block: AdvisorBlock; examples: AdvisorExam
       return (
         <ul className={`mt-4 ${PROSE} space-y-2.5`}>
           {block.items.map((item) => (
-            <li className="flex gap-3 break-words text-[16px] leading-[1.7] text-[#3D4654]" key={item}>
+            <li className="flex gap-3 break-words text-[15.5px] leading-[1.7] text-[#3D4654]" key={item}>
               <span aria-hidden="true" className="mt-[12px] h-px w-3 flex-shrink-0 bg-[#C2A14E]" />
               <span>{item}</span>
             </li>
