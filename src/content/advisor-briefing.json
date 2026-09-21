@@ -571,67 +571,115 @@
       "name": "River Valley Church",
       "theme": "contemporary",
       "kicker": "Multi campus discipleship view",
-      "intro": "What church leadership could see across campuses without ever opening someone's private meeting notes. Every organization wide number on this page is invented.",
-      "disclaimer": "This is an illustrative concept. It is not a live account. It does not represent an existing partnership, and River Valley Church has not seen or agreed to it. It does not contain private participant data. All organization wide figures are sample data.",
+      "intro": "What a campus pastor and church leadership could see across campuses, and down one line of multiplication, without ever opening someone's private meeting notes. Every organization wide number on this page is invented.",
+      "disclaimer": "This is an illustrative concept. It is not a live account. It does not represent an existing partnership, and River Valley Church has not seen or agreed to it. It does not contain private participant data. All organization wide figures are sample data. Ryan Fox appears with his own photo by his own choice, and Davey Collins is named as the Apple Valley campus pastor only to make the picture concrete; neither he nor the church has reviewed this. Everyone else in the multiplication view is a placeholder name, not a real person.",
+      "period": "Last 30 days",
+      "nav": [
+        "Overview",
+        "Campuses",
+        "People",
+        "Journeys",
+        "Fruit",
+        "Reports"
+      ],
       "segmentLabel": "Campus",
       "stats": [
         {
           "label": "Active disciplers",
           "value": "24",
-          "note": "People currently discipling someone else."
+          "delta": "+3 vs last period",
+          "note": "People currently discipling someone else.",
+          "trend": [
+            14,
+            15,
+            15,
+            17,
+            18,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24
+          ]
         },
         {
           "label": "People engaged",
           "value": "87",
-          "note": "People currently being discipled."
+          "delta": "+9 vs last period",
+          "note": "People currently being discipled.",
+          "trend": [
+            61,
+            63,
+            66,
+            68,
+            70,
+            74,
+            75,
+            78,
+            80,
+            82,
+            85,
+            87
+          ]
         },
         {
           "label": "Meetings",
           "value": "142",
-          "note": "In the selected period."
+          "delta": "+17 vs last period",
+          "note": "Discipleship meetings recorded across all campuses.",
+          "trend": [
+            22,
+            24,
+            23,
+            27,
+            28,
+            30,
+            29,
+            32,
+            33,
+            36,
+            38,
+            35
+          ]
         },
         {
           "label": "Fruit markers",
           "value": "36",
-          "note": "Testimonies, decisions, baptisms, first time serving."
+          "delta": "+8 vs last period",
+          "note": "Testimonies, decisions, baptisms, first time serving.",
+          "trend": [
+            12,
+            14,
+            16,
+            19,
+            21,
+            24,
+            26,
+            28,
+            30,
+            32,
+            34,
+            36
+          ]
         }
       ],
       "segments": [
         {
-          "name": "North campus",
+          "name": "Apple Valley",
           "stats": [
             {
               "label": "Active disciplers",
-              "value": "9"
+              "value": "7"
             },
             {
               "label": "People engaged",
-              "value": "31"
+              "value": "25"
             },
             {
               "label": "Meetings",
-              "value": "54"
-            },
-            {
-              "label": "Fruit markers",
-              "value": "14"
-            }
-          ]
-        },
-        {
-          "name": "Downtown",
-          "stats": [
-            {
-              "label": "Active disciplers",
-              "value": "8"
-            },
-            {
-              "label": "People engaged",
-              "value": "29"
-            },
-            {
-              "label": "Meetings",
-              "value": "47"
+              "value": "41"
             },
             {
               "label": "Fruit markers",
@@ -640,28 +688,308 @@
           ]
         },
         {
-          "name": "West campus",
+          "name": "North campus",
           "stats": [
             {
               "label": "Active disciplers",
-              "value": "7"
+              "value": "6"
             },
             {
               "label": "People engaged",
-              "value": "27"
+              "value": "22"
             },
             {
               "label": "Meetings",
-              "value": "41"
+              "value": "38"
             },
             {
               "label": "Fruit markers",
               "value": "10"
             }
+          ]
+        },
+        {
+          "name": "Downtown",
+          "stats": [
+            {
+              "label": "Active disciplers",
+              "value": "6"
+            },
+            {
+              "label": "People engaged",
+              "value": "21"
+            },
+            {
+              "label": "Meetings",
+              "value": "36"
+            },
+            {
+              "label": "Fruit markers",
+              "value": "8"
+            }
+          ]
+        },
+        {
+          "name": "West campus",
+          "stats": [
+            {
+              "label": "Active disciplers",
+              "value": "5"
+            },
+            {
+              "label": "People engaged",
+              "value": "19"
+            },
+            {
+              "label": "Meetings",
+              "value": "27"
+            },
+            {
+              "label": "Fruit markers",
+              "value": "6"
+            }
           ],
           "attention": "Four relationships here have not met in over three weeks. This is the kind of thing that stays invisible until someone has already drifted."
         }
       ],
+      "spotlight": {
+        "title": "One discipler, in place",
+        "person": {
+          "name": "Ryan Fox",
+          "role": "Discipling people in his community through the week",
+          "photo": "/images/board/ryan-fox.webp"
+        },
+        "place": {
+          "name": "Apple Valley campus",
+          "detail": "Meets in homes and coffee shops, not in the building"
+        },
+        "lead": {
+          "name": "Davey Collins",
+          "role": "Campus pastor"
+        },
+        "stats": [
+          {
+            "label": "Meetings",
+            "value": "15",
+            "tag": "Verified",
+            "note": "Most recent reporting period."
+          },
+          {
+            "label": "Hours invested",
+            "value": "21",
+            "tag": "Verified",
+            "note": "Most recent reporting period."
+          },
+          {
+            "label": "Discipling now",
+            "value": "4",
+            "note": "Illustrative."
+          },
+          {
+            "label": "Fruit markers",
+            "value": "3",
+            "note": "Illustrative."
+          }
+        ],
+        "tags": [
+          "Kitchen Table Gospel",
+          "Foundations journey",
+          "Tuesday and Thursday"
+        ]
+      },
+      "network": {
+        "title": "Multiplication at one campus",
+        "note": "Follow one line. A campus pastor can see who is discipling whom, how deep it goes, and where fruit is showing up, without reading a single private note. Ryan is real. Everyone below him is a placeholder.",
+        "columns": [
+          "Campus pastor",
+          "Discipler",
+          "Generation 2",
+          "Generation 3"
+        ],
+        "legend": "Gold badge: fruit markers recorded for that person. A testimony, a decision, a baptism, a first time serving. Never a note, never a conversation.",
+        "root": {
+          "name": "Davey Collins",
+          "meta": "Apple Valley campus",
+          "children": [
+            {
+              "name": "Ryan Fox",
+              "meta": "Meets Tuesday and Thursday",
+              "photo": "/images/board/ryan-fox.webp",
+              "highlight": true,
+              "fruit": 3,
+              "children": [
+                {
+                  "name": "Marcus",
+                  "meta": "Now discipling Jordan",
+                  "fruit": 1,
+                  "children": [
+                    {
+                      "name": "Jordan",
+                      "meta": "Foundations, week 3"
+                    }
+                  ]
+                },
+                {
+                  "name": "Trent",
+                  "meta": "Now discipling two",
+                  "fruit": 1,
+                  "children": [
+                    {
+                      "name": "Caleb",
+                      "meta": "Started this month"
+                    },
+                    {
+                      "name": "Andre",
+                      "meta": "Baptized in May",
+                      "fruit": 1
+                    }
+                  ]
+                },
+                {
+                  "name": "Eli",
+                  "meta": "Foundations, week 6",
+                  "fruit": 1
+                },
+                {
+                  "name": "Dominic",
+                  "meta": "New this month"
+                }
+              ]
+            },
+            {
+              "name": "Priya",
+              "meta": "Also Apple Valley",
+              "fruit": 2,
+              "children": [
+                {
+                  "name": "Renee",
+                  "meta": "Now discipling one",
+                  "fruit": 1,
+                  "children": [
+                    {
+                      "name": "Maya",
+                      "meta": "Foundations, week 1"
+                    }
+                  ]
+                },
+                {
+                  "name": "Hannah",
+                  "meta": "Foundations, week 8"
+                }
+              ]
+            }
+          ]
+        },
+        "generations": [
+          {
+            "label": "Discipling directly",
+            "value": 7,
+            "note": "Generation 1, all Apple Valley disciplers."
+          },
+          {
+            "label": "Being discipled",
+            "value": 25,
+            "note": "Generation 2."
+          },
+          {
+            "label": "Now discipling someone",
+            "value": 9,
+            "note": "Generation 3 has begun."
+          },
+          {
+            "label": "Fourth generation",
+            "value": 2,
+            "note": "Started this quarter."
+          }
+        ]
+      },
+      "rhythm": {
+        "title": "When discipleship happens at Apple Valley",
+        "note": "Meetings by day of the week, last 30 days. Sunday is the gathering. The rest of the week is the church being the church.",
+        "days": [
+          {
+            "label": "Sun",
+            "value": 8,
+            "gathering": true
+          },
+          {
+            "label": "Mon",
+            "value": 5
+          },
+          {
+            "label": "Tue",
+            "value": 9
+          },
+          {
+            "label": "Wed",
+            "value": 7
+          },
+          {
+            "label": "Thu",
+            "value": 6
+          },
+          {
+            "label": "Fri",
+            "value": 3
+          },
+          {
+            "label": "Sat",
+            "value": 3
+          }
+        ],
+        "places": [
+          {
+            "label": "Homes",
+            "value": "17"
+          },
+          {
+            "label": "Coffee shops",
+            "value": "12"
+          },
+          {
+            "label": "Church building",
+            "value": "7"
+          },
+          {
+            "label": "Online",
+            "value": "5"
+          }
+        ],
+        "callout": "33 of 41 meetings this month happened somewhere other than Sunday. The ministry keeps going whether or not someone was in the building that weekend."
+      },
+      "trend": {
+        "title": "Meetings per week, all campuses",
+        "note": "Twelve weeks. This is the discipleship heartbeat of the whole church, not attendance.",
+        "labels": [
+          "Wk 1",
+          "Wk 2",
+          "Wk 3",
+          "Wk 4",
+          "Wk 5",
+          "Wk 6",
+          "Wk 7",
+          "Wk 8",
+          "Wk 9",
+          "Wk 10",
+          "Wk 11",
+          "Wk 12"
+        ],
+        "values": [
+          22,
+          24,
+          23,
+          27,
+          28,
+          30,
+          29,
+          32,
+          33,
+          36,
+          38,
+          35
+        ],
+        "unit": "meetings"
+      },
       "progress": [
         {
           "label": "Foundations journey",
@@ -682,13 +1010,18 @@
           "note": "Where multiplication begins.",
           "items": [
             {
+              "label": "Apple Valley",
+              "value": "4",
+              "meta": "Up from 1 last quarter"
+            },
+            {
               "label": "North campus",
-              "value": "5",
-              "meta": "Up from 2 last quarter"
+              "value": "3",
+              "meta": "Steady"
             },
             {
               "label": "Downtown",
-              "value": "4",
+              "value": "2",
               "meta": "Steady"
             },
             {
@@ -720,7 +1053,7 @@
       "activity": [
         {
           "when": "This week",
-          "what": "Two people finished the Foundations journey and both asked who they should start meeting with."
+          "what": "Two people at Apple Valley finished the Foundations journey and both asked who they should start meeting with."
         },
         {
           "when": "This week",
@@ -728,7 +1061,7 @@
         },
         {
           "when": "Last week",
-          "what": "Three testimonies recorded across two campuses."
+          "what": "Three testimonies recorded across two campuses. One was a first baptism in a family."
         }
       ],
       "verified": {

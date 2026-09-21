@@ -139,6 +139,22 @@ like for one organisation. Each becomes a gated page at
 }
 ```
 
+Optional pieces that make the page read as a product rather than a report:
+
+| Field | Renders as |
+| --- | --- |
+| `period`, `nav` | The reporting period chip and decorative navigation tabs in the app chrome. The first tab is the active one. |
+| `stats[].delta`, `stats[].trend`, `stats[].tag` | A signed change line, a twelve-point sparkline, and a short tag such as "Verified" on any stat tile. |
+| `spotlight` | One person in place: `person` (`name`, `role`, optional `photo` under `/public`), `place`, `lead` (for example the campus pastor), `stats`, optional `tags`. |
+| `network` | The multiplication tree: a `root` node with nested `children`, each with optional `meta`, `photo`, `fruit` (a gold badge count) and `highlight`; optional `columns` headings, `legend`, and `generations` bars. Drawn as SVG above `sm` and as a stacked list below it. |
+| `rhythm` | Meetings by day of the week (`days`, mark the gathering day with `gathering: true`), optional `places` chips and a `callout`. |
+| `trend` | One measure over time: `labels` and `values` of equal length, optional `unit`. Ships with a "show as a table" toggle. |
+
+A `photo` must already be public elsewhere on the site; the concept page adds
+no new image to the repository. A named real person in `spotlight` or
+`network` appears there by their own choice, and the `disclaimer` must say so
+and must say that every other person in the tree is a placeholder.
+
 `theme` is `contemporary` (open, warm, rounded) or `tactical` (dense, high
 contrast, squared). The themes are visual treatments only; the organisation's
 name, figures, and wording all come from the content.
