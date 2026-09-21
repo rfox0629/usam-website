@@ -116,7 +116,7 @@ export type DosMinistryMetricKey = "invested" | "received" | "meetings";
 
 export const dosMinistryMetricDefinitions: Record<DosMinistryMetricKey, { definition: string; label: string }> = {
   invested: {
-    definition: "Logged duration of every meeting in this range where you were not the one being discipled. Each meeting counts once, however many people were there. A meeting without a logged duration adds nothing.",
+    definition: "Logged duration of every meeting and group gathering in this range where you were not the one being discipled. Each counts once, however many people were there. A meeting without a logged duration adds nothing.",
     label: "Time invested",
   },
   received: {
@@ -124,7 +124,7 @@ export const dosMinistryMetricDefinitions: Record<DosMinistryMetricKey, { defini
     label: "Invested in me",
   },
   meetings: {
-    definition: "Logged meetings dated in this range, from Meetings and from My Record discipleship meetings, each counted once. Scheduled and canceled meetings, connection logs, and check-ins are not meetings.",
+    definition: "Logged meetings, completed group gatherings and My Record discipleship meetings dated in this range, each counted once however many attended. Scheduled and canceled meetings, connection logs, and check-ins are not meetings.",
     label: "Meetings",
   },
 };
@@ -151,7 +151,11 @@ export type DosMinistryReportMeeting = {
   /* "discipleship" is a meeting logged through Log Discipleship Meeting in My
      Record (`dos_user_mentor_meetings`, USA-265): the missionary was the one
      being discipled, so the form itself records the direction. */
-  source: "connection" | "discipleship" | "table";
+  source: "connection" | "discipleship" | "gathering" | "table";
+  /* A completed group gathering (founder, 2026-09-21) enters as ONE meeting:
+     its group, so the record reads and opens as the gathering. */
+  groupId?: string;
+  groupName?: string;
   /* Entered minutes, for a record that stores a duration rather than a start
      and end (discipleship meetings). */
   durationMinutes?: number | null;
@@ -255,6 +259,12 @@ export type DosMinistryFruitEntry = {
 export type DosMinistryReportGathering = {
   attendeePersonIds: string[];
   date: string | null;
+  /* The duration the leader saved when recording it (start to end), or null
+     when it has none. Missing is never zero. */
+  durationMinutes?: number | null;
+  /* A logged meeting this gathering is already linked to, which then counts
+     instead of the gathering, so the time is never counted twice. */
+  linkedMeetingId?: string | null;
   groupId: string;
   groupName: string;
   id: string;
@@ -300,7 +310,7 @@ export type DosMinistryReportInput = {
 
 /* ---------- outputs ---------- */
 
-export type DosMinistryMeetingOpen = { id: string; kind: "discipleship_meeting" | "meeting" };
+export type DosMinistryMeetingOpen = { groupId?: string; id: string; kind: "discipleship_meeting" | "gathering" | "meeting" };
 
 export type DosMinistryReportRecord =
   | {
@@ -339,7 +349,7 @@ export type DosMinistryMeetingRecord = {
   people: Array<{ id: string; name: string }>;
   /* The role stored on the meeting, or null when none was recorded. */
   roleLabel: string | null;
-  source: "discipleship" | "table";
+  source: "discipleship" | "gathering" | "table";
 };
 
 export type DosMinistryNextAction = {
@@ -790,6 +800,12 @@ export function dosMinistryClassifyMeeting(
   meeting: Pick<DosMinistryReportMeeting, "fieldPersonIds" | "tableRole" | "tableRoleRecorded"> & Partial<Pick<DosMinistryReportMeeting, "source">>,
   directionByPersonId: Map<string, Pick<DosMinistryReportRow, "direction" | "directionStatus" | "personName">>,
 ): DosMinistryClassification {
+  /* A group gathering in the missionary's own workspace is time they gave,
+     counted once however many attended (founder, 2026-09-21). */
+  if (meeting.source === "gathering") {
+    return { bucket: "invested", reason: "Group gathering, counted once however many attended" };
+  }
+
   if (meeting.tableRoleRecorded) {
     const bucket = dosMinistryTimeBucketForRole(meeting.tableRole);
 
@@ -937,6 +953,16 @@ function plural(count: number, singular: string, pluralForm = `${singular}s`) {
 
 type DosMinistryRowCore = Omit<DosMinistryReportRow, "bucket" | "nextAction">;
 
+/* Where a counted meeting opens: a logged meeting, My Record's discipleship
+   meeting, or the group gathering itself. */
+function dosMinistryMeetingOpen(meeting: Pick<DosMinistryReportMeeting, "groupId" | "id" | "source">): DosMinistryMeetingOpen {
+  if (meeting.source === "gathering") {
+    return { groupId: meeting.groupId, id: meeting.id, kind: "gathering" };
+  }
+
+  return { id: meeting.id, kind: meeting.source === "discipleship" ? "discipleship_meeting" : "meeting" };
+}
+
 export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinistryReport {
   const period = dosMinistryReportPeriod(input.range, input.now, input.period);
   const today = localDateKey(input.now);
@@ -957,7 +983,7 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
     return true;
   });
 
-  const qualifyingMeetings = inputMeetings.filter((meeting) => meeting.meetingStatus === "logged" && (meeting.source === "table" || meeting.source === "discipleship") && inPeriod(dosMinistryReportDateKey(meeting.date), period));
+  const loggedMeetings = inputMeetings.filter((meeting) => meeting.meetingStatus === "logged" && (meeting.source === "table" || meeting.source === "discipleship") && inPeriod(dosMinistryReportDateKey(meeting.date), period));
   const connectionLogs = inputMeetings.filter((meeting) => meeting.meetingStatus === "logged" && meeting.source === "connection" && inPeriod(dosMinistryReportDateKey(meeting.date), period)).length;
   const qualifyingCheckIns = input.checkIns.filter((checkIn) => inPeriod(dosMinistryReportDateKey(checkIn.checkInDate), period));
   const upcomingMeetings = input.meetings.filter((meeting) => meeting.meetingStatus === "scheduled" && (dosMinistryReportDateKey(meeting.date) ?? "") >= today);
@@ -966,7 +992,9 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
   const downstreamReadPersonIds = new Set(input.downstreamReadPersonIds ?? []);
   const fruitRows = buildFruitRows(input, period, peopleById);
   /* USA-271: recorded group attendance, counted once per person per
-     gathering. It is never a meeting, never contact time, and never Fruit. */
+     gathering. It is never Fruit. Founder, 2026-09-21: each completed
+     gathering is also ONE meeting with its saved duration (below), so four
+     people attending adds one meeting and one duration to the totals. */
   const gatheringsInPeriod = (input.gatherings ?? []).filter((gathering) => gathering.status === "completed" && inPeriod(dosMinistryReportDateKey(gathering.date), period));
   const gatheringsAttendedByPerson = new Map<string, Set<string>>();
 
@@ -978,6 +1006,31 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
       gatheringsAttendedByPerson.set(personId, attended);
     });
   });
+
+  /* Each completed gathering in range becomes one meeting, whoever and
+     however many attended: the attendees are its people, so each sees it on
+     their row, while the totals count it and its duration once. A gathering
+     already linked to a logged meeting in range is left to that meeting, so
+     the same time is never counted twice. */
+  const loggedTableMeetingIds = new Set(loggedMeetings.filter((meeting) => meeting.source === "table").map((meeting) => meeting.id));
+  const gatheringMeetings: DosMinistryReportMeeting[] = gatheringsInPeriod
+    .filter((gathering) => !(gathering.linkedMeetingId && loggedTableMeetingIds.has(gathering.linkedMeetingId)))
+    .map((gathering) => ({
+      date: gathering.date,
+      durationMinutes: gathering.durationMinutes ?? null,
+      fieldPersonIds: Array.from(new Set(gathering.attendeePersonIds)),
+      groupId: gathering.groupId,
+      groupName: gathering.groupName,
+      id: gathering.id,
+      meetingStatus: "logged",
+      scheduledEndAt: null,
+      scheduledStartAt: null,
+      source: "gathering",
+      tableRole: "ministering",
+      tableRoleRecorded: false,
+      type: "group",
+    }));
+  const qualifyingMeetings = [...loggedMeetings, ...gatheringMeetings];
 
   const fruitCountByPerson = new Map<string, number>();
 
@@ -1021,12 +1074,12 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
         bucketReason: classification.reason,
         date: dosMinistryReportDateKey(meeting.date) ?? period.end,
         id: meeting.id,
-        label: meeting.source === "discipleship" ? "Discipleship meeting" : dosMinistryMeetingLabel(meeting),
+        label: meeting.source === "discipleship" ? "Discipleship meeting" : meeting.source === "gathering" ? `Group gathering · ${meeting.groupName ?? "Group"}` : dosMinistryMeetingLabel(meeting),
         minutes: dosLoggedMeetingMinutes(meeting),
-        open: { id: meeting.id, kind: meeting.source === "discipleship" ? "discipleship_meeting" : "meeting" },
+        open: dosMinistryMeetingOpen(meeting),
         people: activeLinkedIds(meeting).map((personId) => ({ id: personId, name: peopleById.get(personId)?.name ?? "" })),
         roleLabel: meeting.tableRoleRecorded ? meetingRoleLabel(meeting.tableRole) : null,
-        source: meeting.source === "discipleship" ? "discipleship" : "table",
+        source: meeting.source === "discipleship" || meeting.source === "gathering" ? meeting.source : "table",
       };
     })
     .sort((first, second) => second.date.localeCompare(first.date) || first.label.localeCompare(second.label));
@@ -1073,9 +1126,11 @@ export function buildDosMinistryReport(input: DosMinistryReportInput): DosMinist
         kind: "meeting",
         label: meeting.source === "discipleship"
           ? "Discipleship meeting · Being discipled"
-          : [dosMinistryMeetingLabel(meeting), meeting.tableRoleRecorded ? meetingRoleLabel(meeting.tableRole) : null, others ? `with ${plural(others, "other")}` : null].filter(Boolean).join(" · "),
+          : meeting.source === "gathering"
+            ? [`Group gathering · ${meeting.groupName ?? "Group"}`, others ? `with ${plural(others, "other")}` : null].filter(Boolean).join(" · ")
+            : [dosMinistryMeetingLabel(meeting), meeting.tableRoleRecorded ? meetingRoleLabel(meeting.tableRole) : null, others ? `with ${plural(others, "other")}` : null].filter(Boolean).join(" · "),
         minutes: dosLoggedMeetingMinutes(meeting),
-        open: { id: meeting.id, kind: meeting.source === "discipleship" ? "discipleship_meeting" : "meeting" },
+        open: dosMinistryMeetingOpen(meeting),
         role: meeting.tableRoleRecorded ? meeting.tableRole : "",
         shared: others > 0,
       };
@@ -1650,10 +1705,26 @@ export function dosMinistryFruitEntriesFromAppData({
 /* USA-271: group gatherings narrowed to what the report reads, the
    gathering's date and who was recorded present. Notes, prayer, and
    follow-up never enter. */
+/* A gathering's logged duration is the one its record stores: the start and
+   end the leader saved when recording it. Anything else is missing, never
+   zero, and never estimated. */
+export function dosGatheringMinutes(startsAt: string | null, endsAt: string | null) {
+  if (!startsAt || !endsAt) {
+    return null;
+  }
+
+  const start = new Date(startsAt).getTime();
+  const end = new Date(endsAt).getTime();
+
+  return Number.isFinite(start) && Number.isFinite(end) && end > start ? Math.round((end - start) / 60_000) : null;
+}
+
 export function dosMinistryGatheringsFromAppData(groups: DosAppGroup[]): DosMinistryReportGathering[] {
   return groups.flatMap((group) => group.gatherings.map((gathering) => ({
     attendeePersonIds: gathering.attendance.filter((row) => row.status === "present" || row.status === "guest").map((row) => row.personId),
     date: gathering.completedAt ?? gathering.startsAt,
+    durationMinutes: dosGatheringMinutes(gathering.startsAt, gathering.endsAt),
+    linkedMeetingId: gathering.linkedTableEventId,
     groupId: group.id,
     groupName: group.name,
     id: gathering.id,

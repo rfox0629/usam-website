@@ -399,7 +399,7 @@ export function MinistryTimeInvestmentReport({
   now: Date;
   /* Open the full source record. Reports calls these only from an explicit
      Open action; ordinary clicks open read-only detail over the report. */
-  onOpenMeeting: (meetingId: string, kind?: "discipleship_meeting" | "meeting") => void;
+  onOpenMeeting: (meetingId: string, kind?: "discipleship_meeting" | "gathering" | "meeting", groupId?: string) => void;
   onOpenPerson: (personId: string) => void;
   /* Scoped per workspace, so the view survives a full record and a reload. */
   storageKey?: string;
@@ -957,7 +957,7 @@ function ReportDetailSheet({
   onBack: () => void;
   onClose: () => void;
   onOpen: (next: ReportDetail) => void;
-  onOpenMeeting: (meetingId: string, kind?: "discipleship_meeting" | "meeting") => void;
+  onOpenMeeting: (meetingId: string, kind?: "discipleship_meeting" | "gathering" | "meeting", groupId?: string) => void;
   onOpenPerson: (personId: string) => void;
   onOpenRecord: (record: DosMinistryReportRecord) => void;
   report: ReturnType<typeof buildDosMinistryReport>;
@@ -1069,8 +1069,8 @@ function ReportDetailSheet({
                 { label: dosMinistryTimeBucketLabels.invested, value: row.meetingsByBucket.invested ? formatDosMinistryMinutes(row.minutesByBucket.invested) : "0m" },
                 row.meetingsByBucket.received ? { label: dosMinistryTimeBucketLabels.received, value: formatDosMinistryMinutes(row.minutesByBucket.received) } : null,
                 row.checkInCount ? { label: "Check-ins", value: row.checkInCount } : null,
-                /* USA-271: recorded group attendance is its own count, never
-                   a meeting and never the missionary's logged duration. */
+                /* USA-271: recorded group attendance. Each gathering is also
+                   one of the meetings above (founder, 2026-09-21). */
                 row.gatheringsAttended ? { label: "Group gatherings", value: row.gatheringsAttended } : null,
                 { label: "Last activity", value: row.lastActivity ? formatDosMinistryDate(row.lastActivity.date, now) : "—" },
                 { label: "Fruit", value: row.fruitCount },
@@ -1079,7 +1079,7 @@ function ReportDetailSheet({
             />
             {row.completeness === "partial" ? <p className="mt-2 text-dos-meta text-dos-secondary">{row.completenessDetail}.</p> : null}
             {row.gatheringsAttended ? (
-              <p className="mt-2 text-dos-meta text-dos-secondary">Group gatherings are recorded attendance in this range, not counted as meetings or as your logged duration.</p>
+              <p className="mt-2 text-dos-meta text-dos-secondary">Each group gathering is one meeting in your totals, with its duration counted once however many attended.</p>
             ) : null}
             {row.directionConflict ? <p className="mt-2 rounded-dos-1 bg-dos-blue50 px-3 py-2 text-dos-meta text-dos-blueText">{row.directionConflict}</p> : null}
           </DosDetailSection>
@@ -1162,8 +1162,8 @@ function ReportDetailSheet({
         </>
       );
       actions = (
-        <Button fullWidth onClick={() => onOpenMeeting(meeting.open.id, meeting.open.kind)}>
-          {meeting.open.kind === "discipleship_meeting" ? "Open in My Record" : "Open meeting"}
+        <Button fullWidth onClick={() => onOpenMeeting(meeting.open.id, meeting.open.kind, meeting.open.groupId)}>
+          {meeting.open.kind === "discipleship_meeting" ? "Open in My Record" : meeting.open.kind === "gathering" ? "Open gathering" : "Open meeting"}
         </Button>
       );
     }
