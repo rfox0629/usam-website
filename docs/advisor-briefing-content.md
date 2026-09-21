@@ -174,6 +174,39 @@ each one. Rewrite those sentences with periods, commas, colons or parentheses.
 Swapping the character for a hyphen is not enough. A matching regression check
 fails the build if one appears anywhere in the advisor code or its schema.
 
+
+## Retiring a briefing
+
+The briefing content is never in this repository. It exists in exactly one
+place: the `ADVISOR_BRIEFING_CONTENT` variable in the hosting environment. So
+retiring it is not a code change and leaves nothing in git history.
+
+To take a briefing down completely:
+
+1. **Delete `ADVISOR_BRIEFING_CONTENT`** in the hosting dashboard, for every
+   environment it was set in. `/advisor` then shows the generic "not
+   available" message behind the gate, and every `/advisor/examples/*` page
+   returns not found.
+2. **Rotate `ADVISOR_ACCESS_KEY`** (or delete it). Rotation revokes every
+   issued session at once; deletion closes the gate entirely.
+3. **Redeploy** so the new environment revision is picked up.
+
+That is the whole procedure. Nothing here needs to be reverted, because
+nothing here ever held the content. The page, the schema and the dashboard
+treatments are generic and can stay.
+
+To retire only the dashboard concepts and keep the briefing, remove the
+`examples` array and any `exampleCards` blocks from the payload, then paste
+and redeploy.
+
+## Placeholders
+
+A briefing authored in a hurry may carry lines that still need a real value.
+The convention is a string beginning `TO CONFIRM:`. Search the payload for it
+before the briefing is shared; the validator does not treat it as an error,
+because a draft with visible placeholders is better than a draft that hides
+them.
+
 ## Guardrails
 
 ```sh
