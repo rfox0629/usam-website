@@ -15,6 +15,7 @@ const optText = (v) => v === undefined || typeof v === "string";
 const isTextArray = (v) => Array.isArray(v) && v.every((i) => typeof i === "string");
 
 const errors = [];
+const exampleSlugs = new Set();
 const fail = (path, message) => errors.push(`${path}: ${message}`);
 
 function checkBlock(block, path) {
@@ -45,7 +46,7 @@ function checkBlock(block, path) {
           if (!isText(figure.value)) fail(at, "'value' is required");
           if (!optText(figure.note)) fail(at, "'note' must be a string");
           if (!figure.note) {
-            console.warn(`  warning ${at}: no 'note' — distinct financial measures should say what they mean`);
+            console.warn(`  warning ${at}: no 'note'. distinct financial measures should say what they mean`);
           }
         });
       }
@@ -155,13 +156,66 @@ function checkBlock(block, path) {
       }
       break;
     }
+    case "exampleCards":
+      if (!isTextArray(block.slugs) || block.slugs.length === 0) {
+        fail(path, "'slugs' must be a non-empty string array");
+      } else {
+        block.slugs.forEach((slug, i) => {
+          if (!exampleSlugs.has(slug)) {
+            fail(`${path}.slugs[${i}]`, `no example with slug '${slug}'`);
+          }
+        });
+      }
+      break;
     default:
       fail(path, `unknown block type '${block.type}'`);
   }
 }
 
+function checkExample(example, path) {
+  if (!isRecord(example)) return fail(path, "must be an object");
+  if (!isText(example.slug)) fail(path, "'slug' is required");
+  if (!isText(example.name)) fail(path, "'name' is required");
+  if (!isText(example.disclaimer)) {
+    fail(path, "'disclaimer' is required, and must say this is a concept rather than a live account");
+  }
+  if (!["contemporary", "tactical"].includes(example.theme)) {
+    fail(path, "'theme' must be contemporary or tactical");
+  }
+  if (!Array.isArray(example.stats) || example.stats.length === 0) {
+    fail(`${path}.stats`, "must be a non-empty array");
+  }
+  for (const key of ["segments", "progress", "lists", "activity"]) {
+    if (example[key] !== undefined && !Array.isArray(example[key])) {
+      fail(`${path}.${key}`, "must be an array");
+    }
+  }
+  if (example.verified !== undefined) {
+    const at = `${path}.verified`;
+    if (!isRecord(example.verified)) fail(at, "must be an object");
+    else {
+      if (!isText(example.verified.title)) fail(at, "'title' is required");
+      if (!isText(example.verified.note)) {
+        fail(at, "'note' is required, and should say why these figures are real rather than illustrative");
+      }
+    }
+  }
+}
+
 function checkContent(content) {
   if (!isRecord(content)) return fail("root", "must be an object");
+
+  if (content.examples !== undefined) {
+    if (!Array.isArray(content.examples)) {
+      fail("examples", "must be an array");
+    } else {
+      content.examples.forEach((example, i) => {
+        checkExample(example, `examples[${i}]`);
+        if (isRecord(example) && isText(example.slug)) exampleSlugs.add(example.slug);
+      });
+    }
+  }
+
   if (!isRecord(content.meta) || !isText(content.meta.title)) fail("meta", "'title' is required");
 
   if (!Array.isArray(content.sections) || content.sections.length === 0) {
@@ -220,10 +274,12 @@ checkContent(parsed);
 warnOnEmDashes(parsed);
 
 if (emDashPaths.length > 0) {
-  console.warn(`\n  warning: ${emDashPaths.length} string(s) contain an em-dash (U+2014):`);
-  emDashPaths.slice(0, 20).forEach((path) => console.warn(`    - ${path}`));
-  if (emDashPaths.length > 20) console.warn(`    ... and ${emDashPaths.length - 20} more`);
-  console.warn("  These read as machine-written. Rewrite the sentences rather than swapping the character.\n");
+  console.error(`\n${emDashPaths.length} string(s) contain an em dash (U+2014):\n`);
+  emDashPaths.slice(0, 40).forEach((path) => console.error(`  - ${path}`));
+  if (emDashPaths.length > 40) console.error(`  ... and ${emDashPaths.length - 40} more`);
+  console.error("\nRewrite these sentences using periods, commas, colons or parentheses.");
+  console.error("Swapping the character for a hyphen is not enough.\n");
+  process.exit(1);
 }
 
 if (errors.length > 0) {
@@ -233,5 +289,5 @@ if (errors.length > 0) {
 }
 
 const sectionCount = Array.isArray(parsed.sections) ? parsed.sections.length : 0;
-console.log(`OK — valid advisor briefing content (${sectionCount} sections).`);
+console.log(`OK. valid advisor briefing content (${sectionCount} sections).`);
 console.log("Encode with:  base64 -w0 <file>");

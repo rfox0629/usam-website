@@ -9,8 +9,8 @@
  * gets more than `ADVISOR_MAX_FAILED_ATTEMPTS` tries in total, and a cold start
  * forgets everything it had counted.
  *
- * It is still worth having — it ends the cheapest attack, a fast loop against
- * one warm instance — but the real protection against brute force is a long,
+ * It is still worth having. it ends the cheapest attack, a fast loop against
+ * one warm instance. but the real protection against brute force is a long,
  * unguessable ADVISOR_ACCESS_KEY. Treat this as a speed bump, not a lock.
  *
  * A durable limiter would need shared state (Redis, Postgres, Edge Config).

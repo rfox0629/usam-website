@@ -2,9 +2,11 @@ import type { ReactNode } from "react";
 import type {
   AdvisorBlock,
   AdvisorBriefingContent,
+  AdvisorExample,
   AdvisorSection,
 } from "@/src/lib/advisor-content";
 import { AdvisorDashboardMockup } from "./AdvisorDashboardMockup";
+import { AdvisorExampleCards } from "./AdvisorExampleCards";
 import { AdvisorLinkAccordion } from "./AdvisorLinkAccordion";
 import { AdvisorPrintButton } from "./AdvisorPrintButton";
 import { AdvisorTabs } from "./AdvisorTabs";
@@ -21,7 +23,7 @@ import type { AdvisorTabPanel } from "./AdvisorTabs";
  *
  * Every name, figure, link, and question arrives through the `content` prop,
  * which the server decodes only after the access cookie has been validated.
- * Nothing private is hardcoded here — this file is safe to read in a public
+ * Nothing private is hardcoded here. this file is safe to read in a public
  * repository.
  *
  * Note on styling: `stone-*` utilities are overridden site-wide for the dark
@@ -109,13 +111,50 @@ function Figures({
 function Table({ caption, columns, rows }: { caption?: string; columns: string[]; rows: string[][] }) {
   return (
     <figure className={`mt-6 ${WIDE}`}>
-      <div className="max-w-full overflow-x-auto">
-        <table className="w-full min-w-[30rem] border-collapse text-left">
+      {/*
+        A wide table on a narrow screen either scrolls sideways or clips its
+        right-hand columns, and the right-hand columns are usually the ones
+        that carry the judgement. Below `sm` each row becomes a labelled card
+        instead, so nothing is hidden and the page never scrolls sideways.
+      */}
+      <div className="space-y-3 sm:hidden">
+        {rows.map((row, rowIndex) => (
+          <div
+            className="rounded-md border border-[#E5E8EF] bg-white p-4"
+            key={`card-${rowIndex}-${row[0] ?? ""}`}
+          >
+            <p className="break-words text-[15px] font-semibold leading-[1.4] text-[#0B1220]">
+              {row[0]}
+            </p>
+            <dl className="mt-3 space-y-2">
+              {columns.slice(1).map((column, columnIndex) => {
+                const cell = row[columnIndex + 1];
+
+                if (!cell) {
+                  return null;
+                }
+
+                return (
+                  <div key={`card-${rowIndex}-${column}`}>
+                    <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6B7686]">
+                      {column}
+                    </dt>
+                    <dd className="mt-0.5 break-words text-[14px] leading-[1.6] text-[#3D4654]">{cell}</dd>
+                  </div>
+                );
+              })}
+            </dl>
+          </div>
+        ))}
+      </div>
+
+      <div className="hidden sm:block">
+        <table className="w-full table-fixed border-collapse text-left">
           <thead>
             <tr className="border-y border-[#E5E8EF]">
               {columns.map((column) => (
                 <th
-                  className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6B7686]"
+                  className="break-words px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6B7686]"
                   key={column}
                   scope="col"
                 >
@@ -142,6 +181,7 @@ function Table({ caption, columns, rows }: { caption?: string; columns: string[]
           </tbody>
         </table>
       </div>
+
       {caption ? (
         <figcaption className="mt-2.5 text-[13px] leading-6 text-[#6B7686]">{caption}</figcaption>
       ) : null}
@@ -198,7 +238,7 @@ function Questions({ items }: { items: { detail?: string; prompt: string }[] }) 
   );
 }
 
-function Block({ block }: { block: AdvisorBlock }) {
+function Block({ block, examples }: { block: AdvisorBlock; examples: AdvisorExample[] }) {
   switch (block.type) {
     case "paragraph":
       return (
@@ -267,7 +307,7 @@ function Block({ block }: { block: AdvisorBlock }) {
     case "tabs": {
       const panels: AdvisorTabPanel[] = block.tabs.map((tab) => ({
         caption: tab.caption,
-        content: <Blocks blocks={tab.blocks} />,
+        content: <Blocks blocks={tab.blocks} examples={examples} />,
         id: tab.id,
         label: tab.label,
       }));
@@ -286,16 +326,29 @@ function Block({ block }: { block: AdvisorBlock }) {
         </div>
       );
 
+    case "exampleCards": {
+      // Unknown slugs are skipped rather than rendered as dead links.
+      const chosen = block.slugs
+        .map((slug) => examples.find((example) => example.slug === slug))
+        .filter((example): example is AdvisorExample => Boolean(example));
+
+      return (
+        <div className={WIDE}>
+          <AdvisorExampleCards examples={chosen} note={block.note} />
+        </div>
+      );
+    }
+
     default:
       return null;
   }
 }
 
-function Blocks({ blocks }: { blocks: AdvisorBlock[] }) {
+function Blocks({ blocks, examples = [] }: { blocks: AdvisorBlock[]; examples?: AdvisorExample[] }) {
   return (
     <>
       {blocks.map((block, index) => (
-        <Block block={block} key={`${block.type}-${index}`} />
+        <Block block={block} examples={examples} key={`${block.type}-${index}`} />
       ))}
     </>
   );
@@ -305,7 +358,7 @@ function Blocks({ blocks }: { blocks: AdvisorBlock[] }) {
 /* SECTIONS & SHELL                                                        */
 /* ---------------------------------------------------------------------- */
 
-function Section({ section }: { section: AdvisorSection }) {
+function Section({ examples, section }: { examples: AdvisorExample[]; section: AdvisorSection }) {
   const backgrounds = {
     feature: "border-y border-[#E5E8EF] bg-[#F7F8FB]",
     panel: "border-y border-[#E5E8EF] bg-[#F7F8FB]",
@@ -321,7 +374,7 @@ function Section({ section }: { section: AdvisorSection }) {
         {section.eyebrow ? <Eyebrow>{section.eyebrow}</Eyebrow> : null}
         <SectionHeading>{section.heading}</SectionHeading>
         {section.lede ? <Lede>{section.lede}</Lede> : null}
-        <Blocks blocks={section.blocks} />
+        <Blocks blocks={section.blocks} examples={examples} />
       </div>
     </section>
   );
@@ -409,7 +462,7 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
       </header>
 
       {sections.map((section) => (
-        <Section key={section.id} section={section} />
+        <Section examples={content.examples ?? []} key={section.id} section={section} />
       ))}
 
       {content.footerNote ? (

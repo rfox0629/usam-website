@@ -21,7 +21,7 @@ let checks = 0;
 
 function check(label, condition, detail = "") {
   checks += 1;
-  if (!condition) failures.push(detail ? `${label} — ${detail}` : label);
+  if (!condition) failures.push(detail ? `${label}. ${detail}` : label);
 }
 
 const CLIENT = "client-a";

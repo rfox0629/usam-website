@@ -10,7 +10,7 @@ import { AdvisorAccessGateForm } from "./AdvisorAccessGateForm";
 import { AdvisorBriefing } from "./AdvisorBriefing";
 
 // The gate decision depends on a cookie, so this page can never be statically
-// rendered or cached — a cached copy would either leak the briefing or serve a
+// rendered or cached. a cached copy would either leak the briefing or serve a
 // stale gate.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
