@@ -20,7 +20,7 @@ the mechanism; it says nothing about any particular briefing.
    timing-safe; only surrounding whitespace is trimmed.
 3. On success the route sets `usam_advisor_access`: `httpOnly`, `sameSite=lax`,
    `secure` in production, scoped to `path=/advisor`, expiring after three
-   days. The cookie holds a hash derived from the key, never the code itself —
+   days. The cookie holds a hash derived from the key, never the code itself, 
    so rotating `ADVISOR_ACCESS_KEY` immediately invalidates every issued
    session, whatever its remaining lifetime.
 4. Only after that cookie validates does the page call
@@ -48,7 +48,7 @@ code, cookie, or payload is stored or logged.
 memory of a single serverless instance: counters are not shared between
 concurrent instances and do not survive a cold start, so a determined attacker
 spread across instances gets more than five attempts in total. It ends the
-cheap attack — a fast loop against one warm instance — and nothing more.
+cheap attack. a fast loop against one warm instance. and nothing more.
 
 **A long, unguessable `ADVISOR_ACCESS_KEY` is the real protection against brute
 force.** Choose accordingly. A durable limiter would require shared state
@@ -58,7 +58,7 @@ force.** Choose accordingly. A durable limiter would require shared state
 
 The payload is JSON matching `AdvisorBriefingContent` in
 `src/lib/advisor-content.ts`. `docs/examples/advisor-briefing-content.example.json`
-is a structural template with placeholder values — copy it **outside this
+is a structural template with placeholder values. copy it **outside this
 repository**, fill it in, and keep it there.
 
 Sections render in order and populate the sticky section rail from `navLabel`.
@@ -87,7 +87,7 @@ Two authoring rules worth stating, since the layout cannot enforce either:
 ## Encoding and configuring
 
 ```sh
-# From wherever the private JSON lives — never from inside this repository.
+# From wherever the private JSON lives. never from inside this repository.
 base64 -w0 /path/to/content.json
 ```
 
@@ -97,7 +97,7 @@ new environment revision is picked up.
 
 Base64 is transport encoding, not encryption. The privacy comes from the
 variable being server-side and encrypted at rest in the hosting environment.
-**Never** name it `NEXT_PUBLIC_*` — that would inline the payload into the
+**Never** name it `NEXT_PUBLIC_*`. that would inline the payload into the
 client bundle.
 
 Validate before pasting:
@@ -111,6 +111,68 @@ The validator reports structural problems without printing the file's contents.
 If the payload is missing or fails validation, `/advisor` shows a generic
 "not available right now" message behind the gate. It never surfaces a parse
 error or a partial payload.
+
+
+## Dashboard concepts
+
+`content.examples` holds full-page, illustrative views of what the product
+could look like for one organisation. Each becomes a gated page at
+`/advisor/examples/<slug>`, reachable from an `exampleCards` block in the
+briefing.
+
+Everything identifying an organisation lives in the payload: its name, slug,
+figures and wording. This repository carries only two visual treatments and the
+rendering, so no organisation name or commercial assumption is committed, and
+a concept can be added or removed without a deploy.
+
+```json
+{
+  "slug": "short-url-safe-id",
+  "name": "Organisation name",
+  "theme": "contemporary",
+  "kicker": "Short line above the title",
+  "intro": "A sentence or two of framing.",
+  "disclaimer": "Required. Say plainly that this is a concept, not a live account and not a current integration.",
+  "segmentLabel": "Campus",
+  "illustrativeLabel": "Illustrative figures",
+  "stats": [{ "label": "Measure", "value": "00", "note": "Optional" }],
+  "segments": [
+    { "name": "Location", "stats": [{ "label": "Measure", "value": "00" }], "attention": "Optional note" }
+  ],
+  "progress": [{ "label": "Journey", "value": 18, "max": 24, "note": "Optional" }],
+  "lists": [{ "title": "Resources", "items": [{ "label": "Item", "value": "0", "meta": "Optional" }] }],
+  "activity": [{ "when": "This week", "what": "What happened" }],
+  "verified": {
+    "title": "Real activity",
+    "note": "Say why these figures are real rather than illustrative.",
+    "stats": [{ "label": "Meetings", "value": "15" }]
+  }
+}
+```
+
+`theme` is `contemporary` (open, warm, rounded) or `tactical` (dense, high
+contrast, squared). It is a visual treatment only and names no organisation.
+
+`disclaimer` is required by the schema, renders above the first figure and
+again at the foot, and survives printing. Every organisation-wide figure sits
+under a visible illustrative marker. `verified` is the one exception: it is
+framed as "Not illustrative" and separated from the rest, for real numbers.
+
+Link to them from the briefing:
+
+```json
+{ "type": "exampleCards", "slugs": ["slug-one", "slug-two"], "note": "Optional line under the cards" }
+```
+
+The validator checks that every slug in an `exampleCards` block matches a
+defined example, so a card can never become a dead link.
+
+## No em dashes
+
+The validator fails on any em dash in the payload and lists the JSON path of
+each one. Rewrite those sentences with periods, commas, colons or parentheses.
+Swapping the character for a hyphen is not enough. A matching regression check
+fails the build if one appears anywhere in the advisor code or its schema.
 
 ## Guardrails
 

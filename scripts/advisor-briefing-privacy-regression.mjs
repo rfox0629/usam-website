@@ -26,6 +26,10 @@ const rateLimit = read("src/lib/advisor-rate-limit.ts");
 const clientKey = read("src/lib/advisor-client-key.ts");
 const dashboard = read("app/advisor/AdvisorDashboardMockup.tsx");
 const globalCss = read("app/globals.css");
+const examplePage = read("app/advisor/examples/[slug]/page.tsx");
+const exampleDashboard = read("app/advisor/examples/ExampleDashboard.tsx");
+const exampleTheme = read("app/advisor/examples/exampleTheme.ts");
+const sitemap = read("app/sitemap.ts");
 const robots = read("app/robots.ts");
 const contentDoc = read("docs/advisor-briefing-content.md");
 const contentExample = read("docs/examples/advisor-briefing-content.example.json");
@@ -230,7 +234,7 @@ for (const [label, source] of [
 /* -- the public docs reveal no subject matter --------------------------- */
 
 // The repository should disclose only that /advisor is a generic protected
-// briefing system — never what any particular briefing is about.
+// briefing system. never what any particular briefing is about.
 // The guarded terms are base64-encoded so that this file does not itself
 // restate, in the public repository, the subject matter it exists to keep
 // out of it. Decode to read or extend the list.
@@ -302,6 +306,109 @@ const namedOrgs = new RegExp(Buffer.from("Uml2ZXIgVmFsbGV5fEVuZ2FnZSBZb3VyIERlc3
 check(
   "the mockup carries no hardcoded organisation name",
   !namedOrgs.test(dashboard),
+);
+
+/* -- no em dashes anywhere in the advisor surface ----------------------- */
+
+// Ryan asked for these gone: they read as machine-written. The character is
+// built from its code point so this check does not contain one itself.
+const EM_DASH = String.fromCharCode(0x2014);
+
+const advisorSurface = execFileSync("git", ["ls-files"], { encoding: "utf8" })
+  .split("\n")
+  .filter(Boolean)
+  .filter(
+    (file) =>
+      file.startsWith("app/advisor/")
+      || /^src\/lib\/advisor-/.test(file)
+      || /^scripts\/(advisor-|validate-advisor)/.test(file)
+      || file === "docs/advisor-briefing-content.md"
+      || file === "docs/examples/advisor-briefing-content.example.json",
+  );
+
+const withEmDash = advisorSurface.filter((file) => {
+  try {
+    return readFileSync(file, "utf8").includes(EM_DASH);
+  } catch {
+    return false;
+  }
+});
+
+check(
+  "no em dash anywhere in the advisor experience or its schema",
+  withEmDash.length === 0,
+  withEmDash.join(", "),
+);
+
+check(
+  "the content validator rejects an em dash in the payload",
+  /emDashPaths\.length > 0/.test(read("scripts/validate-advisor-content.mjs"))
+    && /process\.exit\(1\)/.test(read("scripts/validate-advisor-content.mjs")),
+);
+
+/* -- the dashboard concept route ---------------------------------------- */
+
+const exampleCookieAt = examplePage.indexOf("isAdvisorAccessTokenValid");
+const exampleReadAt = examplePage.indexOf("getAdvisorExample(");
+
+check("the example route validates the access cookie", exampleCookieAt !== -1);
+check("the example route reads its content", exampleReadAt !== -1);
+check(
+  "the example route checks access before reading any content",
+  exampleCookieAt !== -1 && exampleReadAt !== -1 && exampleCookieAt < exampleReadAt,
+);
+check("the example route is noindex", /index:\s*false/.test(examplePage));
+check("the example route is nofollow", /follow:\s*false/.test(examplePage));
+check("the example route is never statically cached", /export const dynamic = "force-dynamic";/.test(examplePage));
+check(
+  "the example route's metadata names no organisation",
+  /title: "Advisor Briefing"/.test(examplePage),
+  "metadata is emitted before the gate, so it must stay generic",
+);
+
+check(
+  "examples are excluded from the sitemap",
+  !/advisor/.test(sitemap),
+  "the sitemap is an explicit allowlist; /advisor must not appear in it",
+);
+
+check(
+  "every dashboard concept must carry a disclaimer",
+  /isNonEmptyString\(value\.disclaimer\)/.test(contentLib),
+  "the schema must require it rather than trusting the payload",
+);
+check(
+  "the concept disclaimer renders at the top and the foot",
+  (exampleDashboard.match(/example\.disclaimer/g) || []).length >= 2,
+  "a printed page must not lose it",
+);
+check(
+  "organisation-wide figures carry a visible illustrative marker",
+  /illustrativeLabel \?\? "Illustrative figures"/.test(exampleDashboard)
+    && (exampleDashboard.match(/\{illustrative\}/g) || []).length >= 3,
+);
+check(
+  "verified figures are marked as not illustrative",
+  /Not illustrative/.test(exampleDashboard),
+);
+check(
+  "the themes carry no organisation identity",
+  !namedOrgs.test(exampleTheme) && /"contemporary" \| "tactical"/.test(exampleTheme),
+);
+check(
+  "the example route hardcodes no organisation name",
+  !namedOrgs.test(examplePage) && !namedOrgs.test(exampleDashboard),
+);
+
+/* -- mobile: no wide table on a narrow screen --------------------------- */
+
+check(
+  "wide tables become stacked cards below sm",
+  /sm:hidden/.test(briefing) && /hidden sm:block/.test(briefing),
+);
+check(
+  "the desktop table cannot push the page wider than the viewport",
+  /table-fixed/.test(briefing) && !/min-w-\[\d/.test(briefing),
 );
 
 /* -- the documented template stays valid -------------------------------- */

@@ -4,7 +4,7 @@ import "server-only";
  * Derives the throttling key for a request.
  *
  * The raw address is hashed and truncated before it is used, so the limiter
- * never holds — and could never surface — a full client IP. The hash is only
+ * never holds. and could never surface. a full client IP. The hash is only
  * ever a map key in memory; it is not persisted and not logged.
  */
 
