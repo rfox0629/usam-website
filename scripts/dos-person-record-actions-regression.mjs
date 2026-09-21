@@ -180,10 +180,19 @@ assert.ok(
   "the life plan keeps its own control, because nothing else can reach it",
 );
 
-/* ---- 4. Empty sections stay, and the record says where adding lives ---- */
+/* ---- 4. Empty sections stay ------------------------------------------- */
 
+/* The "Use + to add to this record." line is gone from both surfaces.
+ *
+ * It was added when the sections lost their own + Add, to say where adding had
+ * moved. The plus is the only way to add on every record now, so the sentence
+ * was explaining a rule the screen no longer has an alternative to. The
+ * guarantee it was standing in for is the one asserted throughout this file
+ * and is unchanged: no section carries a creation control of its own, and
+ * every creation action is reachable from the plus. */
 for (const [surface, source] of [["the Person record", personDetail], ["My Record", myRecordOverview]]) {
-  assert.ok(source.includes("Use + to add to this record."), `${surface} says where adding lives`);
+  const code = source.replace(/\{?\/\*[\s\S]*?\*\/\}?/g, "");
+  assert.ok(!code.includes("Use + to add to this record."), `${surface} does not explain the plus in prose`);
 }
 
 /* An empty section is still a section: it reads a sentence rather than
@@ -304,16 +313,39 @@ assert.ok(!multiplicationTree.includes("MoreHorizontal"), "Multiplication has no
 assert.ok(!/<button[^>]*onClick=\{\(\) => onOpen\(entry\)\}/.test(multiplicationTree), "a Multiplication row is not itself a button");
 assert.ok(multiplicationTree.includes('label: "View connection"'), "the menu names what opens the connection");
 
-/* End and Remove are different operations and stay separate. Neither deletes
-   the person. The menu names which one it is, and the sheet opens on that
-   confirmation rather than asking the reader to choose twice. */
-assert.ok(
-  personDetail.includes('label: "End discipleship connection"') && personDetail.includes('label: "Remove, added by mistake"'),
-  "End and Remove stay distinct on a connection",
+/* ONE removal on a connection, not two.
+ *
+ * "End discipleship connection" and "Remove, added by mistake" name two real
+ * database states, but they read as the same thing to anyone who has not seen
+ * those states, and the founder reported them as redundant. The menu offers
+ * Remove and the confirmation says what happens.
+ *
+ * The guarantee that mattered is unchanged and is what is asserted now: this
+ * removes the row from Multiplication and never deletes the person. The
+ * `end_connection` API action is untouched and still reachable server side,
+ * so nothing is lost if the softer wording is wanted back. */
+const multiplicationBlock = personDetail.slice(
+  personDetail.indexOf("<MultiplicationTree"),
+  personDetail.indexOf("<MultiplicationTree") + 900,
 );
+const connectionActions = multiplicationBlock.match(/label: "[^"]*"/g) ?? [];
+assert.deepEqual(
+  connectionActions,
+  ['label: "Remove"'],
+  "a connection's lifecycle is one removal, worded plainly",
+);
+/* Comments explain why the pair was collapsed and quote the old labels, so
+   only real code is searched. */
+const personDetailCode = personDetail.replace(/\{?\/\*[\s\S]*?\*\/\}?/g, "");
+assert.ok(!personDetailCode.includes("End discipleship connection"), "the near-duplicate End wording is gone");
+assert.ok(!personDetailCode.includes("added by mistake"), "and so is its twin");
 const entrySheet = read("src/components/dos/multiplication/DiscipleshipSheets.tsx");
 assert.ok(entrySheet.includes("initialConfirming"), "the sheet opens on the action the menu named");
 assert.ok(entrySheet.includes('fit="content"'), "a connection sheet is sized by its content");
+assert.ok(
+  /does not delete \{entry\.name\}, their record, or any meeting logged with them/.test(entrySheet),
+  "and the confirmation says the person is not deleted",
+);
 
 /* Meetings: the last creation controls outside the plus are gone. Both were
    already in the plus menu, in the Meetings position. */
@@ -388,5 +420,59 @@ assert.ok(
 );
 assert.ok(prayerSheet.includes(">Category<"), "the category carries a label");
 assert.ok(prayerSheet.includes(">From<"), "and a group-origin request states where it came from instead");
+
+/* ---- 9. The third screenshot pass ------------------------------------- */
+
+/* Every read-only sheet is sized by its content. A commitment with nothing
+   recorded opened a full-height screen holding two lines. */
+const surfacesSource = read("src/components/dos/overlays/DosSurfaces.tsx");
+assert.ok(surfacesSource.includes('fit?: "content" | "full"'), "a sheet can be sized by its content");
+
+/* Located by the component that renders each one, because a title string on
+   its own also matches form sections that happen to share the word. */
+const readOnlySheets = [
+  ["function PersonAccountabilityDetailSheet(", "function PersonAccountabilityEditSheet(", "the Accountability sheet"],
+  ["function PrayerRequestDetailSheet(", "function PrayerDetailMetaRow(", "the Prayer request sheet"],
+  ["function PersonPrayerSheet(", "function PersonRecordSummary(", "the Prayer list sheet"],
+  ["function PersonFeedbackDetailSheet(", "function PersonFruitDetailSheet(", "the Feedback sheet"],
+  ["function PersonFruitDetailSheet(", "function PersonPrayerSheet(", "the Fruit sheet"],
+];
+
+for (const [from, to, name] of readOnlySheets) {
+  const start = client.indexOf(from);
+  assert.ok(start > 0, `${name} exists`);
+  const end = client.indexOf(to);
+  const body = client.slice(start, end > start ? end : start + 4000);
+  assert.ok(body.includes('fit="content"'), `${name} is sized by its content`);
+}
+
+/* A form still gets its room. */
+assert.ok(client.includes('fit={isEditingReminder ? "full" : "content"}'), "a reminder is read tight and edited roomy");
+
+/* A commitment with no progress says so rather than showing an empty screen. */
+assert.ok(client.includes("No check-ins recorded yet."), "an empty check-in history reads");
+assert.ok(client.includes("No progress recorded yet."), "an empty progress history reads");
+
+/* The Accountability row is the commitment's name and how it stands. The
+   confirmed people expanded underneath it, repeating the names already listed
+   under Multiplication at the top of the same record. */
+const accountabilitySection = personSection("Accountability");
+assert.ok(!accountabilitySection.includes("topic.subjects"), "the row does not expand the people it confirmed");
+assert.ok(accountabilitySection.includes("{topic.title}") && accountabilitySection.includes("{topic.meta}"), "it keeps the name and the standing");
+assert.ok(
+  client.includes("confirmedSubjects.map"),
+  "and the people are still in the commitment the row opens",
+);
+
+/* A prayer request is the person's own words, so it reads as a statement in
+   the record rather than as supporting description. It was the one row whose
+   first line used the body grey while every other section used the strong
+   near-black, which read as faded beside them. */
+const prayerSection = personSection("Prayer");
+assert.ok(
+  /<span className="block text-\[15px\] font-semibold leading-\[1\.45\] text-dos-primary">\{item\.text\}<\/span>/.test(prayerSection),
+  "the prayer itself is the strong record text, not the body grey",
+);
+assert.ok(prayerSection.includes('text-dos-eyebrow">{item.origin}'), "and where it came from stays the quieter line");
 
 console.log("dos-person-record-actions-regression: ok");

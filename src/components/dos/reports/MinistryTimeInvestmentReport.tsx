@@ -1205,7 +1205,7 @@ function ReportDetailSheet({
   }
 
   return (
-    <DosDetailSheet actions={actions} identity={identity} onClose={onClose} title={titleOf(top)}>
+    <DosDetailSheet actions={actions} fit="content" identity={identity} onClose={onClose} title={titleOf(top)}>
       <div ref={contentRef}>
         {previous ? (
           <button
