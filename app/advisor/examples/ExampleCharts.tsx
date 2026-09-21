@@ -272,11 +272,11 @@ export function RhythmChart({ rhythm, theme }: { rhythm: AdvisorExampleRhythm; t
         <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-[12px]" style={{ color: theme.muted }}>
           <span className="inline-flex items-center gap-1.5">
             <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: theme.accentLight }} />
-            Weekend gathering
+            {rhythm.gatheringLabel ?? "Weekend gathering"}
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span aria-hidden="true" className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: theme.accent }} />
-            Discipleship through the week
+            {rhythm.weekLabel ?? "Discipleship through the week"}
           </span>
         </div>
       ) : null}
@@ -345,7 +345,8 @@ const TREE_W = 900;
 const ROW_H = 64;
 const PAD_Y = 22;
 const PAD_TOP_WITH_COLUMNS = 44;
-const PAD_L = 28;
+/* Room on the left for the root's centred label, which sits below its avatar. */
+const PAD_L = 84;
 const LAST_COL_W = 250;
 
 function radiusFor(laid: Laid) {
@@ -476,12 +477,12 @@ function TreeSvg({ network, theme }: { network: AdvisorExampleNetwork; theme: Ex
               </>
             ) : null}
 
-            {node.highlight ? (
+            {node.highlight || entry.depth === 0 ? (
               <>
                 <text
                   dominantBaseline="hanging"
                   fill={theme.ink}
-                  fontSize={16}
+                  fontSize={node.highlight ? 16 : 14.5}
                   fontWeight={700}
                   paintOrder="stroke"
                   stroke="#FFFFFF"
