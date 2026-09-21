@@ -33,6 +33,39 @@ export type AdvisorQuestion = {
   detail?: string;
 };
 
+export type AdvisorDashboardMetric = {
+  label: string;
+  value: string;
+  delta?: string;
+};
+
+export type AdvisorDashboardRow = {
+  label: string;
+  value: string;
+  meta?: string;
+};
+
+export type AdvisorDashboardPanel = {
+  title: string;
+  rows: AdvisorDashboardRow[];
+};
+
+export type AdvisorDashboardProgress = {
+  label: string;
+  value: number;
+  max: number;
+};
+
+/** An illustrative still of DOS configured for a given ministry. */
+export type AdvisorDashboard = {
+  org: string;
+  view?: string;
+  caption?: string;
+  metrics?: AdvisorDashboardMetric[];
+  panels?: AdvisorDashboardPanel[];
+  progress?: AdvisorDashboardProgress[];
+};
+
 export type AdvisorBlock =
   | { type: "paragraph"; text: string }
   | { type: "bullets"; items: string[] }
@@ -43,7 +76,8 @@ export type AdvisorBlock =
   | { type: "callout"; title?: string; text: string; tone?: "neutral" | "gold" | "warning" }
   | { type: "questions"; items: AdvisorQuestion[] }
   | { type: "tabs"; note?: string; tabs: AdvisorTab[] }
-  | { type: "links"; groups: AdvisorLinkGroup[] };
+  | { type: "links"; groups: AdvisorLinkGroup[] }
+  | { type: "dashboard"; dashboard: AdvisorDashboard };
 
 export type AdvisorTab = {
   id: string;
@@ -181,9 +215,82 @@ function isBlock(value: unknown): value is AdvisorBlock {
         && optionalString(value.note);
     case "links":
       return Array.isArray(value.groups) && value.groups.length > 0 && value.groups.every(isLinkGroup);
+    case "dashboard":
+      return isDashboard(value.dashboard);
     default:
       return false;
   }
+}
+
+function isDashboardRow(value: unknown): value is AdvisorDashboardRow {
+  return (
+    isRecord(value)
+    && isNonEmptyString(value.label)
+    && isNonEmptyString(value.value)
+    && optionalString(value.meta)
+  );
+}
+
+function isDashboard(value: unknown): value is AdvisorDashboard {
+  if (!isRecord(value) || !isNonEmptyString(value.org)) {
+    return false;
+  }
+
+  if (!optionalString(value.view) || !optionalString(value.caption)) {
+    return false;
+  }
+
+  if (
+    value.metrics !== undefined
+    && !(
+      Array.isArray(value.metrics)
+      && value.metrics.every(
+        (metric) =>
+          isRecord(metric)
+          && isNonEmptyString(metric.label)
+          && isNonEmptyString(metric.value)
+          && optionalString(metric.delta),
+      )
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    value.panels !== undefined
+    && !(
+      Array.isArray(value.panels)
+      && value.panels.every(
+        (panel) =>
+          isRecord(panel)
+          && isNonEmptyString(panel.title)
+          && Array.isArray(panel.rows)
+          && panel.rows.every(isDashboardRow),
+      )
+    )
+  ) {
+    return false;
+  }
+
+  if (
+    value.progress !== undefined
+    && !(
+      Array.isArray(value.progress)
+      && value.progress.every(
+        (item) =>
+          isRecord(item)
+          && isNonEmptyString(item.label)
+          && typeof item.value === "number"
+          && typeof item.max === "number"
+          && item.max > 0,
+      )
+    )
+  ) {
+    return false;
+  }
+
+  // A dashboard with no content at all is almost certainly a mistake.
+  return Boolean(value.metrics || value.panels || value.progress);
 }
 
 function isSection(value: unknown): value is AdvisorSection {

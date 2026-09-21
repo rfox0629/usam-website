@@ -17,7 +17,7 @@ export function AdvisorLinkAccordion({ groups }: { groups: AdvisorLinkGroup[] })
   }
 
   return (
-    <div className="mt-8 divide-y divide-stone-800 border-y border-stone-800">
+    <div className="mt-6 divide-y divide-[#E5E8EF] border-y border-[#E5E8EF]">
       {groups.map((group) => {
         const isOpen = openTitles.includes(group.title);
 
@@ -26,17 +26,17 @@ export function AdvisorLinkAccordion({ groups }: { groups: AdvisorLinkGroup[] })
             <button
               aria-controls={`advisor-links-${group.title.replace(/\W+/g, "-").toLowerCase()}`}
               aria-expanded={isOpen}
-              className="no-print flex w-full items-center justify-between gap-4 px-1 py-5 text-left transition-colors hover:text-usam-gold"
+              className="no-print flex w-full items-center justify-between gap-4 px-1 py-4 text-left transition-colors hover:text-[#0B1220]"
               onClick={() => toggle(group.title)}
               type="button"
             >
               <span
-                className="text-[13.5px] font-semibold uppercase tracking-[0.14em] text-stone-200"
+                className="text-[14px] font-medium text-[#0B1220]"
                 style={{ fontFamily: font.rajdhani }}
               >
                 {group.title}
               </span>
-              <span aria-hidden="true" className="text-lg leading-none text-usam-gold">
+              <span aria-hidden="true" className="text-lg leading-none text-[#8A6D1F]">
                 {isOpen ? "−" : "+"}
               </span>
             </button>
@@ -47,17 +47,17 @@ export function AdvisorLinkAccordion({ groups }: { groups: AdvisorLinkGroup[] })
               id={`advisor-links-${group.title.replace(/\W+/g, "-").toLowerCase()}`}
             >
               <p
-                className="hidden pb-3 text-[13.5px] font-semibold uppercase tracking-[0.14em] text-stone-200 print:block"
+                className="hidden pb-3 text-[14px] font-medium text-[#0B1220] print:block"
                 style={{ fontFamily: font.rajdhani }}
               >
                 {group.title}
               </p>
-              {group.note ? <p className="mb-4 text-[14px] leading-7 text-stone-500">{group.note}</p> : null}
+              {group.note ? <p className="mb-3 text-[14px] leading-[1.6] text-[#6B7686]">{group.note}</p> : null}
               <ul className="space-y-3">
                 {group.links.map((link) => (
                   <li key={`${group.title}-${link.href}-${link.label}`}>
                     <a
-                      className="break-words text-[14.5px] leading-6 text-stone-300 underline decoration-stone-700 underline-offset-4 transition-colors hover:text-usam-gold hover:decoration-usam-gold"
+                      className="break-words text-[14.5px] leading-6 text-[#1E3FB8] underline decoration-[#C7D0E8] underline-offset-4 transition-colors hover:decoration-[#1E3FB8]"
                       href={link.href}
                       rel="noopener noreferrer"
                       target="_blank"
@@ -65,7 +65,7 @@ export function AdvisorLinkAccordion({ groups }: { groups: AdvisorLinkGroup[] })
                       {link.label}
                     </a>
                     {link.description ? (
-                      <p className="mt-1 text-[13.5px] leading-6 text-stone-500">{link.description}</p>
+                      <p className="mt-1 text-[13.5px] leading-6 text-[#6B7686]">{link.description}</p>
                     ) : null}
                   </li>
                 ))}

@@ -49,7 +49,7 @@ export function AdvisorAccessGateForm() {
     <form className="mt-8 space-y-5" onSubmit={handleSubmit} noValidate>
       <div className="text-left">
         <label
-          className="tactical-label block uppercase"
+          className="block text-[12px] font-medium text-[#5A6473]"
           htmlFor="advisor-access-code"
           style={{ fontFamily: font.rajdhani }}
         >
@@ -57,7 +57,7 @@ export function AdvisorAccessGateForm() {
         </label>
         <input
           autoComplete="one-time-code"
-          className="mt-2 w-full rounded-sm border border-stone-700 bg-black/40 px-4 py-3 text-base text-white outline-none transition placeholder:text-stone-600 focus:border-usam-gold"
+          className="mt-1.5 w-full rounded-sm border border-[#D7DBE4] bg-white px-3.5 py-2.5 text-[15px] text-[#0B1220] outline-none transition placeholder:text-[#8A93A3] focus:border-[#2251E8]"
           id="advisor-access-code"
           name="accessCode"
           onChange={(event) => setAccessCode(event.target.value)}
@@ -67,10 +67,10 @@ export function AdvisorAccessGateForm() {
         />
       </div>
 
-      {error ? <p className="text-left text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="text-left text-[13.5px] text-[#B42318]">{error}</p> : null}
 
       <button
-        className="inline-flex w-full items-center justify-center border border-usam-gold bg-usam-gold px-6 py-3 text-[11px] font-bold uppercase tracking-[0.22em] text-usam-black transition-colors hover:bg-usam-gold/90 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex w-full items-center justify-center rounded-sm bg-[#0B1220] px-6 py-2.5 text-[14px] font-medium text-white transition-colors hover:bg-[#1B2436] disabled:cursor-not-allowed disabled:opacity-60"
         disabled={isSubmitting}
         style={{ fontFamily: font.rajdhani }}
         type="submit"

@@ -107,3 +107,115 @@ body {
     text-shadow: 0 0 6px rgba(255, 255, 255, 0.08);
   }
 }
+
+/* ---------------------------------------------------------------------- */
+/* PRINT                                                                    */
+/* ---------------------------------------------------------------------- */
+
+/*
+ * `.no-print` was in use across the site (the vision briefing, the advisor
+ * briefing, the support flyer) but had never been defined, so screen-only
+ * chrome — print buttons, sticky rails, tab strips — printed into every
+ * document. Defining it here repairs all of them at once.
+ */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* THE ADVISOR BRIEFING: A LIGHT READING DOCUMENT                           */
+/* ---------------------------------------------------------------------- */
+
+/*
+ * The rest of this site is a dark command-system interface, and the global
+ * readability pass above forces stone-* utilities to dark-theme values. The
+ * advisor briefing is the exception: it is a document meant to be read at
+ * length, printed, and shown alongside DOS screens, which are themselves
+ * light (#0B1220 ink on #FFFFFF / #F7F8FB).
+ *
+ * So the briefing opts out. Its components deliberately avoid stone-*
+ * utilities — those are overridden globally and would come out unreadable on
+ * white — and use explicit values instead.
+ */
+body:has([data-advisor-doc]) {
+  background: #ffffff;
+  color: #3d4654;
+}
+
+[data-advisor-doc] :where(h1, h2, h3, h4, h5, h6) {
+  color: #0b1220;
+}
+
+[data-advisor-doc] :where(p, li, dd, dt, td, th, blockquote) {
+  color: #3d4654;
+}
+
+[data-advisor-doc] :where(input, textarea, select) {
+  background: #ffffff;
+  border-color: #d7dbe4;
+  color: #0b1220;
+}
+
+[data-advisor-doc] :where(input, textarea, select)::placeholder {
+  color: #8a93a3;
+}
+
+[data-advisor-doc] :where(label) {
+  color: #5a6473;
+}
+
+@media print {
+  /*
+   * Printed briefings are black on white with no decoration: background
+   * gradients and shadows either waste toner or are dropped by the browser,
+   * leaving text stranded on an unstyled page.
+   */
+  body:has([data-advisor-doc]) {
+    background: #ffffff;
+  }
+
+  [data-advisor-doc] {
+    background: #ffffff !important;
+  }
+
+  [data-advisor-doc] * {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  [data-advisor-doc] :where(h1, h2, h3, h4, h5, h6) {
+    color: #000000;
+  }
+
+  [data-advisor-doc] :where(p, li, dd, dt, td, th, blockquote) {
+    color: #1a1a1a;
+  }
+
+  /* Keep a heading with the text it introduces, and never split a figure,
+     a question, or a table row across a page. */
+  [data-advisor-doc] :where(h1, h2, h3) {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  [data-advisor-doc] :where(figure, blockquote, tr, li, dl > div) {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  [data-advisor-doc] section {
+    break-inside: auto;
+  }
+
+  /* Expanded link appendices are useful on paper; the bare URL is not. */
+  [data-advisor-doc] a {
+    color: #000000;
+    text-decoration: underline;
+  }
+
+  @page {
+    margin: 16mm 14mm;
+  }
+}

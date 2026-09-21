@@ -31,16 +31,11 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
 
 function AdvisorShell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-usam-black text-stone-100">
+    <main className="min-h-screen bg-white" data-advisor-doc>
       <PrimaryNav minimal />
 
-      <div className="relative flex min-h-[calc(100vh-88px)] items-center justify-center overflow-hidden px-6 py-20">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(1100px_620px_at_50%_-12%,rgba(194,161,78,0.14),transparent_60%)]"
-        />
-
-        <div className="relative w-full max-w-md border border-stone-800 bg-white/[0.02] px-8 py-12 text-center shadow-[0_30px_80px_rgba(0,0,0,0.5)] sm:px-11">
+      <div className="flex min-h-[calc(100vh-88px)] items-center justify-center px-6 py-16">
+        <div className="w-full max-w-sm rounded-md border border-[#E5E8EF] bg-white px-7 py-10 text-center shadow-[0_1px_2px_rgba(11,18,32,0.06),0_8px_24px_rgba(11,18,32,0.06)] sm:px-9">
           {children}
         </div>
       </div>
@@ -59,19 +54,22 @@ export default async function AdvisorPage() {
     return (
       <AdvisorShell>
         <p
-          className="text-[12px] uppercase tracking-[0.34em] text-usam-gold"
+          className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8A6D1F]"
           style={{ fontFamily: font.rajdhani }}
         >
           USA Missionaries
         </p>
-        <h1 className="mt-4 text-3xl font-bold text-stone-100" style={{ fontFamily: font.oswald }}>
+        <h1
+          className="mt-3 text-[26px] font-semibold text-[#0B1220]"
+          style={{ fontFamily: font.oswald }}
+        >
           Advisor Briefing
         </h1>
-        <p className="mt-2 text-sm text-stone-500">Private access by invitation</p>
+        <p className="mt-1.5 text-[14px] text-[#6B7686]">Private access by invitation</p>
 
         <AdvisorAccessGateForm />
 
-        <p className="mt-8 border-t border-stone-800 pt-6 text-xs leading-6 text-stone-500">
+        <p className="mt-7 border-t border-[#E5E8EF] pt-5 text-[12.5px] leading-[1.6] text-[#6B7686]">
           This briefing contains private ministry and planning material. Please do not share this link or code.
         </p>
       </AdvisorShell>
@@ -86,15 +84,18 @@ export default async function AdvisorPage() {
     return (
       <AdvisorShell>
         <p
-          className="text-[12px] uppercase tracking-[0.34em] text-usam-gold"
+          className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8A6D1F]"
           style={{ fontFamily: font.rajdhani }}
         >
           USA Missionaries
         </p>
-        <h1 className="mt-4 text-3xl font-bold text-stone-100" style={{ fontFamily: font.oswald }}>
+        <h1
+          className="mt-3 text-[26px] font-semibold text-[#0B1220]"
+          style={{ fontFamily: font.oswald }}
+        >
           Advisor Briefing
         </h1>
-        <p className="mt-6 text-sm leading-7 text-stone-400">
+        <p className="mt-5 text-[14.5px] leading-[1.7] text-[#3D4654]">
           This briefing is not available right now. Please check back shortly, or contact the person who sent you
           this link.
         </p>
@@ -103,7 +104,7 @@ export default async function AdvisorPage() {
   }
 
   return (
-    <main className="min-h-screen bg-usam-black text-stone-100">
+    <main className="min-h-screen bg-white">
       <PrimaryNav minimal />
       <AdvisorBriefing content={content} />
     </main>

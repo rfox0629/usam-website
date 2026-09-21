@@ -109,6 +109,52 @@ function checkBlock(block, path) {
         });
       }
       break;
+    case "dashboard": {
+      const d = block.dashboard;
+      const at = `${path}.dashboard`;
+      if (!isRecord(d)) return fail(at, "must be an object");
+      if (!isText(d.org)) fail(at, "'org' is required");
+      if (!optText(d.view)) fail(at, "'view' must be a string");
+      if (!optText(d.caption)) fail(at, "'caption' must be a string");
+      if (d.metrics !== undefined) {
+        if (!Array.isArray(d.metrics)) fail(`${at}.metrics`, "must be an array");
+        else d.metrics.forEach((m, i) => {
+          const mAt = `${at}.metrics[${i}]`;
+          if (!isRecord(m)) return fail(mAt, "must be an object");
+          if (!isText(m.label)) fail(mAt, "'label' is required");
+          if (!isText(m.value)) fail(mAt, "'value' is required");
+        });
+      }
+      if (d.panels !== undefined) {
+        if (!Array.isArray(d.panels)) fail(`${at}.panels`, "must be an array");
+        else d.panels.forEach((pn, i) => {
+          const pAt = `${at}.panels[${i}]`;
+          if (!isRecord(pn)) return fail(pAt, "must be an object");
+          if (!isText(pn.title)) fail(pAt, "'title' is required");
+          if (!Array.isArray(pn.rows)) return fail(pAt, "'rows' must be an array");
+          pn.rows.forEach((r, j) => {
+            const rAt = `${pAt}.rows[${j}]`;
+            if (!isRecord(r)) return fail(rAt, "must be an object");
+            if (!isText(r.label)) fail(rAt, "'label' is required");
+            if (!isText(r.value)) fail(rAt, "'value' is required");
+          });
+        });
+      }
+      if (d.progress !== undefined) {
+        if (!Array.isArray(d.progress)) fail(`${at}.progress`, "must be an array");
+        else d.progress.forEach((pr, i) => {
+          const prAt = `${at}.progress[${i}]`;
+          if (!isRecord(pr)) return fail(prAt, "must be an object");
+          if (!isText(pr.label)) fail(prAt, "'label' is required");
+          if (typeof pr.value !== "number") fail(prAt, "'value' must be a number");
+          if (typeof pr.max !== "number" || pr.max <= 0) fail(prAt, "'max' must be a positive number");
+        });
+      }
+      if (!d.metrics && !d.panels && !d.progress) {
+        fail(at, "needs at least one of metrics, panels, or progress");
+      }
+      break;
+    }
     default:
       fail(path, `unknown block type '${block.type}'`);
   }
@@ -140,6 +186,19 @@ function checkContent(content) {
   });
 }
 
+// Em-dashes read as machine-written prose. Flag them so they can be rewritten
+// at the source rather than patched over at render time.
+function warnOnEmDashes(node, path = "") {
+  if (typeof node === "string") {
+    if (node.includes("\u2014")) emDashPaths.push(path);
+    return;
+  }
+  if (Array.isArray(node)) return node.forEach((v, i) => warnOnEmDashes(v, `${path}[${i}]`));
+  if (isRecord(node)) return Object.entries(node).forEach(([k, v]) => warnOnEmDashes(v, path ? `${path}.${k}` : k));
+}
+
+const emDashPaths = [];
+
 const [, , filePath] = process.argv;
 
 if (!filePath) {
@@ -158,6 +217,14 @@ try {
 }
 
 checkContent(parsed);
+warnOnEmDashes(parsed);
+
+if (emDashPaths.length > 0) {
+  console.warn(`\n  warning: ${emDashPaths.length} string(s) contain an em-dash (U+2014):`);
+  emDashPaths.slice(0, 20).forEach((path) => console.warn(`    - ${path}`));
+  if (emDashPaths.length > 20) console.warn(`    ... and ${emDashPaths.length - 20} more`);
+  console.warn("  These read as machine-written. Rewrite the sentences rather than swapping the character.\n");
+}
 
 if (errors.length > 0) {
   console.error(`\n${errors.length} problem(s) found:\n`);
