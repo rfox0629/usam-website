@@ -5,7 +5,7 @@ const font = { rajdhani: "'Rajdhani', sans-serif" };
 export function AdvisorPrintButton() {
   return (
     <button
-      className="no-print inline-flex items-center gap-2 border border-stone-700 px-5 py-2.5 text-[11px] font-semibold uppercase tracking-[0.2em] text-stone-300 transition-colors hover:border-usam-gold hover:text-usam-gold"
+      className="no-print inline-flex items-center gap-2 rounded-sm border border-[#D7DBE4] px-4 py-2 text-[13px] font-medium text-[#3D4654] transition-colors hover:border-[#0B1220] hover:text-[#0B1220]"
       onClick={() => window.print()}
       style={{ fontFamily: font.rajdhani }}
       type="button"

@@ -24,7 +24,7 @@ export function AdvisorTabs({ note, panels }: { note?: string; panels: AdvisorTa
     <div className="mt-8">
       <div
         aria-label="Examples"
-        className="no-print flex flex-wrap gap-px border border-stone-800 bg-stone-800"
+        className="no-print flex flex-wrap gap-px border border-[#E5E8EF] bg-[#E5E8EF]"
         role="tablist"
       >
         {panels.map((panel) => {
@@ -34,10 +34,10 @@ export function AdvisorTabs({ note, panels }: { note?: string; panels: AdvisorTa
             <button
               aria-controls={`advisor-tabpanel-${panel.id}`}
               aria-selected={isActive}
-              className={`min-w-0 flex-1 break-words px-4 py-3 text-[11px] font-bold uppercase tracking-[0.18em] transition-colors ${
+              className={`min-w-0 flex-1 break-words px-4 py-2.5 text-[12px] font-medium transition-colors ${
                 isActive
-                  ? "bg-usam-gold text-usam-black"
-                  : "bg-usam-black text-stone-400 hover:text-usam-gold"
+                  ? "bg-[#0B1220] text-white"
+                  : "bg-white text-[#5A6473] hover:text-[#0B1220]"
               }`}
               id={`advisor-tab-${panel.id}`}
               key={panel.id}
@@ -59,7 +59,7 @@ export function AdvisorTabs({ note, panels }: { note?: string; panels: AdvisorTa
         return (
           <div
             aria-labelledby={`advisor-tab-${panel.id}`}
-            className={`border border-t-0 border-stone-800 px-5 py-6 sm:px-7 ${
+            className={`border border-t-0 border-[#E5E8EF] bg-white px-5 py-5 sm:px-6 ${
               isActive ? "" : "hidden print:block"
             }`}
             id={`advisor-tabpanel-${panel.id}`}
@@ -67,13 +67,13 @@ export function AdvisorTabs({ note, panels }: { note?: string; panels: AdvisorTa
             role="tabpanel"
           >
             <p
-              className="hidden text-[11px] font-bold uppercase tracking-[0.2em] text-usam-gold print:block"
+              className="hidden text-[12px] font-semibold text-[#0B1220] print:block"
               style={{ fontFamily: font.rajdhani }}
             >
               {panel.label}
             </p>
             {panel.caption ? (
-              <p className="mb-5 text-[12px] uppercase tracking-[0.16em] text-stone-500" style={{ fontFamily: font.rajdhani }}>
+              <p className="mb-4 text-[12.5px] text-[#6B7686]" style={{ fontFamily: font.rajdhani }}>
                 {panel.caption}
               </p>
             ) : null}
@@ -82,7 +82,7 @@ export function AdvisorTabs({ note, panels }: { note?: string; panels: AdvisorTa
         );
       })}
 
-      {note ? <p className="mt-3 text-[13px] leading-6 text-stone-500">{note}</p> : null}
+      {note ? <p className="mt-2.5 text-[13px] leading-6 text-[#6B7686]">{note}</p> : null}
     </div>
   );
 }

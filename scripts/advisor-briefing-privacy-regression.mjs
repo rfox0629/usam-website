@@ -24,6 +24,8 @@ const briefing = read("app/advisor/AdvisorBriefing.tsx");
 const route = read("app/api/advisor-access/route.ts");
 const rateLimit = read("src/lib/advisor-rate-limit.ts");
 const clientKey = read("src/lib/advisor-client-key.ts");
+const dashboard = read("app/advisor/AdvisorDashboardMockup.tsx");
+const globalCss = read("app/globals.css");
 const robots = read("app/robots.ts");
 const contentDoc = read("docs/advisor-briefing-content.md");
 const contentExample = read("docs/examples/advisor-briefing-content.example.json");
@@ -258,6 +260,48 @@ check(
 check(
   "the limiter source states it is not durable",
   /NOT durable and NOT shared/.test(rateLimit),
+);
+
+/* -- the light document and its print rules ----------------------------- */
+
+check(
+  "the briefing opts into its own light scope",
+  /data-advisor-doc/.test(briefing) && /\[data-advisor-doc\]/.test(globalCss),
+);
+check(
+  "`.no-print` is actually defined",
+  /@media print \{\s*\.no-print \{\s*display: none !important;/.test(globalCss),
+  "screen-only chrome would otherwise print into the document",
+);
+check(
+  "print forces high-contrast text",
+  /@media print[\s\S]*\[data-advisor-doc\] :where\(p, li, dd, dt, td, th, blockquote\) \{\s*color: #1a1a1a/.test(globalCss),
+);
+check(
+  "the briefing avoids the globally-overridden stone utilities",
+  !/text-stone-|border-stone-|bg-usam-black/.test(briefing),
+  "stone-* is forced to dark-theme values site-wide and would be unreadable on white",
+);
+
+/* -- the DOS mockup is always marked as illustrative -------------------- */
+
+check("the dashboard mockup exists", dashboard.length > 0);
+check(
+  "the mockup labels itself as sample data",
+  /Sample data/.test(dashboard),
+  "a mockup must not depend on surrounding prose to say it is not live",
+);
+check(
+  "the mockup falls back to an explicit illustrative caption",
+  /Illustrative mockup of DOS configured for/.test(dashboard),
+);
+// Encoded for the same reason as the subject-matter blocklist above: this
+// public file should not name the ministries the briefing happens to discuss.
+const namedOrgs = new RegExp(Buffer.from("Uml2ZXIgVmFsbGV5fEVuZ2FnZSBZb3VyIERlc3Rpbnk=", "base64").toString("utf8"), "i");
+
+check(
+  "the mockup carries no hardcoded organisation name",
+  !namedOrgs.test(dashboard),
 );
 
 /* -- the documented template stays valid -------------------------------- */

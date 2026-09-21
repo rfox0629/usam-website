@@ -4,6 +4,7 @@ import type {
   AdvisorBriefingContent,
   AdvisorSection,
 } from "@/src/lib/advisor-content";
+import { AdvisorDashboardMockup } from "./AdvisorDashboardMockup";
 import { AdvisorLinkAccordion } from "./AdvisorLinkAccordion";
 import { AdvisorPrintButton } from "./AdvisorPrintButton";
 import { AdvisorTabs } from "./AdvisorTabs";
@@ -12,35 +13,47 @@ import type { AdvisorTabPanel } from "./AdvisorTabs";
 /**
  * A generic, content-driven briefing layout.
  *
- * Every name, figure, link, and question on this page arrives through the
- * `content` prop, which the server decodes from ADVISOR_BRIEFING_CONTENT only
- * after the access cookie has been validated. Nothing private is hardcoded
- * here — this file is safe to read in a public repository.
+ * Presented as a working document rather than a presentation: a light ground,
+ * a narrow measure, restrained type, and hairline rules, so it reads as notes
+ * being shared rather than a deck being pitched. The light treatment also lets
+ * the DOS mockups sit in the page as themselves, since DOS is a light product,
+ * and it makes the printed copy legible.
+ *
+ * Every name, figure, link, and question arrives through the `content` prop,
+ * which the server decodes only after the access cookie has been validated.
+ * Nothing private is hardcoded here — this file is safe to read in a public
+ * repository.
+ *
+ * Note on styling: `stone-*` utilities are overridden site-wide for the dark
+ * interface (see app/globals.css), so this file uses explicit colour values.
  */
 
 const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif" };
 
+/* Measures: prose stays narrow enough to read; tables and mockups get room. */
+const PROSE = "max-w-[36rem]";
+const WIDE = "max-w-[52rem]";
+
 /* ---------------------------------------------------------------------- */
-/* EDITORIAL PRIMITIVES (mirrors app/vision/page.tsx conventions)          */
+/* EDITORIAL PRIMITIVES                                                    */
 /* ---------------------------------------------------------------------- */
 
 function Eyebrow({ children }: { children: ReactNode }) {
   return (
     <p
-      className="flex items-center gap-4 text-[11px] uppercase tracking-[0.28em] text-usam-gold"
-      style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+      className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8A6D1F]"
+      style={{ fontFamily: font.rajdhani }}
     >
       {children}
-      <span aria-hidden="true" className="h-px w-14 bg-usam-gold/55" />
+      <span aria-hidden="true" className="h-px w-10 bg-[#C2A14E]/60" />
     </p>
   );
 }
 
-function SectionHeading({ children, id }: { children: ReactNode; id?: string }) {
+function SectionHeading({ children }: { children: ReactNode }) {
   return (
     <h2
-      className="mt-5 max-w-3xl break-words text-[clamp(1.9rem,4vw,2.75rem)] font-bold leading-[1.1] text-stone-100"
-      id={id}
+      className={`mt-3 ${PROSE} break-words text-[clamp(1.45rem,2.8vw,1.95rem)] font-semibold leading-[1.22] text-[#0B1220]`}
       style={{ fontFamily: font.oswald }}
     >
       {children}
@@ -49,27 +62,32 @@ function SectionHeading({ children, id }: { children: ReactNode; id?: string }) 
 }
 
 function Lede({ children }: { children: ReactNode }) {
-  return <p className="mt-5 max-w-3xl break-words text-lg leading-8 text-stone-400">{children}</p>;
+  return (
+    <p className={`mt-3 ${PROSE} break-words text-[17px] leading-[1.7] text-[#3D4654]`}>{children}</p>
+  );
 }
 
 /* ---------------------------------------------------------------------- */
 /* BLOCK RENDERERS                                                         */
 /* ---------------------------------------------------------------------- */
 
-function Figures({ items, note }: { items: { label: string; note?: string; value: string }[]; note?: string }) {
+function Figures({
+  items,
+  note,
+}: {
+  items: { label: string; note?: string; value: string }[];
+  note?: string;
+}) {
   return (
-    <div className="mt-8">
-      <dl className="grid grid-cols-1 gap-px bg-stone-800 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="mt-6">
+      <dl className={`grid grid-cols-1 gap-px ${WIDE} border border-[#E5E8EF] bg-[#E5E8EF] sm:grid-cols-2 lg:grid-cols-3`}>
         {items.map((figure) => (
-          <div className="bg-usam-black px-5 py-6" key={`${figure.label}-${figure.value}`}>
-            <dt
-              className="break-words text-[11px] font-bold uppercase leading-5 tracking-[0.18em] text-stone-500"
-              style={{ fontFamily: font.rajdhani }}
-            >
+          <div className="bg-white px-5 py-5" key={`${figure.label}-${figure.value}`}>
+            <dt className="break-words text-[11px] font-semibold uppercase leading-5 tracking-[0.1em] text-[#6B7686]">
               {figure.label}
             </dt>
             <dd
-              className="mt-2 break-words text-[clamp(1.5rem,3vw,2rem)] font-bold leading-none text-usam-gold"
+              className="mt-1.5 break-words text-[clamp(1.35rem,2.4vw,1.7rem)] font-semibold leading-none text-[#0B1220]"
               style={{ fontFamily: font.oswald }}
             >
               {figure.value}
@@ -77,28 +95,29 @@ function Figures({ items, note }: { items: { label: string; note?: string; value
             {/* The note is what keeps distinct measures from blurring
                 together; a grid of bare numbers invites a reader to take one
                 for another. */}
-            {figure.note ? <p className="mt-3 text-[13px] leading-6 text-stone-400">{figure.note}</p> : null}
+            {figure.note ? (
+              <p className="mt-2.5 text-[13px] leading-[1.55] text-[#5A6473]">{figure.note}</p>
+            ) : null}
           </div>
         ))}
       </dl>
-      {note ? <p className="mt-4 max-w-3xl text-[13.5px] leading-7 text-stone-500">{note}</p> : null}
+      {note ? <p className={`mt-3 ${PROSE} text-[13.5px] leading-[1.65] text-[#6B7686]`}>{note}</p> : null}
     </div>
   );
 }
 
 function Table({ caption, columns, rows }: { caption?: string; columns: string[]; rows: string[][] }) {
   return (
-    <figure className="mt-8">
+    <figure className={`mt-6 ${WIDE}`}>
       <div className="max-w-full overflow-x-auto">
         <table className="w-full min-w-[30rem] border-collapse text-left">
           <thead>
-            <tr className="border-y border-stone-800">
+            <tr className="border-y border-[#E5E8EF]">
               {columns.map((column) => (
                 <th
-                  className="px-4 py-3 text-[11px] font-bold uppercase tracking-[0.16em] text-stone-500"
+                  className="px-3 py-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[#6B7686]"
                   key={column}
                   scope="col"
-                  style={{ fontFamily: font.rajdhani }}
                 >
                   {column}
                 </th>
@@ -107,11 +126,11 @@ function Table({ caption, columns, rows }: { caption?: string; columns: string[]
           </thead>
           <tbody>
             {rows.map((row, rowIndex) => (
-              <tr className="border-b border-stone-800/70" key={`row-${rowIndex}-${row[0] ?? ""}`}>
+              <tr className="border-b border-[#E5E8EF]" key={`row-${rowIndex}-${row[0] ?? ""}`}>
                 {row.map((cell, cellIndex) => (
                   <td
-                    className={`break-words px-4 py-3.5 align-top text-[14.5px] leading-7 ${
-                      cellIndex === 0 ? "text-stone-200" : "text-stone-400"
+                    className={`break-words px-3 py-3 align-top text-[14.5px] leading-[1.6] ${
+                      cellIndex === 0 ? "font-medium text-[#0B1220]" : "text-[#3D4654]"
                     }`}
                     key={`cell-${rowIndex}-${cellIndex}`}
                   >
@@ -124,51 +143,53 @@ function Table({ caption, columns, rows }: { caption?: string; columns: string[]
         </table>
       </div>
       {caption ? (
-        <figcaption className="mt-3 text-[13px] leading-6 text-stone-500">{caption}</figcaption>
+        <figcaption className="mt-2.5 text-[13px] leading-6 text-[#6B7686]">{caption}</figcaption>
       ) : null}
     </figure>
   );
 }
 
-function Callout({ text, title, tone = "neutral" }: { text: string; title?: string; tone?: "neutral" | "gold" | "warning" }) {
+function Callout({
+  text,
+  title,
+  tone = "neutral",
+}: {
+  text: string;
+  title?: string;
+  tone?: "neutral" | "gold" | "warning";
+}) {
   const accents = {
-    gold: "border-usam-gold/60 bg-usam-gold/[0.05]",
-    neutral: "border-stone-800 bg-white/[0.015]",
-    warning: "border-amber-500/50 bg-amber-500/[0.04]",
+    gold: "border-[#C2A14E] bg-[#FBF8F0]",
+    neutral: "border-[#D7DBE4] bg-[#F7F8FB]",
+    warning: "border-[#B45309] bg-[#FDF0D5]",
   } as const;
 
   return (
-    <div className={`mt-8 max-w-3xl border-l-2 px-6 py-5 ${accents[tone]}`}>
+    <div className={`mt-6 ${PROSE} border-l-2 px-5 py-4 ${accents[tone]}`}>
       {title ? (
-        <p
-          className="text-[11px] font-bold uppercase tracking-[0.2em] text-usam-gold"
-          style={{ fontFamily: font.rajdhani }}
-        >
-          {title}
-        </p>
+        <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8A6D1F]">{title}</p>
       ) : null}
-      <p className={`break-words text-[15px] leading-8 text-stone-300 ${title ? "mt-3" : ""}`}>{text}</p>
+      <p className={`break-words text-[15px] leading-[1.7] text-[#3D4654] ${title ? "mt-2" : ""}`}>
+        {text}
+      </p>
     </div>
   );
 }
 
 function Questions({ items }: { items: { detail?: string; prompt: string }[] }) {
   return (
-    <ol className="mt-8 divide-y divide-stone-800 border-y border-stone-800">
+    <ol className={`mt-6 ${PROSE} divide-y divide-[#E5E8EF] border-y border-[#E5E8EF]`}>
       {items.map((question, index) => (
-        <li className="flex gap-5 py-6" key={question.prompt}>
-          <span
-            className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full border border-usam-gold/50 text-[12px] font-bold text-usam-gold"
-            style={{ fontFamily: font.rajdhani }}
-          >
+        <li className="flex gap-4 py-5" key={question.prompt}>
+          <span className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-[#C2A14E] text-[12px] font-semibold text-[#8A6D1F]">
             {index + 1}
           </span>
-          <div className="min-w-0 max-w-2xl">
-            <p className="break-words text-[16.5px] font-medium leading-8 text-stone-200" style={{ fontFamily: font.oswald }}>
+          <div className="min-w-0">
+            <p className="break-words text-[16px] font-medium leading-[1.55] text-[#0B1220]">
               {question.prompt}
             </p>
             {question.detail ? (
-              <p className="mt-2 text-[14.5px] leading-7 text-stone-400">{question.detail}</p>
+              <p className="mt-1.5 text-[14.5px] leading-[1.65] text-[#5A6473]">{question.detail}</p>
             ) : null}
           </div>
         </li>
@@ -180,14 +201,18 @@ function Questions({ items }: { items: { detail?: string; prompt: string }[] }) 
 function Block({ block }: { block: AdvisorBlock }) {
   switch (block.type) {
     case "paragraph":
-      return <p className="mt-5 max-w-3xl break-words text-[15.5px] leading-8 text-stone-400">{block.text}</p>;
+      return (
+        <p className={`mt-4 ${PROSE} break-words text-[15.5px] leading-[1.75] text-[#3D4654]`}>
+          {block.text}
+        </p>
+      );
 
     case "bullets":
       return (
-        <ul className="mt-6 max-w-3xl space-y-3">
+        <ul className={`mt-4 ${PROSE} space-y-2.5`}>
           {block.items.map((item) => (
-            <li className="flex gap-3 break-words text-[15.5px] leading-8 text-stone-400" key={item}>
-              <span aria-hidden="true" className="mt-[14px] h-px w-4 flex-shrink-0 bg-usam-gold/60" />
+            <li className="flex gap-3 break-words text-[15.5px] leading-[1.7] text-[#3D4654]" key={item}>
+              <span aria-hidden="true" className="mt-[12px] h-px w-3 flex-shrink-0 bg-[#C2A14E]" />
               <span>{item}</span>
             </li>
           ))}
@@ -196,19 +221,13 @@ function Block({ block }: { block: AdvisorBlock }) {
 
     case "steps":
       return (
-        <div className="mt-8 flex flex-col divide-y divide-stone-800 border-y border-stone-800 sm:flex-row sm:divide-x sm:divide-y-0">
+        <div className={`mt-6 ${WIDE} flex flex-col divide-y divide-[#E5E8EF] border-y border-[#E5E8EF] sm:flex-row sm:divide-x sm:divide-y-0`}>
           {block.items.map((step, index) => (
-            <div className="flex flex-1 items-center gap-3 px-5 py-4" key={step}>
-              <span
-                className="flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-full border border-usam-gold/50 text-[11px] font-bold text-usam-gold"
-                style={{ fontFamily: font.rajdhani }}
-              >
+            <div className="flex flex-1 items-center gap-2.5 px-4 py-3" key={step}>
+              <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-[#C2A14E] text-[11px] font-semibold text-[#8A6D1F]">
                 {index + 1}
               </span>
-              <span
-                className="min-w-0 break-words text-[13.5px] font-medium uppercase tracking-[0.04em] text-stone-300"
-                style={{ fontFamily: font.rajdhani }}
-              >
+              <span className="min-w-0 break-words text-[13.5px] leading-[1.45] text-[#3D4654]">
                 {step}
               </span>
             </div>
@@ -218,17 +237,10 @@ function Block({ block }: { block: AdvisorBlock }) {
 
     case "quote":
       return (
-        <blockquote className="mt-8 max-w-3xl border-l-2 border-usam-gold/70 pl-6">
-          <p className="break-words text-xl font-medium leading-8 text-stone-200" style={{ fontFamily: font.oswald }}>
-            {block.text}
-          </p>
+        <blockquote className={`mt-6 ${PROSE} border-l-2 border-[#C2A14E] pl-5`}>
+          <p className="break-words text-[17px] leading-[1.65] text-[#0B1220]">{block.text}</p>
           {block.attribution ? (
-            <footer
-              className="mt-3 text-[12px] uppercase tracking-[0.2em] text-stone-500"
-              style={{ fontFamily: font.rajdhani }}
-            >
-              {block.attribution}
-            </footer>
+            <footer className="mt-2 text-[12.5px] text-[#6B7686]">{block.attribution}</footer>
           ) : null}
         </blockquote>
       );
@@ -245,6 +257,13 @@ function Block({ block }: { block: AdvisorBlock }) {
     case "questions":
       return <Questions items={block.items} />;
 
+    case "dashboard":
+      return (
+        <div className={WIDE}>
+          <AdvisorDashboardMockup dashboard={block.dashboard} />
+        </div>
+      );
+
     case "tabs": {
       const panels: AdvisorTabPanel[] = block.tabs.map((tab) => ({
         caption: tab.caption,
@@ -253,11 +272,19 @@ function Block({ block }: { block: AdvisorBlock }) {
         label: tab.label,
       }));
 
-      return <AdvisorTabs note={block.note} panels={panels} />;
+      return (
+        <div className={WIDE}>
+          <AdvisorTabs note={block.note} panels={panels} />
+        </div>
+      );
     }
 
     case "links":
-      return <AdvisorLinkAccordion groups={block.groups} />;
+      return (
+        <div className={WIDE}>
+          <AdvisorLinkAccordion groups={block.groups} />
+        </div>
+      );
 
     default:
       return null;
@@ -280,18 +307,17 @@ function Blocks({ blocks }: { blocks: AdvisorBlock[] }) {
 
 function Section({ section }: { section: AdvisorSection }) {
   const backgrounds = {
-    feature:
-      "relative overflow-hidden border-y border-stone-900/80 bg-[radial-gradient(circle_at_18%_10%,rgba(194,161,78,0.1),transparent_28%),linear-gradient(180deg,rgba(13,13,13,0.4),#0D0D0D_18%)]",
-    panel: "border-y border-stone-900/80 bg-white/[0.015]",
+    feature: "border-y border-[#E5E8EF] bg-[#F7F8FB]",
+    panel: "border-y border-[#E5E8EF] bg-[#F7F8FB]",
     plain: "",
   } as const;
 
   return (
     <section
-      className={`scroll-mt-24 px-6 py-16 md:py-24 ${backgrounds[section.variant ?? "plain"]}`}
+      className={`scroll-mt-20 px-6 py-12 md:py-16 ${backgrounds[section.variant ?? "plain"]}`}
       id={section.id}
     >
-      <div className="relative mx-auto max-w-5xl">
+      <div className="mx-auto max-w-[52rem]">
         {section.eyebrow ? <Eyebrow>{section.eyebrow}</Eyebrow> : null}
         <SectionHeading>{section.heading}</SectionHeading>
         {section.lede ? <Lede>{section.lede}</Lede> : null}
@@ -305,16 +331,15 @@ function SectionRail({ sections }: { sections: AdvisorSection[] }) {
   return (
     <nav
       aria-label="Section navigation"
-      className="no-print sticky top-0 z-30 overflow-x-auto border-b border-stone-800/70 bg-[rgba(13,13,13,0.95)] px-4 py-2.5"
-      style={{ backdropFilter: "blur(10px)" }}
+      className="no-print sticky top-0 z-30 overflow-x-auto border-b border-[#E5E8EF] bg-white/95 px-6 py-2.5"
+      style={{ backdropFilter: "blur(8px)" }}
     >
       <ul className="flex w-max gap-5">
         {sections.map((section) => (
           <li key={section.id}>
             <a
-              className="whitespace-nowrap text-[11px] uppercase tracking-[0.16em] text-stone-500 transition-colors hover:text-usam-gold"
+              className="whitespace-nowrap text-[12px] font-medium text-[#6B7686] transition-colors hover:text-[#0B1220]"
               href={`#${section.id}`}
-              style={{ fontFamily: font.rajdhani, fontWeight: 600 }}
             >
               {section.navLabel}
             </a>
@@ -329,34 +354,31 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
   const { meta, sections } = content;
 
   return (
-    <div className="bg-usam-black text-stone-100">
+    <div className="bg-white" data-advisor-doc>
       <SectionRail sections={sections} />
 
-      <header className="relative overflow-hidden border-b border-stone-900/80 px-6 py-20 md:py-28" id="cover">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 bg-[radial-gradient(1100px_620px_at_50%_-12%,rgba(194,161,78,0.14),transparent_60%)]"
-        />
-
-        <div className="relative mx-auto max-w-5xl">
+      <header className="border-b border-[#E5E8EF] px-6 py-12 md:py-16" id="cover">
+        <div className="mx-auto max-w-[52rem]">
           <p
-            className="text-[12px] uppercase tracking-[0.34em] text-usam-gold"
+            className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8A6D1F]"
             style={{ fontFamily: font.rajdhani }}
           >
             USA Missionaries
           </p>
           <h1
-            className="mt-5 max-w-3xl break-words text-[clamp(2.25rem,5.5vw,3.75rem)] font-bold leading-[1.05] text-stone-100"
+            className="mt-3 max-w-[36rem] break-words text-[clamp(1.75rem,4vw,2.5rem)] font-semibold leading-[1.15] text-[#0B1220]"
             style={{ fontFamily: font.oswald }}
           >
             {meta.title}
           </h1>
           {meta.subtitle ? (
-            <p className="mt-6 max-w-2xl break-words text-lg leading-8 text-stone-400">{meta.subtitle}</p>
+            <p className="mt-4 max-w-[36rem] break-words text-[17px] leading-[1.7] text-[#3D4654]">
+              {meta.subtitle}
+            </p>
           ) : null}
 
           {meta.preparedFor || meta.preparedBy || meta.date ? (
-            <dl className="mt-10 flex flex-col gap-5 border-t border-stone-800 pt-8 sm:flex-row sm:gap-12">
+            <dl className="mt-8 flex flex-col gap-4 border-t border-[#E5E8EF] pt-6 sm:flex-row sm:gap-10">
               {[
                 { label: "Prepared for", value: meta.preparedFor },
                 { label: "Prepared by", value: meta.preparedBy },
@@ -365,24 +387,21 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
                 .filter((item): item is { label: string; value: string } => Boolean(item.value))
                 .map((item) => (
                   <div key={item.label}>
-                    <dt
-                      className="text-[11px] font-bold uppercase tracking-[0.2em] text-stone-500"
-                      style={{ fontFamily: font.rajdhani }}
-                    >
+                    <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[#6B7686]">
                       {item.label}
                     </dt>
-                    <dd className="mt-1.5 text-[15px] leading-7 text-stone-300">{item.value}</dd>
+                    <dd className="mt-1 text-[15px] leading-6 text-[#0B1220]">{item.value}</dd>
                   </div>
                 ))}
             </dl>
           ) : null}
 
-          <div className="mt-10">
+          <div className="mt-8">
             <AdvisorPrintButton />
           </div>
 
           {meta.confidentialNote ? (
-            <p className="mt-10 max-w-2xl border-l-2 border-usam-gold/60 pl-5 text-[13.5px] leading-7 text-stone-500">
+            <p className="mt-8 max-w-[36rem] border-l-2 border-[#C2A14E] pl-4 text-[13.5px] leading-[1.65] text-[#6B7686]">
               {meta.confidentialNote}
             </p>
           ) : null}
@@ -394,8 +413,10 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
       ))}
 
       {content.footerNote ? (
-        <footer className="border-t border-stone-900/80 px-6 py-14">
-          <p className="mx-auto max-w-5xl text-[13.5px] leading-7 text-stone-500">{content.footerNote}</p>
+        <footer className="border-t border-[#E5E8EF] px-6 py-10">
+          <p className="mx-auto max-w-[52rem] text-[13.5px] leading-[1.65] text-[#6B7686]">
+            {content.footerNote}
+          </p>
         </footer>
       ) : null}
     </div>
