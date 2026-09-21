@@ -67,22 +67,27 @@
           "type": "figures",
           "items": [
             {
-              "label": "Meetings logged",
-              "value": "15",
-              "note": "Verified from DOS over the most recent reporting period. Real, not illustrative."
+              "label": "Discipleship meetings",
+              "value": "16",
+              "note": "Last 7 days, verified from DOS. Real, not illustrative."
             },
             {
               "label": "Hours invested",
-              "value": "21",
-              "note": "Same period, same source. Time actually spent sitting with people."
+              "value": "19h 30m",
+              "note": "Same 7 days, same source. Time actually spent sitting with people."
             },
             {
-              "label": "Discipling",
+              "label": "Men's groups",
+              "value": "2",
+              "note": "Groups I lead each week, Tuesday morning and Wednesday evening."
+            },
+            {
+              "label": "Being discipled",
               "value": "21",
               "note": "People I am currently discipling, one to one and in the two men's groups."
             }
           ],
-          "note": "These three are the only real activity figures on this page. Every organization wide number you will see in the dashboard examples is invented for illustration."
+          "note": "These four are the only real activity figures on this page, all from the last 7 days. Every organization wide number you will see in the dashboard examples is invented for illustration."
         },
         {
           "type": "paragraph",
@@ -764,26 +769,28 @@
         },
         "stats": [
           {
-            "label": "Meetings",
-            "value": "15",
+            "label": "Discipleship meetings",
+            "value": "16",
             "tag": "Verified",
-            "note": "Most recent reporting period."
+            "note": "Last 7 days."
           },
           {
             "label": "Hours invested",
+            "value": "19h 30m",
+            "tag": "Verified",
+            "note": "Last 7 days."
+          },
+          {
+            "label": "Men's groups",
+            "value": "2",
+            "tag": "Verified",
+            "note": "Weekly."
+          },
+          {
+            "label": "Being discipled",
             "value": "21",
             "tag": "Verified",
-            "note": "Most recent reporting period."
-          },
-          {
-            "label": "Discipling now",
-            "value": "4",
-            "note": "Illustrative."
-          },
-          {
-            "label": "Fruit markers",
-            "value": "3",
-            "note": "Illustrative."
+            "note": "Right now."
           }
         ],
         "tags": [
@@ -794,7 +801,7 @@
       },
       "network": {
         "title": "Multiplication at one campus",
-        "note": "Follow one line. A campus pastor can see who is discipling whom, how deep it goes, and where fruit is showing up, without reading a single private note. Ryan is real. Everyone below him is a placeholder.",
+        "note": "Follow one line. A campus pastor can see who is discipling whom, how deep it goes, and where fruit is showing up, without reading a single private note. Ryan is real and is currently discipling 21 people; the few shown below him are placeholders, drawn to show the shape.",
         "columns": [
           "Campus pastor",
           "Discipler",
@@ -1062,14 +1069,22 @@
       ],
       "verified": {
         "title": "My own activity, for comparison",
-        "note": "These two figures are verified, pulled from my own use of DOS over the most recent reporting period. They are the only real numbers on this page. I wanted you to see the difference between a verified figure and an illustrative one.",
+        "note": "These four figures are verified, pulled from my own use of DOS over the last 7 days. They are the only real numbers on this page. I wanted you to see the difference between a verified figure and an illustrative one.",
         "stats": [
           {
-            "label": "Meetings",
-            "value": "15"
+            "label": "Discipleship meetings",
+            "value": "16"
           },
           {
             "label": "Hours invested",
+            "value": "19h 30m"
+          },
+          {
+            "label": "Men's groups",
+            "value": "2"
+          },
+          {
+            "label": "Being discipled",
             "value": "21"
           }
         ]
