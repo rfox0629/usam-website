@@ -75,9 +75,14 @@
               "label": "Hours invested",
               "value": "21",
               "note": "Same period, same source. Time actually spent sitting with people."
+            },
+            {
+              "label": "Discipling",
+              "value": "21",
+              "note": "People I am currently discipling, one to one and in the two men's groups."
             }
           ],
-          "note": "These two are the only real activity figures on this page. Every organization wide number you will see in the dashboard examples is invented for illustration."
+          "note": "These three are the only real activity figures on this page. Every organization wide number you will see in the dashboard examples is invented for illustration."
         },
         {
           "type": "paragraph",
