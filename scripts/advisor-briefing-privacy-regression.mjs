@@ -93,7 +93,11 @@ check("the committed content file exists and is tracked", trackedFiles.includes(
 const jsonImporters = trackedFiles.filter((file) => {
   if (!/\.(ts|tsx|js|jsx|mjs)$/.test(file) || file === selfPath) return false;
   try {
-    return /advisor-briefing\.json/.test(readFileSync(file, "utf8"));
+    // An import or require of the JSON, not merely a mention of its name
+    // (the validator and this file talk about it without loading it).
+    return /(from\s*["'][^"']*advisor-briefing\.json["']|require\(\s*["'][^"']*advisor-briefing\.json["']\s*\))/.test(
+      readFileSync(file, "utf8"),
+    );
   } catch {
     return false;
   }
