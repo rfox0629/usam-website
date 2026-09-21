@@ -1066,29 +1066,7 @@
           "when": "Last week",
           "what": "Three testimonies recorded across two campuses. One was a first baptism in a family."
         }
-      ],
-      "verified": {
-        "title": "My own activity, for comparison",
-        "note": "These four figures are verified, pulled from my own use of DOS over the last 7 days. They are the only real numbers on this page. I wanted you to see the difference between a verified figure and an illustrative one.",
-        "stats": [
-          {
-            "label": "Discipleship meetings",
-            "value": "16"
-          },
-          {
-            "label": "Hours invested",
-            "value": "19h 30m"
-          },
-          {
-            "label": "Men's groups",
-            "value": "2"
-          },
-          {
-            "label": "Being discipled",
-            "value": "21"
-          }
-        ]
-      }
+      ]
     },
     {
       "slug": "engage-your-destiny",
