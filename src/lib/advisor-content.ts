@@ -1,0 +1,262 @@
+import "server-only";
+
+/**
+ * The advisor briefing is private: names, financial figures, ministry detail,
+ * partner lists, and meeting questions never live in this repository, which is
+ * public. The layout in `app/advisor` is generic and content-driven; the
+ * content itself arrives at runtime from ADVISOR_BRIEFING_CONTENT, a
+ * server-side Vercel environment variable holding base64-encoded JSON.
+ *
+ * Base64 is transport encoding only — it is not a secret. The privacy comes
+ * from the variable being server-side and encrypted at rest in Vercel, and
+ * from `getAdvisorBriefingContent()` only ever being called after the access
+ * cookie has been validated.
+ *
+ * Deliberately NOT a NEXT_PUBLIC_ variable: that would inline the payload into
+ * the client bundle and defeat the whole design.
+ */
+
+export type AdvisorFigure = {
+  label: string;
+  value: string;
+  note?: string;
+};
+
+export type AdvisorLink = {
+  label: string;
+  href: string;
+  description?: string;
+};
+
+export type AdvisorQuestion = {
+  prompt: string;
+  detail?: string;
+};
+
+export type AdvisorBlock =
+  | { type: "paragraph"; text: string }
+  | { type: "bullets"; items: string[] }
+  | { type: "steps"; items: string[] }
+  | { type: "quote"; text: string; attribution?: string }
+  | { type: "figures"; items: AdvisorFigure[]; note?: string }
+  | { type: "table"; columns: string[]; rows: string[][]; caption?: string }
+  | { type: "callout"; title?: string; text: string; tone?: "neutral" | "gold" | "warning" }
+  | { type: "questions"; items: AdvisorQuestion[] }
+  | { type: "tabs"; note?: string; tabs: AdvisorTab[] }
+  | { type: "links"; groups: AdvisorLinkGroup[] };
+
+export type AdvisorTab = {
+  id: string;
+  label: string;
+  caption?: string;
+  blocks: AdvisorBlock[];
+};
+
+export type AdvisorLinkGroup = {
+  title: string;
+  note?: string;
+  links: AdvisorLink[];
+};
+
+export type AdvisorSection = {
+  id: string;
+  navLabel: string;
+  eyebrow?: string;
+  heading: string;
+  lede?: string;
+  variant?: "plain" | "panel" | "feature";
+  blocks: AdvisorBlock[];
+};
+
+export type AdvisorBriefingContent = {
+  meta: {
+    title: string;
+    subtitle?: string;
+    preparedFor?: string;
+    preparedBy?: string;
+    date?: string;
+    confidentialNote?: string;
+  };
+  sections: AdvisorSection[];
+  footerNote?: string;
+};
+
+/* ---------------------------------------------------------------------- */
+/* VALIDATION                                                              */
+/* ---------------------------------------------------------------------- */
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+}
+
+function optionalString(value: unknown) {
+  return value === undefined || typeof value === "string";
+}
+
+function isFigure(value: unknown): value is AdvisorFigure {
+  return (
+    isRecord(value)
+    && isNonEmptyString(value.label)
+    && isNonEmptyString(value.value)
+    && optionalString(value.note)
+  );
+}
+
+function isLink(value: unknown): value is AdvisorLink {
+  return (
+    isRecord(value)
+    && isNonEmptyString(value.label)
+    && isNonEmptyString(value.href)
+    && optionalString(value.description)
+  );
+}
+
+function isQuestion(value: unknown): value is AdvisorQuestion {
+  return isRecord(value) && isNonEmptyString(value.prompt) && optionalString(value.detail);
+}
+
+function isLinkGroup(value: unknown): value is AdvisorLinkGroup {
+  return (
+    isRecord(value)
+    && isNonEmptyString(value.title)
+    && optionalString(value.note)
+    && Array.isArray(value.links)
+    && value.links.every(isLink)
+  );
+}
+
+function isTab(value: unknown): value is AdvisorTab {
+  return (
+    isRecord(value)
+    && isNonEmptyString(value.id)
+    && isNonEmptyString(value.label)
+    && optionalString(value.caption)
+    && Array.isArray(value.blocks)
+    && value.blocks.every(isBlock)
+  );
+}
+
+function isBlock(value: unknown): value is AdvisorBlock {
+  if (!isRecord(value) || typeof value.type !== "string") {
+    return false;
+  }
+
+  switch (value.type) {
+    case "paragraph":
+      return isNonEmptyString(value.text);
+    case "bullets":
+    case "steps":
+      return isStringArray(value.items) && value.items.length > 0;
+    case "quote":
+      return isNonEmptyString(value.text) && optionalString(value.attribution);
+    case "figures":
+      return Array.isArray(value.items) && value.items.length > 0 && value.items.every(isFigure)
+        && optionalString(value.note);
+    case "table":
+      return (
+        isStringArray(value.columns)
+        && value.columns.length > 0
+        && Array.isArray(value.rows)
+        && value.rows.every(isStringArray)
+        && optionalString(value.caption)
+      );
+    case "callout":
+      return (
+        isNonEmptyString(value.text)
+        && optionalString(value.title)
+        && (value.tone === undefined || value.tone === "neutral" || value.tone === "gold" || value.tone === "warning")
+      );
+    case "questions":
+      return Array.isArray(value.items) && value.items.length > 0 && value.items.every(isQuestion);
+    case "tabs":
+      return Array.isArray(value.tabs) && value.tabs.length > 0 && value.tabs.every(isTab)
+        && optionalString(value.note);
+    case "links":
+      return Array.isArray(value.groups) && value.groups.length > 0 && value.groups.every(isLinkGroup);
+    default:
+      return false;
+  }
+}
+
+function isSection(value: unknown): value is AdvisorSection {
+  return (
+    isRecord(value)
+    && isNonEmptyString(value.id)
+    && isNonEmptyString(value.navLabel)
+    && isNonEmptyString(value.heading)
+    && optionalString(value.eyebrow)
+    && optionalString(value.lede)
+    && (value.variant === undefined || value.variant === "plain" || value.variant === "panel" || value.variant === "feature")
+    && Array.isArray(value.blocks)
+    && value.blocks.every(isBlock)
+  );
+}
+
+export function parseAdvisorBriefingContent(value: unknown): AdvisorBriefingContent | null {
+  if (!isRecord(value) || !isRecord(value.meta) || !isNonEmptyString(value.meta.title)) {
+    return null;
+  }
+
+  const { meta } = value;
+
+  if (
+    !optionalString(meta.subtitle)
+    || !optionalString(meta.preparedFor)
+    || !optionalString(meta.preparedBy)
+    || !optionalString(meta.date)
+    || !optionalString(meta.confidentialNote)
+  ) {
+    return null;
+  }
+
+  if (!Array.isArray(value.sections) || value.sections.length === 0 || !value.sections.every(isSection)) {
+    return null;
+  }
+
+  if (!optionalString(value.footerNote)) {
+    return null;
+  }
+
+  return value as unknown as AdvisorBriefingContent;
+}
+
+/* ---------------------------------------------------------------------- */
+/* LOADER                                                                  */
+/* ---------------------------------------------------------------------- */
+
+/**
+ * Only call this once the advisor access cookie has been validated.
+ *
+ * Returns null — never throws and never logs the payload — when the variable
+ * is missing, is not valid base64, is not valid JSON, or does not match the
+ * schema above. The page renders a generic "unavailable" state in that case,
+ * so a misconfiguration can never leak a partial payload or a stack trace
+ * containing one.
+ */
+export function getAdvisorBriefingContent(): AdvisorBriefingContent | null {
+  const encoded = process.env.ADVISOR_BRIEFING_CONTENT?.trim();
+
+  if (!encoded) {
+    return null;
+  }
+
+  try {
+    const decoded = Buffer.from(encoded, "base64").toString("utf8");
+
+    return parseAdvisorBriefingContent(JSON.parse(decoded));
+  } catch {
+    return null;
+  }
+}
+
+export function isAdvisorBriefingContentConfigured() {
+  return Boolean(process.env.ADVISOR_BRIEFING_CONTENT?.trim());
+}

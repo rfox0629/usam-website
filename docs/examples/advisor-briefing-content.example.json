@@ -1,0 +1,108 @@
+{
+  "meta": {
+    "title": "Briefing title",
+    "subtitle": "One or two sentences framing the briefing.",
+    "preparedFor": "Recipient name",
+    "preparedBy": "Author name",
+    "date": "Month DD, YYYY",
+    "confidentialNote": "Private material prepared for one reader. Please do not forward."
+  },
+  "sections": [
+    {
+      "id": "section-one",
+      "navLabel": "Section One",
+      "eyebrow": "Section eyebrow",
+      "heading": "Section heading",
+      "lede": "A short standfirst paragraph.",
+      "variant": "plain",
+      "blocks": [
+        { "type": "paragraph", "text": "Body copy." },
+        { "type": "bullets", "items": ["First point", "Second point"] },
+        { "type": "steps", "items": ["First step", "Second step"] },
+        { "type": "quote", "text": "A quoted line.", "attribution": "Source" },
+        {
+          "type": "figures",
+          "items": [
+            { "label": "Measure A", "value": "000", "note": "What Measure A counts." },
+            { "label": "Measure B", "value": "000", "note": "What Measure B counts." },
+            { "label": "Measure C", "value": "000", "note": "What Measure C counts." }
+          ],
+          "note": "Each measure answers a different question; they are not interchangeable."
+        }
+      ]
+    },
+    {
+      "id": "section-two",
+      "navLabel": "Section Two",
+      "heading": "Second heading",
+      "variant": "panel",
+      "blocks": [
+        {
+          "type": "tabs",
+          "note": "An optional note under the tab group.",
+          "tabs": [
+            {
+              "id": "tab-one",
+              "label": "Tab One",
+              "caption": "Optional caption for this panel",
+              "blocks": [
+                { "type": "paragraph", "text": "Panel body copy." },
+                {
+                  "type": "table",
+                  "columns": ["Column A", "Column B"],
+                  "rows": [["Row label", "Value"]],
+                  "caption": "Optional table caption."
+                }
+              ]
+            },
+            {
+              "id": "tab-two",
+              "label": "Tab Two",
+              "blocks": [{ "type": "paragraph", "text": "Second panel body copy." }]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "section-three",
+      "navLabel": "Section Three",
+      "heading": "Third heading",
+      "variant": "feature",
+      "blocks": [
+        {
+          "type": "questions",
+          "items": [
+            { "prompt": "First question?", "detail": "Optional supporting detail." },
+            { "prompt": "Second question?" }
+          ]
+        },
+        { "type": "callout", "title": "Callout title", "text": "Callout body.", "tone": "gold" }
+      ]
+    },
+    {
+      "id": "appendix",
+      "navLabel": "Appendix",
+      "heading": "Link directory",
+      "blocks": [
+        {
+          "type": "links",
+          "groups": [
+            {
+              "title": "Group title",
+              "note": "What this group covers.",
+              "links": [
+                {
+                  "label": "Link label",
+                  "href": "https://example.org",
+                  "description": "Optional description."
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "footerNote": "Closing note."
+}

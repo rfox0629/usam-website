@@ -37,6 +37,14 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      # Guards the /advisor privacy contract: the briefing payload must stay in
+      # server-side environment configuration and out of this public repository.
+      # Fast and offline — no build, no network.
+      - name: Advisor briefing privacy and throttle regression
+        run: |
+          npm run test:advisor-privacy
+          npm run test:advisor-throttle
+
       # DOS UI foundation and workflow regression (USA-215): the offline subset of
       # the DOS scripts (~10 s). The visual suite is local-only because its
       # baselines are platform-specific screenshots.

@@ -30,6 +30,7 @@ export function RouteAwareSiteFooter() {
     || pathname?.startsWith("/operations")
     || pathname?.startsWith("/guide/new-testament-14-days")
     || pathname?.startsWith("/restoration")
+    || pathname?.startsWith("/advisor")
     || pathname?.startsWith("/vision")
     || pathname?.startsWith("/board-briefing")
     || pathname?.startsWith(domainSiteRoutePrefix)
