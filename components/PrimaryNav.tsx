@@ -17,11 +17,19 @@ export type PrimaryNavKey = (typeof navItems)[number]["key"];
 type PrimaryNavProps = {
   active?: PrimaryNavKey;
   brandHref?: string;
+  /**
+   * Overrides the header's inner container, so a page whose content sits in a
+   * narrower column can line the brand mark up with that column's left edge
+   * instead of the full-width site container.
+   */
+  containerClassName?: string;
   fixed?: boolean;
   hrefOverrides?: Partial<Record<PrimaryNavKey, string>>;
   labelOverrides?: Partial<Record<PrimaryNavKey, string>>;
   minimal?: boolean;
 };
+
+const DEFAULT_CONTAINER = "mx-auto w-full max-w-7xl px-7 md:px-10";
 
 function NavLink({
   href,
@@ -58,6 +66,7 @@ function NavLink({
 export function PrimaryNav({
   active,
   brandHref = "/",
+  containerClassName = DEFAULT_CONTAINER,
   fixed = false,
   hrefOverrides,
   labelOverrides,
@@ -74,7 +83,7 @@ export function PrimaryNav({
       className={`${fixed ? "fixed" : "sticky"} inset-x-0 top-0 z-50 w-full border-b border-stone-800/60 bg-[rgba(13,13,13,0.9)]`}
       style={{ backdropFilter: "blur(12px)" }}
     >
-      <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-7 py-3 md:px-10 md:py-3.5">
+      <div className={`flex items-center justify-between py-3 md:py-3.5 ${containerClassName}`}>
         <Link href={brandHref} className="flex min-h-[32px] items-center gap-3.5 md:gap-4">
           <img
             src="/brand/logo/usam-website-logo.png"
@@ -125,7 +134,7 @@ export function PrimaryNav({
 
       {!minimal && mobileOpen ? (
         <nav className="border-t border-stone-800/50 md:hidden" aria-label="Mobile navigation">
-          <div className="mx-auto flex w-full max-w-7xl flex-col px-8 py-3">
+          <div className={`flex flex-col py-3 ${containerClassName}`}>
             {navItems.map((item) => (
               <NavLink
                 key={item.key}
