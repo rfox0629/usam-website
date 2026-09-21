@@ -442,7 +442,7 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
       <header className="border-b border-[#E5E8EF] px-6 py-12 md:py-16 lg:px-10" id="cover">
         <div className={CONTAINER}>
           <p
-            className="text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8A6D1F]"
+            className={`${PROSE} text-[11px] font-semibold uppercase tracking-[0.16em] text-[#8A6D1F]`}
             style={{ fontFamily: font.rajdhani }}
           >
             USA Missionaries
@@ -460,7 +460,7 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
           ) : null}
 
           {meta.preparedFor || meta.preparedBy || meta.date ? (
-            <dl className="mt-8 flex flex-col gap-4 border-t border-[#E5E8EF] pt-6 sm:flex-row sm:gap-10">
+            <dl className={`mt-8 ${PROSE} flex flex-col gap-4 border-t border-[#E5E8EF] pt-6 sm:flex-row sm:gap-10`}>
               {[
                 { label: "Prepared for", value: meta.preparedFor },
                 { label: "Prepared by", value: meta.preparedBy },
@@ -478,7 +478,7 @@ export function AdvisorBriefing({ content }: { content: AdvisorBriefingContent }
             </dl>
           ) : null}
 
-          <div className="mt-8">
+          <div className={`mt-8 ${PROSE}`}>
             <AdvisorPrintButton />
           </div>
 
