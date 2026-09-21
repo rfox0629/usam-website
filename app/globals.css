@@ -180,16 +180,22 @@ body:has([data-advisor-doc]) {
   --advisor-rail-h: 45px;
 }
 
-html:has([data-advisor-doc]) {
-  scroll-padding-top: calc(var(--advisor-nav-h) + var(--advisor-rail-h) + 0.5rem);
+/* Visible breathing room between the lower sticky bar and anchored content. */
+:root {
+  --advisor-anchor-gap: 1.75rem;
 }
 
 [data-advisor-doc] .advisor-rail {
   top: var(--advisor-nav-h);
 }
 
-[data-advisor-doc] .advisor-section {
-  scroll-margin-top: calc(var(--advisor-nav-h) + var(--advisor-rail-h) + 0.5rem);
+/*
+ * The one and only anchor offset. It lives on the anchor target, not as
+ * `scroll-padding-top` on the document: browsers add the two together, so
+ * declaring both would land content twice as far down as intended.
+ */
+[data-advisor-doc] .advisor-anchor {
+  scroll-margin-top: calc(var(--advisor-nav-h) + var(--advisor-rail-h) + var(--advisor-anchor-gap));
 }
 
 @media print {
