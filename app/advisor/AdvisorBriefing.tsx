@@ -37,12 +37,16 @@ const font = { oswald: "'Oswald', sans-serif", rajdhani: "'Rajdhani', sans-serif
  * Measures. The page is a document, so running text keeps a readable line
  * length (`PROSE`, about 75 characters at this size), while tables, figure
  * grids, link groups, and dashboard cards may use the whole column (`WIDE`).
- * `CONTAINER` is the centred column every section and the cover share; on a
- * laptop or desktop it is wide enough to feel designed for the screen rather
- * than a phone page floating in white space.
+ * `CONTAINER` is the column every section and the cover share; on a laptop
+ * or desktop it is wide enough to feel designed for the screen rather than a
+ * phone page floating in white space.
+ *
+ * Every measure is centred inside the container (`mx-auto`), so a prose
+ * block sits with equal margins either side of it while its text stays
+ * left-aligned, and a wide element is centred on the same axis.
  */
-const PROSE = "max-w-[44rem]";
-const WIDE = "max-w-[72rem]";
+const PROSE = "mx-auto max-w-[44rem]";
+const WIDE = "mx-auto max-w-[72rem]";
 const CONTAINER = "mx-auto max-w-[72rem]";
 
 /* ---------------------------------------------------------------------- */
@@ -52,7 +56,7 @@ const CONTAINER = "mx-auto max-w-[72rem]";
 function Eyebrow({ children }: { children: ReactNode }) {
   return (
     <p
-      className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8A6D1F]"
+      className={`flex items-center gap-3 ${PROSE} text-[11px] font-semibold uppercase tracking-[0.14em] text-[#8A6D1F]`}
       style={{ fontFamily: font.rajdhani }}
     >
       {children}
@@ -89,9 +93,13 @@ function Figures({
   items: { label: string; note?: string; value: string }[];
   note?: string;
 }) {
+  // Column count follows the item count, so a grid never shows an empty
+  // cell: two cards make one row of two, three cards one row of three.
+  const columns = items.length % 3 === 0 ? "sm:grid-cols-3" : "sm:grid-cols-2";
+
   return (
     <div className="mt-6">
-      <dl className={`grid grid-cols-1 gap-px ${WIDE} border border-[#E5E8EF] bg-[#E5E8EF] sm:grid-cols-2 lg:grid-cols-3`}>
+      <dl className={`grid grid-cols-1 gap-px ${WIDE} border border-[#E5E8EF] bg-[#E5E8EF] ${columns}`}>
         {items.map((figure) => (
           <div className="bg-white px-5 py-5" key={`${figure.label}-${figure.value}`}>
             <dt className="break-words text-[11px] font-semibold uppercase leading-5 tracking-[0.1em] text-[#6B7686]">
@@ -268,21 +276,29 @@ function Block({ block, examples }: { block: AdvisorBlock; examples: AdvisorExam
         </ul>
       );
 
-    case "steps":
+    case "steps": {
+      // One column on a phone, two from `sm` up. An odd final item spans
+      // both columns so the grid never ends with a lone half-width cell.
+      const count = block.items.length;
+
       return (
-        <div className={`mt-6 ${WIDE} flex flex-col divide-y divide-[#E5E8EF] border-y border-[#E5E8EF] sm:flex-row sm:divide-x sm:divide-y-0`}>
+        <ol className={`mt-6 ${WIDE} grid grid-cols-1 gap-3 sm:grid-cols-2`}>
           {block.items.map((step, index) => (
-            <div className="flex flex-1 items-center gap-2.5 px-4 py-3" key={step}>
-              <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-[#C2A14E] text-[11px] font-semibold text-[#8A6D1F]">
+            <li
+              className={`flex items-start gap-3 border border-[#E5E8EF] bg-white px-4 py-3.5 ${
+                count % 2 === 1 && index === count - 1 ? "sm:col-span-2" : ""
+              }`}
+              key={step}
+            >
+              <span className="mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border border-[#C2A14E] text-[11px] font-semibold text-[#8A6D1F]">
                 {index + 1}
               </span>
-              <span className="min-w-0 break-words text-[13.5px] leading-[1.45] text-[#3D4654]">
-                {step}
-              </span>
-            </div>
+              <span className="min-w-0 break-words text-[14.5px] leading-[1.6] text-[#3D4654]">{step}</span>
+            </li>
           ))}
-        </div>
+        </ol>
       );
+    }
 
     case "quote":
       return (
@@ -375,11 +391,14 @@ function Section({ examples, section }: { examples: AdvisorExample[]; section: A
   } as const;
 
   return (
-    <section
-      className={`advisor-section px-6 py-12 md:py-16 lg:px-10 ${backgrounds[section.variant ?? "plain"]}`}
-      id={section.id}
-    >
-      <div className={CONTAINER}>
+    <section className={`px-6 py-12 md:py-16 lg:px-10 ${backgrounds[section.variant ?? "plain"]}`}>
+      {/*
+        The anchor is the content block, not the section, so an anchor click
+        lands the first line of content a fixed distance below the sticky
+        bars (see `.advisor-anchor` in app/globals.css) whatever the section's
+        own padding is.
+      */}
+      <div className={`advisor-anchor ${CONTAINER}`} id={section.id}>
         {section.eyebrow ? <Eyebrow>{section.eyebrow}</Eyebrow> : null}
         <SectionHeading>{section.heading}</SectionHeading>
         {section.lede ? <Lede>{section.lede}</Lede> : null}
