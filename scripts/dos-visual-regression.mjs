@@ -55,6 +55,11 @@ const scenes = [
   /* USA-247 (#128) appends a count to each People tab, so the accessible name is "All 13". */
   { name: "field", viewport: "mobile", go: async (page) => { await clickButton(page, /Open My 12/, false); await clickTab(page, /^All\b/); } },
   { name: "groups", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Groups/, false); } },
+  /* USA-283: the group home and its add-person sheet were redesigned; the
+     list scene above never reaches them. Wednesday Men's Group is the fixture
+     group with a current journey, so Overview shows real content. */
+  { name: "group-detail", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Groups/, false); await page.getByText("Wednesday Men's Group", { exact: true }).first().click(); } },
+  { name: "group-add-person", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Groups/, false); await page.getByText("Wednesday Men's Group", { exact: true }).first().click(); await clickButton(page, "Add Person"); } },
   { name: "fruit", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Fruit/, false); } },
   { name: "library", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Library/, false); } },
   { name: "library-resource", viewport: "mobile", go: async (page) => { await clickButton(page, "More"); await clickButton(page, /Library/, false); await page.getByText("Kitchen Table Gospel", { exact: true }).first().click(); } },
@@ -80,6 +85,7 @@ const scenes = [
   { name: "log-meeting", viewport: "mobile", go: async (page) => clickButton(page, "Log Meeting", false) },
   { name: "primitives-gallery", viewport: "mobile", url: `/dos/app/preview?demo=${token}&gallery=primitives`, go: async () => {} },
   { name: "dashboard", viewport: "desktop", go: async () => {} },
+  { name: "group-detail", viewport: "desktop", go: async (page) => { await clickButton(page, /^Groups$/, false); await page.getByText("Wednesday Men's Group", { exact: true }).first().click(); } },
   { name: "primitives-gallery", viewport: "desktop", url: `/dos/app/preview?demo=${token}&gallery=primitives`, go: async () => {} },
 ];
 
