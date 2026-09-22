@@ -16,6 +16,7 @@ import {
   type DosAppRelationshipReminder,
 } from "@/src/lib/dos/missionary-app";
 import { normalizeRelationshipType, relationshipModelCounts } from "@/src/lib/dos/relationship-model";
+import { resourceAssignmentFollowUpScheduleTitle } from "@/src/lib/dos/resource-assignments";
 import type { DosTableInvitationBooking } from "@/src/lib/dos/table-invitation-data";
 import { createDefaultDosTableInvitation, type DosTableInvitation } from "@/src/lib/dos/table-invitations";
 import { DosMobileMessageScreen } from "../DosMobileMessageScreen";
@@ -38,6 +39,10 @@ export const metadata: Metadata = {
 // changes in the shared DosMvpAppClient.
 const demoTimestamp = "2026-05-27T10:30:00-05:00";
 const demoWorkspaceId = "00000000-0000-4000-8000-000000000070";
+/* USA-282: the one demo Journey assignment whose growth follow-ups are
+   exercised by the check-in list. Uuid-shaped because the schedule title
+   marker only parses that form. */
+const demoCheckInAssignmentId = "00000000-0000-4000-8000-000000000282";
 const demoAccessToken = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";
 const isDemoPreviewRouteEnabled = process.env.DOS_DISABLE_DEMO_PREVIEW !== "true";
 // Most of this fixture is pinned to a fixed demo date so recorded history reads naturally.
@@ -2443,6 +2448,58 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       },
     ],
     accountabilitySchedules: [
+      /* USA-282: the two growth follow-ups for demoCheckInAssignmentId. They
+         are distinct occurrences of one assignment -- midpoint already
+         missed, completion still ahead -- so the list must distinguish them
+         by resource, phase and group rather than read as one duplicated row.
+         The titles are built by the real helper, marker included. */
+      {
+        createdAt: daysAgoIso(12),
+        createdByUserId: null,
+        dayOfWeek: null,
+        frequency: "one_time",
+        id: "demo-accountability-journey-midpoint",
+        nextCheckIn: daysAgoIso(3).slice(0, 10),
+        personId: "demo-person-tim-tran",
+        scheduledTime: null,
+        startDate: daysAgoIso(3).slice(0, 10),
+        status: "active",
+        title: resourceAssignmentFollowUpScheduleTitle(demoCheckInAssignmentId, "midpoint"),
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      {
+        createdAt: daysAgoIso(12),
+        createdByUserId: null,
+        dayOfWeek: null,
+        frequency: "one_time",
+        id: "demo-accountability-journey-completion",
+        nextCheckIn: daysAgoIso(-6).slice(0, 10),
+        personId: "demo-person-tim-tran",
+        scheduledTime: null,
+        startDate: daysAgoIso(-6).slice(0, 10),
+        status: "active",
+        title: resourceAssignmentFollowUpScheduleTitle(demoCheckInAssignmentId, "completion"),
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      /* USA-282: a leader rhythm due today, so the Needs attention filter
+         covers both of its halves. */
+      {
+        createdAt: daysAgoIso(21),
+        createdByUserId: null,
+        dayOfWeek: null,
+        frequency: "every_two_weeks",
+        id: "demo-accountability-schedule-caleb-prayer",
+        nextCheckIn: daysAgoIso(0).slice(0, 10),
+        personId: "demo-person-caleb-rivera",
+        scheduledTime: null,
+        startDate: daysAgoIso(21).slice(0, 10),
+        status: "active",
+        title: "Praying with his wife",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
       {
         createdAt: daysAgoIso(6),
         createdByUserId: null,
@@ -2581,6 +2638,46 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
             workspaceId: demoWorkspaceId,
           },
         ],
+        workspaceId: demoWorkspaceId,
+      },
+      /* USA-282: a goal with no due date -- it appears under All, never
+         under a due filter, because it makes no claim on any day. */
+      {
+        assignedDate: daysAgoIso(9).slice(0, 10),
+        category: null,
+        completedDate: null,
+        createdAt: daysAgoIso(9),
+        createdByUserId: null,
+        description: null,
+        id: "demo-commitment-naomi-memorize",
+        personId: "demo-person-naomi-lee",
+        status: "active",
+        targetCount: null,
+        targetKind: null,
+        targetDate: null,
+        title: "Memorize Romans 8",
+        updatedAt: null,
+        updates: [],
+        workspaceId: demoWorkspaceId,
+      },
+      /* USA-282: a finished goal. It stays on the Person record as history
+         and must never appear in the check-in list, not even under All. */
+      {
+        assignedDate: daysAgoIso(40).slice(0, 10),
+        category: null,
+        completedDate: daysAgoIso(11).slice(0, 10),
+        createdAt: daysAgoIso(40),
+        createdByUserId: null,
+        description: null,
+        id: "demo-commitment-george-testimony",
+        personId: "demo-person-george-jenko",
+        status: "completed",
+        targetCount: null,
+        targetKind: null,
+        targetDate: daysAgoIso(12).slice(0, 10),
+        title: "Write out his testimony",
+        updatedAt: daysAgoIso(11),
+        updates: [],
         workspaceId: demoWorkspaceId,
       },
       {
@@ -2973,6 +3070,31 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
     },
     reminders,
     resourceAssignments: [
+      /* USA-282 fixture: one Journey assignment whose follow-up cadence
+         generates BOTH a midpoint and a completion schedule -- the founder's
+         two almost identical "Growth follow-up due" rows for one person. The
+         id is uuid-shaped because that is what the schedule title marker
+         carries and parses. Nothing here touches the other demo records. */
+      {
+        assignmentContext: "group",
+        assignedByUserId: "demo-user-ryan",
+        completedAt: null,
+        createdAt: daysAgoIso(12),
+        dueDate: daysAgoIso(-6).slice(0, 10),
+        followUpCadence: "midpoint_and_completion",
+        id: demoCheckInAssignmentId,
+        linkedCommitmentId: null,
+        pausedAt: null,
+        personId: "demo-person-tim-tran",
+        personalMessage: "Working through this together alongside the 2Three2 table.",
+        resourceSlug: "marks-of-discipleship",
+        sharingLevel: "leader_progress",
+        sourceGroupId: "demo-group-2three2",
+        startDate: daysAgoIso(12).slice(0, 10),
+        status: "in_progress",
+        updatedAt: daysAgoIso(3),
+        workspaceId: demoWorkspaceId,
+      },
       {
         assignmentContext: "group",
         assignedByUserId: "demo-user-ryan",

@@ -24,7 +24,8 @@ const client = readFileSync("app/dos/app/DosMvpAppClient.tsx", "utf8");
 const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 const dashboard = stripComments(sliceBetween(client, "function DesktopHomeDashboard", "function desktopOrganizationCopy"));
 const reportUi = readFileSync("src/components/dos/reports/MinistryTimeInvestmentReport.tsx", "utf8");
-const accountabilityCard = sliceBetween(client, "function AccountabilityDashboardCard", "function CommitmentSuccessSheet");
+const checkInsPanel = sliceBetween(client, "function HomeCheckInsPanel", "const checkInFilterLabels");
+const checkInList = sliceBetween(client, "function CheckInListRow", "function HomeCheckInsPanel");
 const reportsView = sliceBetween(client, 'activeMoreAppView === "reports" ? (', 'activeMoreAppView === "organizations" ? (');
 const homeCallSite = sliceBetween(client, "<DesktopHomeDashboard\n", "upcomingItems={upcomingTimelineItems}");
 
@@ -34,8 +35,12 @@ for (const gone of ["Today's Alignment", "Weekly Report Card", "Next Discipleshi
 }
 assert(!client.includes("function ResourceAssignmentsDashboardCard"), "The Assigned Resources card is retired from Home until USA-258 proves the status source.");
 
-// 2. Order: notifications and primary actions, then Top Time Investments, Meeting Activity, Accountability, Upcoming.
-const order = ["<DashboardNotificationsPanel", 'aria-label="Home quick actions"', 'eyebrow="Top Time Investments"', 'eyebrow="Meeting Activity"', "<AccountabilityDashboardCard", 'eyebrow="Upcoming"'];
+/* 2. Order: notifications, the primary actions, the compact Check-ins
+   preview directly beneath them, then Top Time Investments, Meeting Activity
+   and Upcoming. USA-282 moved the check-in list up under the action buttons
+   and retired the lower Accountability card, so the order below is that
+   issue's, superseding USA-257's placement of it. */
+const order = ["<DashboardNotificationsPanel", 'aria-label="Home quick actions"', "<HomeCheckInsPanel", 'eyebrow="Top Time Investments"', 'eyebrow="Meeting Activity"', 'eyebrow="Upcoming"'];
 order.reduce((previous, needle) => {
   const index = dashboard.indexOf(needle);
   assert(index > previous, `Home order: ${needle} must follow the previous element.`);
@@ -66,16 +71,36 @@ assert(!/Recorded time/.test(dashboard), "Home says logged duration, never recor
 assert(!dashboard.includes("Total meetings") && !dashboard.includes("Total hours logged") && !dashboard.includes("Total reviews"), "The old combined totals are gone.");
 assert(dashboard.includes("each meeting counted once"), "Meeting Activity states that logged duration counts each meeting once.");
 
-// 5. Accountability is a compact attention summary; the workflow lives on the Person.
-assert(accountabilityCard.includes('eyebrow="Accountability"'), "Accountability keeps its heading.");
-for (const label of ['"Due Today"', '"Overdue"', '"7 Days"']) {
-  assert(accountabilityCard.includes(label), `Accountability must include ${label}.`);
-}
-assert(accountabilityCard.includes("rows.slice(0, 3)"), "Accountability shows the few most important items.");
+/* 5. USA-282: Check-ins is a compact preview with one destination, not three
+   large count boxes and a dead end. The workflow still lives on the Person.
+
+   USA-257's Due Today / Overdue / 7 Days boxes and its "N more on the people
+   themselves" line are superseded: the counts are now the filters on the
+   full list under People, reached from here. */
+assert(checkInsPanel.includes('eyebrow="Check-ins"'), "Home's check-in section is headed Check-ins.");
+assert(checkInsPanel.includes("View all check-ins"), "Home offers one clear way to the full list.");
+assert(checkInsPanel.includes("onClick={onOpenAll}"), "View all check-ins opens the full list.");
+assert(checkInsPanel.includes("accountabilityCheckInAttentionLabel(attentionCount)"), "Home states how many need attention, from the shared helper.");
+assert(checkInsPanel.includes("No check-ins need attention."), "The empty state is one short line.");
+assert(!/Due Today|7 Days|more on the people themselves/.test(dashboard + checkInsPanel), "The three large count boxes and the \"N more on the people themselves\" line are gone.");
+assert(dashboard.includes("checkInRows"), "Home renders the preview rows it is handed.");
+assert(client.includes("accountabilityCheckInPreviewRows(checkInRows)"), "The preview is the first few that need attention, overdue first, from the shared helper.");
 for (const control of ["Log Check-In", "Mark Complete", "Reschedule", "onLogCheckIn", "onLogResourceCheckIn", "onMarkResourceAssignmentComplete"]) {
-  assert(!accountabilityCard.includes(control), `Home's Accountability must not run the ${control} workflow.`);
+  assert(!checkInsPanel.includes(control), `Home's Check-ins must not run the ${control} workflow.`);
 }
-assert(accountabilityCard.includes("onOpenPerson(person.id)"), "Each attention item opens the Person.");
+assert(!checkInsPanel.includes("onCheckIn"), "Home previews and hands off: the named check-in action belongs to the full list.");
+assert(checkInList.includes("row.personName"), "Each check-in row leads with the person's name.");
+assert(checkInList.includes("checkInSecondaryLine(row)") && client.includes("row.context ? `${row.topic} · ${row.context}`"), "Each row then states the topic and what distinguishes it.");
+assert(checkInList.includes("<CheckInStatusChip row={row} />"), "Each row states its due date or status.");
+assert(checkInsPanel.includes("onOpenRow(row)"), "A Home check-in row opens the accountability item itself.");
+
+/* 5b. The top notification is preserved and opens that same full list, with
+   the same count -- one number, one destination (USA-282). */
+assert(dashboard.includes("<DashboardNotificationsPanel"), "Home keeps its top notification panel.");
+assert(dashboard.includes('id: "check-ins"') && dashboard.includes("onClick: onOpenCheckIns"), "The check-in notification opens the full check-in list.");
+assert(dashboard.includes("badge: `${checkInAttentionCount} due`"), "The notification's count is the same attention count as the preview.");
+assert(client.includes("checkInAttentionCount={checkInCounts.attention}"), "Home's count comes from the shared eligibility function.");
+assert(client.includes("counts={checkInCounts}"), "The full list's filter counts come from the same function, so they cannot disagree.");
 
 // 6. Fruit lives in Reports as the Ministry Fruit table (2026-09-10); the card panels are gone from both Home and Reports.
 assert(!client.includes("function ReportsFruitAndReviews") && !reportsView.includes("<ReportsFruitAndReviews"), "The Recent Fruit / Recent Reviews cards are retired.");
@@ -94,7 +119,7 @@ for (const label of ['label: "Schedule"', 'label: "Add Person"', 'label: "Accoun
 
 // 8. Colour language (founder, 2026-09-09): no yellow, amber, orange, or red on Home or in the Reports view; green only for confirmed status.
 const warningColour = /amber|orange|yellow|text-red|bg-red|border-red|ring-red|#F59|#FEF3|#FDE68|#B45309|#D97706|#DC2626|#EF4444|#FCA5A5|#FEE2E2|#B91C1C|#F97316|#FBBF24|#FFF7ED|#EA580C|#FDF0D5|#FDE8E8|#FECACA|#F87171/i;
-for (const [label, region] of [["Home", dashboard], ["Accountability", accountabilityCard], ["Reports view", reportsView]]) {
+for (const [label, region] of [["Home", dashboard], ["Check-ins", checkInsPanel + checkInList], ["Reports view", reportsView]]) {
   assert(!warningColour.test(region), `${label} must not use yellow, amber, orange, or red.`);
 }
 
@@ -107,9 +132,12 @@ assert(client.includes("renderedAt }: { data: DosAppData; renderedAt: string }")
 assert(!client.includes("const reportNow = useMemo(() => new Date(), []);"), "The report window must not read the wall clock during render.");
 assert(client.includes("const rendered = new Date(renderedAt);"), "reportNow is derived from the server render's instant.");
 assert(client.includes("const reportToday = useMemo(() => reportNow.toISOString().slice(0, 10), [reportNow]);"), "The accountability day key comes from the same instant.");
-assert(dashboard.includes("today={today}"), "Home hands the day key to the accountability card.");
-assert(client.includes("today={reportToday}"), "The app hands the server render's day key to Home.");
-assert(!accountabilityCard.includes("todayCommitmentDateKey()"), "The accountability card is told which day it is, rather than reading the clock mid-render.");
+/* USA-282: the check-in rows are derived once in the app, from that same day
+   key, and Home is handed the result -- so Home computes no bucket from the
+   wall clock and the full list compares against the identical day. */
+assert(client.includes("today: reportToday,"), "The check-in buckets compare against the server render's day key.");
+assert(!checkInsPanel.includes("todayCommitmentDateKey()") && !checkInList.includes("todayCommitmentDateKey()"), "The check-in surfaces are told which day it is, rather than reading the clock mid-render.");
+assert(!dashboard.includes("new Date()"), "Home reads no wall clock during render.");
 
 // 10. No mentor language on Home or Reports.
 assert(!/mentor/i.test(dashboard.replace(/dashboardMentor|MentorMeeting|mentorRelationships/g, "")), "Home copy uses discipleship language.");

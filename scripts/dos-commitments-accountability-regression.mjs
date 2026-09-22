@@ -88,8 +88,13 @@ if (quickActionsMatch[0].includes('label: "Commitment"')) {
 }
 assertNotIncludes(quickActionsMatch[0], 'label: "Pray Now"', "dashboard quick action does not fall back to Pray Now");
 
-assertIncludes(client, "AccountabilityDashboardCard", "dashboard accountability card");
-assertIncludes(client, '<AccountabilityDashboardCard', "dashboard renders accountability card");
+/* USA-282 replaced Home's Accountability card -- three large count boxes,
+   three rows and "N more on the people themselves" -- with a compact
+   check-in preview plus one complete list under People. The capability is
+   asserted by what Home now renders, not by the retired component name. */
+assertNotIncludes(client, "AccountabilityDashboardCard", "the three-count-box Accountability card is retired");
+assertIncludes(client, "<HomeCheckInsPanel", "Home renders the compact check-in preview");
+assertIncludes(client, "<CheckInsWorkspace", "People renders the complete check-in list");
 /* USA-168 replaced the Person's two separate Accountability cards -- a
    commitments summary and a schedules card, both titled "Accountability" --
    with a single section fed by one presenter. The capability is asserted by

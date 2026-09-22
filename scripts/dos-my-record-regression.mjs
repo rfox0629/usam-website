@@ -257,7 +257,9 @@ assert(client.includes('if (parsed.moreAppView === "my_record") {') && client.in
 // 4. The People action row, and the count as a badge on the list itself.
 const peopleTabSource = client.slice(client.indexOf('{activeTab === "people" ? ('), client.indexOf('{activeTab === "meetings" ? ('));
 assert(peopleTabSource.includes('onClick={() => openMyRecordTab("overview")}') && peopleTabSource.includes("<span>My Record</span>"), "USA-272: People's action row opens My Record.");
-assert(peopleTabSource.indexOf("<span>My Record</span>") < peopleTabSource.indexOf("<span>Household</span>"), "USA-272: the action row reads My Record, Household, Manage circles.");
+/* USA-282 added Check-ins between My Record and Household. My Record still
+   leads the row, which is what USA-272 settled. */
+assert(peopleTabSource.indexOf("<span>My Record</span>") < peopleTabSource.indexOf("<span>Household</span>"), "USA-272: the action row leads with My Record, before Household and Manage circles.");
 assert(peopleTabSource.indexOf("<span>Household</span>") < peopleTabSource.indexOf("<span>Manage circles</span>"), "USA-272: the action row reads My Record, Household, Manage circles.");
 assert(!/\{visibleCirclePeople\.length\} \{visibleCirclePeople\.length === 1 \? "person" : "people"\}/.test(peopleTabSource), "USA-272: the standalone count line above the list is gone.");
 assert((peopleTabSource.match(/count=\{peopleCircleView === "all" \? visibleCirclePeople\.length : null\}/g) ?? []).length === 2, "USA-272: both the mobile and desktop lists get the count, and only for All.");

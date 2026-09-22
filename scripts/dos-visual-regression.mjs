@@ -152,6 +152,11 @@ async function stopServer() {
 async function main() {
   if (!existsSync(baselineDir) && !update) {
     console.log(`No visual baselines for ${platformKey} (expected under ${path.relative(process.cwd(), baselineDir)}). Skipping; run with --update on this platform to record them.`);
+    /* The server is spawned before main() runs, so skipping has to stop it.
+       Without this the run never exits on a platform with no baselines --
+       Node stays alive holding the child's pipes, and the check hangs
+       instead of reporting the skip. */
+    await stopServer();
     return;
   }
 
