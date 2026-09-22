@@ -74,18 +74,21 @@ assert.ok(sheet.includes("isDirty ? isDirty() : surfaceIsDirty(initialValuesRef.
 assert.ok(surfaces.includes("if (savedRevision === undefined || revisionRef.current === savedRevision) {"), "an unchanged or absent revision never re-baselines, so every existing surface behaves as before");
 assert.ok(sheet.includes("readSurfaceValues(panelRef.current)"), "the snapshot comparison remains the default for editable sheets");
 
-// 5. Add to group: the reproduced defect.
-const invite = slice(client, "function GroupInviteSheet({", "function GroupCreateSheet({");
-assert.ok(invite.includes("onAddMember: (payload: GroupMemberAddPayload) => Promise<boolean>;"), "the sheet learns whether the addition was saved");
-assert.ok(invite.includes("const added = await onAddMember({\n      groupId: group.id,\n      personId: person.id,") && invite.includes("if (added) {\n      setQuery(\"\");\n    }\n  }"), "a saved addition clears the search and allows adding another");
-const addExisting = slice(invite, "async function addExistingPerson(", "async function addGuest(");
-assert.ok(!addExisting.includes("setGuestName(\"\")") && !addExisting.includes("setGuestEmail(\"\")"), "adding an existing person never erases an unrelated guest draft");
-const addGuest = slice(invite, "async function addGuest(", "return (");
-assert.ok(addGuest.includes("if (added) {\n      setGuestEmail(\"\");\n      setGuestName(\"\");\n      setGuestPhone(\"\");"), "only a saved guest is cleared; a refused one stays for correction");
-assert.ok(invite.includes('data-unsaved="ignore"') && invite.includes('placeholder="Search by name, phone, or relationship"\n              type="search"'), "the member search is a viewing control");
-const addMember = slice(client, "  async function addGroupMember(payload: GroupMemberAddPayload): Promise<boolean> {", "  async function saveGroupSettings(");
-assert.ok(addMember.includes("router.refresh();\n\n      return true;") && addMember.includes("tone: \"error\" });\n\n      return false;"), "success and refusal are reported truthfully");
-assert.ok(addMember.includes("in this preview only. Nothing is saved.") && addMember.includes("return true;"), "the DB-free preview simulates the addition and says so");
+// 5. Add to group: the reproduced defect. USA-283 moved the sheet to
+//    src/components/dos/groups/GroupAddPersonSheet.tsx; the guarantees are
+//    unchanged.
+const invite = readFileSync(new URL("../src/components/dos/groups/GroupAddPersonSheet.tsx", import.meta.url), "utf8");
+assert.ok(client.includes("onAddMember: (payload: GroupMemberAddPayload) => Promise<GroupAddMemberOutcome>;"), "the sheet learns exactly what was saved");
+assert.ok(invite.includes('kind="editable"') && invite.includes("isDirty={() => hasUnsavedDraft}"), "the sheet declares its unsaved work: a new-person draft or chosen contacts");
+const addExisting = slice(invite, "async function addExisting(", "function startNewPerson(");
+assert.ok(addExisting.includes("recordSuccess(outcome);\n    setQuery(\"\");"), "a saved addition clears the search and allows adding another");
+assert.ok(addExisting.includes('if (mode === "new") {'), "an existing person clears the new-person draft only when that draft was this person");
+const addNew = slice(invite, "async function addNewPerson(", "/* ---------- Contacts ---------- */");
+assert.ok(addNew.indexOf("if (!outcome.ok) {") < addNew.indexOf("setDraft(blankDraft);"), "only a saved person is cleared; a refused one stays for correction");
+assert.ok(invite.includes('data-unsaved="ignore"') && invite.includes('placeholder="Search by name, phone, or email"'), "the member search is a viewing control");
+const addMember = slice(client, "  async function addGroupMember(payload: GroupMemberAddPayload): Promise<GroupAddMemberOutcome> {", "  async function removeGroupMember(");
+assert.ok(addMember.includes("router.refresh();\n\n      return { alreadyMember:") && addMember.includes("return { error: error instanceof Error ? error.message"), "success and refusal are reported truthfully");
+assert.ok(addMember.includes("in this preview only. Nothing is saved.") && addMember.includes("return { alreadyMember, ok: true"), "the DB-free preview simulates the addition and says so");
 
 // 6. Sheets that stay open after a save re-baseline; those that close do not need to.
 const settings = slice(client, "function GroupSettingsSheet({", "function GroupGatheringFormSheet({");
