@@ -174,10 +174,8 @@ import {
 } from "@/src/lib/dos/accountability-checkins";
 import {
   homeTodayEmptyLabel,
-  homeTodaySummaryLabel,
-  homeTodayTotal,
+  homeTodayPossessive,
   isHomeTodayDate,
-  type HomeTodayCounts,
 } from "@/src/lib/dos/home-today";
 import {
   dosAccountabilityFrequencies,
@@ -13189,41 +13187,49 @@ function HomeAccountabilityPanel({
   );
 }
 
-/* Home's Today, in place of Notifications.
+/* Home's Notifications: today, one line each.
  *
- * Notifications had become a second copy of the check-in backlog: "9 due" on
- * top of the nine rows below it. Today answers the question the old panel was
- * being asked to answer and could not -- what is actually happening today --
- * and says it in units, so no number sits on Home without saying what it
- * counts. It is today only: what is late belongs to Accountability, what is
- * coming belongs to Upcoming. */
-function HomeTodayPanel({
-  counts,
-  onOpen,
-}: {
-  counts: HomeTodayCounts;
-  onOpen: () => void;
-}) {
-  const total = homeTodayTotal(counts);
+ * Every line states a fact about today -- a meeting at a time, whose birthday
+ * it is, a person to check in with -- and opens the thing it names. A
+ * birthday is not an unfinished task and is not written as one; no line here
+ * carries a count of work owed. What is late belongs to the Accountability
+ * section below, and repeating it here is what turned this panel into a
+ * second copy of that backlog.
+ *
+ * A check-in line names the person and nothing else: the topic stays private
+ * on Home. */
+type HomeNotificationItem = {
+  icon: ReactNode;
+  id: string;
+  meta: string;
+  onClick: () => void;
+  title: string;
+};
 
+function HomeNotificationsPanel({ items }: { items: HomeNotificationItem[] }) {
   return (
-    <DesktopPanel className="min-w-0" compact eyebrow="Today">
-      {total ? (
-        <button
-          aria-label={`Today: ${homeTodaySummaryLabel(counts)}`}
-          className="flex min-h-[52px] w-full items-center gap-3 rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2 text-left transition-colors hover:bg-[#F8FBFF] focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
-          onClick={onOpen}
-          type="button"
-        >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[12px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-            <CalendarDays aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
-          </span>
-          <span className="min-w-0 flex-1 text-dos-body font-semibold text-dos-primary">{homeTodaySummaryLabel(counts)}</span>
-          <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
-        </button>
-      ) : (
-        <p className="text-sm font-semibold text-[#64748B]">{homeTodayEmptyLabel}</p>
-      )}
+    <DesktopPanel className="min-w-0" compact eyebrow="Notifications">
+      <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF] bg-white">
+        {items.length ? items.map((item) => (
+          <button
+            className="flex min-h-[52px] w-full items-center gap-2.5 border-b border-[#EAF2FF] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF]"
+            key={item.id}
+            onClick={item.onClick}
+            type="button"
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[12px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+              {item.icon}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{item.title}</span>
+              {item.meta ? <span className="mt-0.5 block truncate text-xs font-semibold leading-4 text-[#64748B]">{item.meta}</span> : null}
+            </span>
+            <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+          </button>
+        )) : (
+          <p className="px-3 py-2.5 text-sm font-semibold text-[#64748B]">{homeTodayEmptyLabel}</p>
+        )}
+      </div>
     </DesktopPanel>
   );
 }
@@ -13412,96 +13418,6 @@ function PersonAccountabilitySheet({
           ))}
         </div>
       </div>
-    </DosDetailSheet>
-  );
-}
-
-/* Today, opened from the summary above the action buttons.
- *
- * One agenda for the day: the meetings, the birthdays and anniversaries, and
- * the people with a check-in due today. Each entry opens the thing it names,
- * using the detail the product already has. Nothing overdue and nothing
- * scheduled later appears here -- those have their own places, and repeating
- * them is what made Notifications a second copy of the backlog. */
-function TodayAgendaSheet({
-  checkInPeople,
-  onClose,
-  onOpenCheckInPerson,
-  onOpenTimelineItem,
-  timelineItems,
-}: {
-  checkInPeople: AccountabilityPerson[];
-  onClose: () => void;
-  onOpenCheckInPerson: (person: AccountabilityPerson) => void;
-  onOpenTimelineItem: (item: UpcomingTimelineItem) => void;
-  timelineItems: UpcomingTimelineItem[];
-}) {
-  const meetings = timelineItems.filter((item) => item.icon === "meeting");
-  const occasions = timelineItems.filter((item) => item.icon !== "meeting");
-  const sections: Array<{ label: string; rows: Array<{ id: string; onOpen: () => void; meta: string; title: string }> }> = [
-    {
-      label: "Meetings",
-      rows: meetings.map((item) => ({
-        id: item.id,
-        meta: upcomingDashboardBadge(item),
-        onOpen: () => onOpenTimelineItem(item),
-        title: upcomingDashboardTitle(item),
-      })),
-    },
-    {
-      label: "Birthdays and anniversaries",
-      rows: occasions.map((item) => ({
-        id: item.id,
-        meta: upcomingDashboardBadge(item),
-        onOpen: () => onOpenTimelineItem(item),
-        title: upcomingDashboardTitle(item),
-      })),
-    },
-    {
-      label: "Check in with",
-      /* Names and counts only, exactly as on Home: today's agenda is read in
-         the same public places. */
-      rows: checkInPeople.map((person) => ({
-        id: person.personId,
-        meta: person.itemCountLabel ?? "1 check-in",
-        onOpen: () => onOpenCheckInPerson(person),
-        title: person.personName,
-      })),
-    },
-  ].filter((section) => section.rows.length);
-
-  return (
-    <DosDetailSheet fit="content" onClose={onClose} title="Today">
-      {sections.length ? (
-        <div className="grid gap-3">
-          {sections.map((section) => (
-            <div key={section.label}>
-              <p className="pb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
-                {section.label}
-              </p>
-              <div className="grid">
-                {section.rows.map((row) => (
-                  <div className="flex min-w-0 items-center border-t border-dos-line first:border-t-0" key={`${section.label}-${row.id}`}>
-                    <button
-                      className="flex min-h-[56px] min-w-0 flex-1 items-center gap-2.5 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
-                      onClick={row.onOpen}
-                      type="button"
-                    >
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-dos-body font-semibold text-dos-primary">{row.title}</span>
-                        {row.meta ? <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{row.meta}</span> : null}
-                      </span>
-                      <ChevronRight aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <p className="text-[14.5px] leading-[1.5] text-dos-body">{homeTodayEmptyLabel}</p>
-      )}
     </DosDetailSheet>
   );
 }
@@ -15827,10 +15743,10 @@ function DesktopHomeDashboard({
   onAddPerson,
   onCreateCommitment,
   onLogMeeting,
+  notificationItems,
   onOpenAccountability,
   onOpenAccountabilityPerson,
   onOpenGroupJoinRequests,
-  onOpenToday,
   onOpenMeeting,
   onOpenPerson,
   onOpenReport,
@@ -15839,7 +15755,6 @@ function DesktopHomeDashboard({
   onScheduleMeeting,
   people,
   timeInvestments,
-  todayCounts,
   upcomingItems,
 }: {
   /* One entry per person, already grouped and ordered by the one eligibility
@@ -15857,10 +15772,12 @@ function DesktopHomeDashboard({
   onAddPerson: () => void;
   onCreateCommitment: () => void;
   onLogMeeting: () => void;
+  /* Today's notifications, already built and ordered; each opens the thing
+     it names. */
+  notificationItems: HomeNotificationItem[];
   onOpenAccountability: () => void;
   onOpenAccountabilityPerson: (person: AccountabilityPerson) => void;
   onOpenGroupJoinRequests: (groupId: string) => void;
-  onOpenToday: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenPerson: (personId: string) => void;
   onOpenReport: () => void;
@@ -15868,8 +15785,6 @@ function DesktopHomeDashboard({
   onOpenTableCalendar: () => void;
   onScheduleMeeting: () => void;
   people: DosAppPerson[];
-  /* What is happening today, counted in units by the shared helper. */
-  todayCounts: HomeTodayCounts;
   /* The report's "Time I invested" rows, already ranked by logged duration.
      Time invested in the missionary (being discipled) is reported, never
      ranked here. */
@@ -15939,13 +15854,10 @@ function DesktopHomeDashboard({
       <div className="grid w-full gap-3">
         <div className="grid gap-3 lg:grid-cols-[minmax(300px,0.74fr)_minmax(0,1.26fr)] lg:items-start">
           <div className="grid min-w-0 gap-3">
-            {/* USA-282 follow-up: Today, in place of Notifications. The old
-                panel carried a "N due" badge for the very backlog listed
-                directly below it; today's meetings, birthdays, anniversaries
-                and check-ins are what this space is for. Notifications that
-                are not today's -- a group's join requests -- keep their own
-                home on the Groups list and the group itself. */}
-            <HomeTodayPanel counts={todayCounts} onOpen={onOpenToday} />
+            {/* Today's notifications, one line each. Notifications that are
+                not today's -- a group's join requests -- keep their own home
+                on the Groups list and inside the group. */}
+            <HomeNotificationsPanel items={notificationItems} />
 
             <section className="grid gap-2 rounded-[22px] border border-[#EAF2FF] bg-white p-2.5 shadow-[0_14px_34px_rgba(37,99,235,0.045)] md:hidden" aria-label="Home quick actions">
               <button
@@ -40130,7 +40042,6 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   /* The person whose items are open over the list or over Home. Held by id
      rather than by value so a save's refreshed data flows straight into it. */
   const [accountabilityPersonId, setAccountabilityPersonId] = useState<string | null>(null);
-  const [isTodayAgendaOpen, setIsTodayAgendaOpen] = useState(false);
   const [rescheduleSchedule, setRescheduleSchedule] = useState<DosAppAccountabilitySchedule | null>(null);
   /* A save inside the list has nothing else on screen to prove it worked, and
      the "Saved" sheet's Open Person Profile would take the reader off the
@@ -41129,12 +41040,45 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     (item.icon === "anniversary" || item.icon === "birthday" || item.icon === "meeting")
     && isHomeTodayDate(displayDayKeyForValue(item.date), reportToday)
   )), [reportToday, upcomingTimelineItems]);
-  const todayCounts = useMemo<HomeTodayCounts>(() => ({
-    anniversaries: todayTimelineItems.filter((item) => item.icon === "anniversary").length,
-    birthdays: todayTimelineItems.filter((item) => item.icon === "birthday").length,
-    meetings: todayTimelineItems.filter((item) => item.icon === "meeting").length,
-    peopleToCheckIn: todayCheckInPeople.length,
-  }), [todayCheckInPeople, todayTimelineItems]);
+  /* One line per notification, in the order the day runs: what is scheduled,
+     then the people to check in with. Each states a fact and opens what it
+     names -- a meeting says who and when, a birthday or anniversary says
+     whose day it is, a check-in says who, never what. */
+  const homeNotificationItems = useMemo<HomeNotificationItem[]>(() => [
+    ...todayTimelineItems.map((item) => {
+      const personName = item.personName ?? "";
+      const occasion = item.icon === "birthday" ? "birthday" : "anniversary";
+
+      return {
+        icon: <TimelineIcon icon={item.icon} />,
+        id: `today-${item.id}`,
+        meta: item.meeting?.scheduledStartAt ? formatTime(item.meeting.scheduledStartAt) : "",
+        onClick: () => {
+          if (item.meeting) {
+            openMeetingDetail(item.meeting.id);
+          } else if (item.personId) {
+            openPersonDetail(item.personId);
+          } else {
+            setActiveTab("meetings");
+          }
+        },
+        title: item.icon === "meeting"
+          ? (personName ? `Meeting with ${personName}` : upcomingDashboardTitle(item))
+          : personName
+            ? `${homeTodayPossessive(personName)} ${occasion}`
+            : upcomingDashboardTitle(item),
+      };
+    }),
+    ...todayCheckInPeople.map((person) => ({
+      icon: <ClipboardCheck aria-hidden="true" className="h-4 w-4" strokeWidth={2} />,
+      id: `check-in-${person.personId}`,
+      /* A count of check-ins, never of what they are about. */
+      meta: person.itemCountLabel ?? "",
+      onClick: () => openAccountabilityPerson(person),
+      title: `Check in with ${person.personName}`,
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [todayCheckInPeople, todayTimelineItems]);
   const nextStepItems = useMemo(() => (
     upcomingTimelineItems.slice(0, 5)
   ), [upcomingTimelineItems]);
@@ -43500,7 +43444,6 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
       return;
     }
 
-    setIsTodayAgendaOpen(false);
     setAccountabilityPersonId(person.personId);
   }
 
@@ -43548,11 +43491,6 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
       setCommitmentSheet(null);
       announceAccountabilitySaved(schedule.personId, paused ? "Check-in resumed." : "Check-in paused.");
     }
-  }
-
-  function openTodayAgenda() {
-    setErrorMessage("");
-    setIsTodayAgendaOpen(true);
   }
 
   function openCheckInRow(row: AccountabilityCheckInRow) {
@@ -47798,9 +47736,9 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                 onAddPerson={() => openForm("person")}
                 onCreateCommitment={() => openCommitmentCreate()}
                 onLogMeeting={() => openForm("meeting")}
+                notificationItems={homeNotificationItems}
                 onOpenAccountability={() => openCheckIns("all")}
                 onOpenAccountabilityPerson={openAccountabilityPerson}
-                onOpenToday={openTodayAgenda}
                 onOpenGroupJoinRequests={openGroupJoinRequests}
                 onOpenMeeting={openMeetingDetail}
                 onOpenPerson={openPersonDetail}
@@ -47811,7 +47749,6 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                 }}
                 onScheduleMeeting={() => openScheduleMeeting()}
                 people={people}
-                todayCounts={todayCounts}
                 timeInvestments={homeMinistryReport.investedRows}
                 upcomingItems={upcomingTimelineItems}
               />
@@ -49432,26 +49369,6 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
               </div>
             </form>
           </Sheet>
-        ) : null}
-
-        {isTodayAgendaOpen ? (
-          <TodayAgendaSheet
-            checkInPeople={todayCheckInPeople}
-            onClose={() => setIsTodayAgendaOpen(false)}
-            onOpenCheckInPerson={openAccountabilityPerson}
-            onOpenTimelineItem={(item) => {
-              setIsTodayAgendaOpen(false);
-
-              if (item.meeting) {
-                openMeetingDetail(item.meeting.id);
-              } else if (item.personId) {
-                openPersonDetail(item.personId);
-              } else {
-                setActiveTab("meetings");
-              }
-            }}
-            timelineItems={todayTimelineItems}
-          />
         ) : null}
 
         {/* USA-282 follow-up: deleting an accountability record asks first, in

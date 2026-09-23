@@ -444,19 +444,28 @@ assert.equal(client.includes("more on the people themselves"), false, "The dead-
   assert.match(homeRow, />Check in<\/span>/, "The row offers the check-in by name.");
 }
 
-/* Today replaced Notifications, and carries only today. */
+/* Notifications carries today, one line each -- and only today. */
 {
-  const todayPanel = client.slice(client.indexOf("function HomeTodayPanel("), client.indexOf("function CommitmentSuccessSheet("));
+  const notifications = client.slice(client.indexOf("function HomeNotificationsPanel("), client.indexOf("const checkInFilterLabels:"));
 
-  assert.match(todayPanel, /eyebrow="Today"/);
-  assert.match(todayPanel, /homeTodaySummaryLabel\(counts\)/, "The summary says what each number counts.");
-  assert.match(todayPanel, /homeTodayEmptyLabel/);
-  assert.equal(client.includes("function DashboardNotificationsPanel("), false, "The notifications panel that duplicated the backlog is gone.");
-  assert.equal(client.includes("badge: `${checkInAttentionCount} due`"), false, "And so is its badge for that backlog.");
-  assert.match(client, /icon === "anniversary" \|\| item\.icon === "birthday" \|\| item\.icon === "meeting"/, "Today covers meetings, birthdays and anniversaries.");
-  assert.match(client, /isHomeTodayDate\(displayDayKeyForValue\(item\.date\), reportToday\)/, "Today is today only, in the workspace's display timezone.");
-  assert.match(client, /peopleToCheckIn: todayCheckInPeople\.length/, "And the people with a check-in due today.");
-  assert.match(client, /accountabilityPeopleDueToday\(checkInPeopleAll\)/, "Today's list is independent of the group a person is classified into.");
+  assert.match(notifications, /eyebrow="Notifications"/, "The panel keeps its name.");
+  assert.match(notifications, /homeTodayEmptyLabel/);
+  assert.equal(/badge/i.test(notifications), false, "No line carries a count of work owed.");
+  assert.equal(client.includes("function TodayAgendaSheet("), false, "The combined agenda is gone: each notification opens its own destination.");
+  assert.equal(client.includes("badge: `${checkInAttentionCount} due`"), false, "And so is the badge that duplicated the backlog.");
+
+  /* What today means, and what each line says. */
+  assert.match(client, /icon === "anniversary" \|\| item\.icon === "birthday" \|\| item\.icon === "meeting"/, "Notifications covers meetings, birthdays and anniversaries.");
+  assert.match(client, /isHomeTodayDate\(displayDayKeyForValue\(item\.date\), reportToday\)/, "Today only, in the workspace's display timezone.");
+  assert.match(client, /accountabilityPeopleDueToday\(checkInPeopleAll\)/, "The check-in lines are the people due today, whatever group they sit in below.");
+  assert.match(client, /`Meeting with \$\{personName\}`/, "A meeting says who it is with.");
+  assert.match(client, /formatTime\(item\.meeting\.scheduledStartAt\)/, "And when.");
+  assert.match(client, /`\$\{homeTodayPossessive\(personName\)\} \$\{occasion\}`/, "A birthday or anniversary states whose day it is, not a task.");
+  assert.match(client, /title: `Check in with \$\{person\.personName\}`/, "A check-in line names the person.");
+  assert.match(client, /meta: person\.itemCountLabel \?\? ""/, "With a count of check-ins and nothing about them.");
+  assert.match(client, /openMeetingDetail\(item\.meeting\.id\)/, "Each line opens its own detail: the meeting,");
+  assert.match(client, /openPersonDetail\(item\.personId\)/, "the person whose day it is,");
+  assert.match(client, /onClick: \(\) => openAccountabilityPerson\(person\)/, "or that person's check-ins.");
 }
 
 /* The person's own items, opened deliberately: topics belong here. */

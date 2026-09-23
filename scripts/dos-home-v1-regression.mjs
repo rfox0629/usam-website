@@ -24,8 +24,8 @@ const client = readFileSync("app/dos/app/DosMvpAppClient.tsx", "utf8");
 const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 const dashboard = stripComments(sliceBetween(client, "function DesktopHomeDashboard", "function desktopOrganizationCopy"));
 const reportUi = readFileSync("src/components/dos/reports/MinistryTimeInvestmentReport.tsx", "utf8");
-const accountabilityPanel = sliceBetween(client, "function HomeAccountabilityPanel", "function HomeTodayPanel");
-const todayPanel = sliceBetween(client, "function HomeTodayPanel", "function CommitmentSuccessSheet");
+const accountabilityPanel = sliceBetween(client, "function HomeAccountabilityPanel", "function HomeNotificationsPanel");
+const notificationsPanel = sliceBetween(client, "function HomeNotificationsPanel", "const checkInFilterLabels");
 const homeAccountabilityRow = sliceBetween(client, "function HomeAccountabilityPersonRow", "function HomeAccountabilitySectionHeading");
 const reportsView = sliceBetween(client, 'activeMoreAppView === "reports" ? (', 'activeMoreAppView === "organizations" ? (');
 const homeCallSite = sliceBetween(client, "<DesktopHomeDashboard\n", "upcomingItems={upcomingTimelineItems}");
@@ -41,7 +41,7 @@ assert(!client.includes("function ResourceAssignmentsDashboardCard"), "The Assig
    and Upcoming. USA-282 moved the check-in list up under the action buttons
    and retired the lower Accountability card, so the order below is that
    issue's, superseding USA-257's placement of it. */
-const order = ["<HomeTodayPanel", 'aria-label="Home quick actions"', "<HomeAccountabilityPanel", 'eyebrow="Top Time Investments"', 'eyebrow="Meeting Activity"', 'eyebrow="Upcoming"'];
+const order = ["<HomeNotificationsPanel", 'aria-label="Home quick actions"', "<HomeAccountabilityPanel", 'eyebrow="Top Time Investments"', 'eyebrow="Meeting Activity"', 'eyebrow="Upcoming"'];
 order.reduce((previous, needle) => {
   const index = dashboard.indexOf(needle);
   assert(index > previous, `Home order: ${needle} must follow the previous element.`);
@@ -79,12 +79,13 @@ assert(dashboard.includes("each meeting counted once"), "Meeting Activity states
    USA-257's Due Today / Overdue / 7 Days boxes and its "N more on the people
    themselves" line are superseded, and so is the Notifications panel that
    carried a badge for the very backlog listed below it. */
-assert(todayPanel.includes('eyebrow="Today"'), "Home's first section is Today.");
-assert(todayPanel.includes("homeTodaySummaryLabel(counts)"), "It says what today holds, in units.");
-assert(todayPanel.includes("homeTodayEmptyLabel"), "And says so plainly when today is empty.");
-assert(dashboard.includes("<HomeTodayPanel counts={todayCounts} onOpen={onOpenToday} />"), "Tapping it opens the combined agenda.");
-assert(!client.includes("function DashboardNotificationsPanel("), "The Notifications panel is retired.");
-assert(dashboard.indexOf("<HomeTodayPanel") < dashboard.indexOf('aria-label="Home quick actions"'), "Today sits above the action buttons.");
+assert(notificationsPanel.includes('eyebrow="Notifications"'), "Home's first section is Notifications.");
+assert(notificationsPanel.includes("items.length ? items.map"), "It lists today's notifications one line each.");
+assert(notificationsPanel.includes("homeTodayEmptyLabel"), "And says so plainly when there are none.");
+assert(!notificationsPanel.includes("badge"), "No line carries a count of work owed: a birthday is not a task.");
+assert(!client.includes("function TodayAgendaSheet("), "There is no combined agenda: each line opens its own destination.");
+assert(dashboard.includes("<HomeNotificationsPanel items={notificationItems} />"), "The dashboard renders the rows it is handed.");
+assert(dashboard.indexOf("<HomeNotificationsPanel") < dashboard.indexOf('aria-label="Home quick actions"'), "Notifications sits above the action buttons.");
 
 assert(accountabilityPanel.includes('eyebrow="Accountability"'), "The section below the buttons is Accountability.");
 assert(accountabilityPanel.includes("View all"), "Home offers one clear way to the full list.");
@@ -108,7 +109,7 @@ assert(homeAccountabilityRow.includes(">Check in</span>"), "The row offers the c
    agenda and the People control cannot disagree about who is behind. */
 assert(client.includes("accountabilityPeople={checkInPeople}"), "Home is handed the grouped people.");
 assert(client.includes("counts={checkInPeopleCounts}"), "The full list's filter counts come from the same grouping.");
-assert(client.includes("todayCounts={todayCounts}"), "Today's counts come from the same rows.");
+assert(client.includes("notificationItems={homeNotificationItems}"), "Today's notifications come from the same rows.");
 assert(client.includes("accountabilityPeopleDueToday(checkInPeopleAll)"), "Today includes anyone due today, whatever group they are classified into.");
 assert(client.includes("const reportToday = useMemo(() => displayDateKey(reportNow)"), "Today's day key is the workspace's display timezone, from the render instant (USA-257 §9).");
 assert(!dashboard.includes("new Date()"), "Nothing the dashboard renders reads the wall clock.");
@@ -130,7 +131,7 @@ for (const label of ['label: "Schedule"', 'label: "Add Person"', 'label: "Accoun
 
 // 8. Colour language (founder, 2026-09-09): no yellow, amber, orange, or red on Home or in the Reports view; green only for confirmed status.
 const warningColour = /amber|orange|yellow|text-red|bg-red|border-red|ring-red|#F59|#FEF3|#FDE68|#B45309|#D97706|#DC2626|#EF4444|#FCA5A5|#FEE2E2|#B91C1C|#F97316|#FBBF24|#FFF7ED|#EA580C|#FDF0D5|#FDE8E8|#FECACA|#F87171/i;
-for (const [label, region] of [["Home", dashboard], ["Accountability", accountabilityPanel + todayPanel + homeAccountabilityRow], ["Reports view", reportsView]]) {
+for (const [label, region] of [["Home", dashboard], ["Accountability", accountabilityPanel + notificationsPanel + homeAccountabilityRow], ["Reports view", reportsView]]) {
   assert(!warningColour.test(region), `${label} must not use yellow, amber, orange, or red.`);
 }
 
@@ -147,7 +148,7 @@ assert(client.includes("const reportToday = useMemo(() => displayDateKey(reportN
    key, and Home is handed the result -- so Home computes no bucket from the
    wall clock and the full list compares against the identical day. */
 assert(client.includes("today: reportToday,"), "The check-in buckets compare against the server render's day key.");
-assert(!accountabilityPanel.includes("todayCommitmentDateKey()") && !todayPanel.includes("todayCommitmentDateKey()"), "The accountability surfaces are told which day it is, rather than reading the clock mid-render.");
+assert(!accountabilityPanel.includes("todayCommitmentDateKey()") && !notificationsPanel.includes("todayCommitmentDateKey()"), "The accountability surfaces are told which day it is, rather than reading the clock mid-render.");
 assert(!dashboard.includes("new Date()"), "Home reads no wall clock during render.");
 
 // 10. No mentor language on Home or Reports.

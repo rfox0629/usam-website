@@ -230,21 +230,36 @@ reading "9 due" directly above the nine rows it was counting. And because Home
 must not name a topic, a person with three records took three rows that read
 identically. Both are gone.
 
-### Today, in place of Notifications
+### Notifications: today, one line each
 
-Above the action buttons, one line: **"2 meetings · 1 birthday · 1 anniversary
-· 3 people to check in with."** Every number says what it counts. Tapping it
-opens one agenda for the day, where each entry opens the thing it names -- the
-meeting, the person, or that person's check-ins.
+Above the action buttons, keeping its name. Each of today's notifications is
+its own line, stating a fact and opening the thing it names:
 
-Today is **today only**. Nothing overdue (Accountability carries that) and
-nothing scheduled later (Upcoming carries that); repeating them is what made
-the old panel a second copy of the backlog. The day key is the workspace's
-display timezone, read from the server render's instant -- previously a UTC
-key, which moved "due today" a day early for the last few hours of every
-evening in Chicago.
+```
+Caleb's birthday
+Brooke's anniversary
+Meeting with Naomi Lee        10:00 AM
+Meeting with Dirk Bond        1:00 PM
+Check in with Caleb Rivera
+Check in with Tim Tran        3 check-ins
+```
 
-Empty, it reads **"Nothing scheduled for today."**
+A birthday or a scheduled meeting is not an unfinished task and is not written
+as one. No line carries a count of work owed -- the "9 due" badge that
+duplicated the backlog below is gone, and so is the combined summary row and
+agenda that briefly replaced it. A meeting line opens the meeting, an occasion
+opens the person, a check-in line opens that person's items. A check-in line
+names the person and, when there is more than one, how many check-ins; never
+what they are about.
+
+The panel is **today only**. Nothing past due (the Accountability section
+carries that) and nothing scheduled later (Upcoming carries that); repeating
+them is what made this panel a second copy of the backlog. The day key is the
+workspace's display timezone, read from the server render's instant --
+previously a UTC key, which moved "due today" a day early for the last few
+hours of every evening in Chicago.
+
+Empty, it reads **"No notifications today."**
 
 Reminders and prayer items stay in Upcoming rather than moving here, and a
 group's join requests keep their own home on the Groups list and inside the
@@ -277,9 +292,10 @@ retired card called "7 DAYS". The full list has no window, so anything later is
 still reachable there, along with anyone whose only items carry no date at all
 (grouped under "No date").
 
-**Today and Accountability answer different questions.** Someone with a
-past-due rhythm *and* a check-in due today reads as Past due in the list and
-still appears in today's agenda. In the fixture that is Tim Tran.
+**Notifications and Accountability answer different questions.** Someone with
+a past-due rhythm *and* a check-in due today reads as Past due in the section
+below and still gets a "Check in with…" line above. In the fixture that is Tim
+Tran.
 
 ### Opening a person
 
@@ -351,7 +367,7 @@ byte-identical; the three that differ are the ones this work is about:
 
 | Scene | What changed |
 |---|---|
-| `mobile--home` | the check-in notification appears at the top (the panel itself sits below the fold in this frame) |
+| `mobile--home` | Notifications lists today one line at a time; the Accountability section below it sits past the fold in this frame |
 | `desktop--dashboard` | the Accountability card with its three bubbles is replaced by the Check-ins panel, moved up beside Top Time Investments |
 | `mobile--field` | People's action row gains the Check-ins control and its count |
 
