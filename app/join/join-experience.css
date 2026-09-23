@@ -2096,3 +2096,10 @@
     transition-duration: 0.001ms !important;
   }
 }
+
+/* ------------------------------------------------ resume link that cannot open */
+
+.join-link-status {
+  max-width: 640px;
+}
+
