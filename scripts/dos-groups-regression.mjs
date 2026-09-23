@@ -124,7 +124,7 @@ const groupDetailV2Source = appClient.slice(
 );
 const groupOverviewV2Source = appClient.slice(
   appClient.indexOf("function GroupOverviewTabV2"),
-  appClient.indexOf("function GroupOverviewNextGatheringCard"),
+  appClient.indexOf("function GroupPeopleTabV2"),
 );
 const groupGatheringsTabSource = appClient.slice(
   appClient.indexOf("function GroupGatheringsTab"),
@@ -519,16 +519,23 @@ assertIncludes(groupDetailV2Source, 'label: "Edit Schedule"', "Groups V2 More me
 assertIncludes(groupDetailV2Source, 'label: "Copy Link"', "Groups V2 More menu must include Copy Link.");
 assertIncludes(groupDetailV2Source, 'label: "Public Page"', "Groups V2 More menu must include Public Page.");
 assertIncludes(groupDetailV2Source, 'label: "Archive"', "Groups V2 More menu must include authorized archive access.");
-assertIncludes(groupDetailV2Source, "<GroupDetailTabBar", "Groups V2 tabs must render immediately after the compact group header.");
+/* USA-283: the sections are one scrollable pill rail at the foot of the
+   group header, never buttons wrapping into two rows. */
+assertIncludes(groupDetailV2Source, "<PillRail edgeInset={4}", "Groups V2 sections must render as the shared scrollable pill rail inside the group header.");
+assertNotIncludes(groupDetailV2Source, "<GroupDetailTabBar", "Groups V2 must not use the wrapping pill-button cluster.");
 assertNotIncludes(groupDetailV2Source, "isRouteBuilderEligibleGroup(group) ? <GroupRouteBuilderPlaceholder", "Groups V2 must not render Route Builder as a standalone section above tabs.");
 assertNotIncludes(groupDetailV2Source, 'tone={group.visibility === "private" ? "green" : "blue"}', "Groups V2 detail header must not show the old Workspace visibility badge.");
-assertIncludes(groupOverviewV2Source, 'title="Status"', "Groups V2 Overview must be status-focused.");
-assertIncludes(groupOverviewV2Source, "GroupOverviewNextGatheringCard", "Groups V2 Overview must include Next Gathering status.");
-assertIncludes(groupOverviewV2Source, 'label="Members"', "Groups V2 Overview must include actual member count status.");
-assertIncludes(groupOverviewV2Source, 'label="Pending Requests"', "Groups V2 Overview must include pending request status.");
-assertIncludes(groupOverviewV2Source, 'label="Active Prayer"', "Groups V2 Overview must include active prayer status.");
-assertIncludes(groupOverviewV2Source, 'label="Completed Gatherings"', "Groups V2 Overview must include completed gatherings status.");
-assertIncludes(groupOverviewV2Source, 'label="Leaders"', "Groups V2 Overview must include leader status.");
+/* USA-283 (Ryan, 2026-09-22): the six Status cards -- several at zero, two
+   repeating the header -- are replaced by the group's people and its current
+   journey. The next gathering moved into the header band with Take
+   Attendance; pending requests and open prayer appear only when present. */
+assertIncludes(groupDetailV2Source, 'aria-label="Next gathering"', "Groups V2 header must carry the next gathering with its date, time and place.");
+assertIncludes(groupDetailV2Source, "groupGatheringLocationParts(nextGathering, group)", "The next gathering band must show where the group meets.");
+assertIncludes(groupOverviewV2Source, 'title="People"', "Groups V2 Overview must show the group's people.");
+assertIncludes(groupOverviewV2Source, "computeGroupJourneyRows(group, resourceAssignments)", "Groups V2 Overview must show the group's current journey.");
+assertIncludes(groupOverviewV2Source, "pendingRequestCount > 0 ?", "Groups V2 Overview must surface pending requests only when there are some.");
+assertIncludes(groupOverviewV2Source, "openPrayers.length ?", "Groups V2 Overview must surface open prayer only when there is some.");
+assertNotIncludes(groupOverviewV2Source, "GroupV2StatCard", "Groups V2 Overview must not return to oversized stat cards.");
 assertNotIncludes(groupOverviewV2Source, "GroupQuickAction", "Groups V2 Overview must not repeat header actions.");
 assertNotIncludes(groupOverviewV2Source, "onCopyPublicLink", "Groups V2 Overview must not own public link actions.");
 assertIncludes(groupGatheringsTabSource, "expectedGroupGatherings(group, 4)", "Groups V2 Gatherings tab must derive upcoming expectations from recurring rhythm plus exceptions.");

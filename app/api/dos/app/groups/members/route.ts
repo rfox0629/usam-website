@@ -4,6 +4,7 @@ import { loadDosGroupRoleAccess } from "@/src/lib/dos/identity";
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createGroupMemberAccessInvitation } from "@/src/lib/groups/member-access";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
+import { decideGroupMemberPerson, normalizeEmailForMatch, normalizePhoneForMatch } from "@/src/lib/dos/group-member-match";
 
 type GroupMemberPayload = {
   action?: unknown;
@@ -60,8 +61,9 @@ function normalizePhone(value: string | null | undefined) {
   return digits.length >= 7 ? digits : null;
 }
 
-function normalizeNameForMatch(value: string) {
-  return value.trim().toLowerCase().replace(/\s+/g, " ");
+/* ilike treats % and _ as wildcards; a name or email is matched literally. */
+function escapeLikePattern(value: string) {
+  return value.replace(/[\\%_]/g, (char) => `\\${char}`);
 }
 
 function asMemberStatus(value: unknown) {
@@ -174,78 +176,81 @@ async function resolveExistingPerson(
     return { person: data as PersonRow };
   }
 
-  const phone = normalizePhone(asString(payload.phone));
-  const email = asString(payload.email).toLowerCase();
+  /* USA-283: gather everyone this new person could be -- by email, by phone
+     and by exact name -- and let one tested rule decide. A shared email or
+     phone no longer links a differently named person silently. */
+  const name = asString(payload.name);
+  const email = normalizeEmailForMatch(asString(payload.email));
+  const phone = normalizePhoneForMatch(asString(payload.phone));
+  const candidates = new Map<string, PersonRow & { status?: string | null }>();
+  const workspaceScope = `workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`;
+  const lookups = [];
 
   if (email) {
-    const { data, error } = await supabase
+    lookups.push(supabase
       .from("missionary_field_people")
-      .select("id, name, phone, email")
-      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
-      .ilike("email", email)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (error) {
-      return { response: NextResponse.json({ error: error.message }, { status: 500 }) };
-    }
-
-    if (data) {
-      return { person: data as PersonRow };
-    }
+      .select("id, name, phone, email, status")
+      .or(workspaceScope)
+      .ilike("email", escapeLikePattern(email))
+      .limit(10));
   }
 
   if (phone) {
     const rawPhone = asString(payload.phone);
-    const phoneValues = Array.from(new Set([phone, rawPhone].filter(Boolean)));
-    const { data, error } = await supabase
-      .from("missionary_field_people")
-      .select("id, name, phone, email")
-      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
-      .in("phone", phoneValues)
-      .order("updated_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const phoneValues = Array.from(new Set([phone, `1${phone}`, rawPhone].filter(Boolean)));
 
-    if (error) {
-      return { response: NextResponse.json({ error: error.message }, { status: 500 }) };
-    }
-
-    if (data) {
-      return { person: data as PersonRow };
-    }
-  }
-
-  const name = asString(payload.name);
-
-  if (name && !(asString(payload.confirmNearDuplicate) === "true" || payload.confirmNearDuplicate === true)) {
-    const normalizedName = normalizeNameForMatch(name);
-    const { data, error } = await supabase
+    lookups.push(supabase
       .from("missionary_field_people")
       .select("id, name, phone, email, status")
-      .or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)
-      .neq("status", "archived")
-      .order("updated_at", { ascending: false })
-      .limit(25);
+      .or(workspaceScope)
+      .in("phone", phoneValues)
+      .limit(10));
+  }
 
-    if (error) {
-      return { response: NextResponse.json({ error: error.message }, { status: 500 }) };
+  if (name) {
+    /* Exact, case-insensitive name lookup across the whole workspace. It used
+       to scan only the 25 most recently updated people. */
+    lookups.push(supabase
+      .from("missionary_field_people")
+      .select("id, name, phone, email, status")
+      .or(workspaceScope)
+      .ilike("name", escapeLikePattern(name.replace(/\s+/g, " ")))
+      .limit(10));
+  }
+
+  for (const result of await Promise.all(lookups)) {
+    if (result.error) {
+      return { response: NextResponse.json({ error: result.error.message }, { status: 500 }) };
     }
 
-    const nameMatch = (data ?? []).find((row) => normalizeNameForMatch(row.name) === normalizedName);
+    (result.data ?? []).forEach((row) => candidates.set(row.id, row as PersonRow & { status?: string | null }));
+  }
 
-    if (nameMatch) {
-      return {
-        response: NextResponse.json(
-          {
-            error: `A person named "${nameMatch.name}" already exists in this workspace.`,
-            nearDuplicate: { id: nameMatch.id, name: nameMatch.name, phone: nameMatch.phone, email: nameMatch.email },
-          },
-          { status: 409 },
-        ),
-      };
-    }
+  const decision = decideGroupMemberPerson({
+    confirmNearDuplicate: asString(payload.confirmNearDuplicate) === "true" || payload.confirmNearDuplicate === true,
+    email: email ?? "",
+    name,
+    phone: phone ?? "",
+  }, Array.from(candidates.values()));
+
+  if (decision.kind === "link") {
+    return { person: decision.person as PersonRow };
+  }
+
+  if (decision.kind === "review") {
+    const match = decision.person;
+
+    return {
+      response: NextResponse.json(
+        {
+          error: decision.reason === "shared_contact"
+            ? `${match.name} already uses that ${email && normalizeEmailForMatch(match.email) === email ? "email" : "phone number"}. Choose them, or confirm this is someone else.`
+            : `A person named "${match.name}" already exists in this workspace.`,
+          nearDuplicate: { email: match.email, id: match.id, name: match.name, phone: match.phone, reason: decision.reason },
+        },
+        { status: 409 },
+      ),
+    };
   }
 
   return { person: null };
@@ -437,14 +442,30 @@ export async function POST(request: Request) {
       .select("id, person_id, role, status, joined_at, notes")
       .single();
 
-  if (writeResult.error) {
+  /* USA-283: two taps (or two devices) racing to add the same person meet
+     the (group_id, person_id) unique constraint. The loser reports the
+     membership that won instead of an error. */
+  let raceWinner: MemberRow | null = null;
+
+  if (writeResult.error && writeResult.error.code === "23505" && !existingMemberResult.data) {
+    const winner = await supabase
+      .from("dos_group_members")
+      .select("id, person_id, role, status, joined_at, notes")
+      .eq("group_id", groupId)
+      .eq("person_id", person.id)
+      .maybeSingle();
+
+    raceWinner = (winner.data as MemberRow | null) ?? null;
+  }
+
+  if (writeResult.error && !raceWinner) {
     return NextResponse.json({ error: writeResult.error.message }, { status: 500 });
   }
 
-  const member = writeResult.data as MemberRow;
+  const member = raceWinner ?? writeResult.data as MemberRow;
 
   return NextResponse.json({
-    alreadyMember: Boolean(existingMemberResult.data && existingMemberResult.data.status !== "removed"),
+    alreadyMember: Boolean(raceWinner) || Boolean(existingMemberResult.data && existingMemberResult.data.status !== "removed"),
     member: {
       id: member.id,
       joinedAt: member.joined_at,

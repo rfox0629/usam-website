@@ -234,6 +234,18 @@ export async function submitJoinApplication({
         },
         applicant: draft.applicant,
         applyingAsCouple: draft.applyingAsCouple,
+        // Each calling answer under its own question. calling_focus keeps the
+        // combined text for older readers, but the community and burden
+        // answers were never part of it, so without this they were asked and
+        // then dropped on submission.
+        calling: {
+          burden: answer(draft, "calling.burden"),
+          geography: answer(draft, "calling.geography"),
+          thisSeason: answer(draft, "calling.thisSeason"),
+          whoCalledTo: answer(draft, "calling.whoCalledTo"),
+          whyMinistry: answer(draft, "calling.whyMinistry"),
+          whyUsam: answer(draft, "calling.whyUsam"),
+        },
         church: {
           city: answer(draft, "churchCity"),
           leaderEmail: answer(draft, "churchLeaderEmail"),

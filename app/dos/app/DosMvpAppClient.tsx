@@ -71,6 +71,9 @@ import { canonicalSpiritualJourneyLabel, evidenceBelongsToPerson, personEvidence
 import { createMeetingWorkflowIds, PersistedWorkflowStepError, runMeetingWorkflow, type MeetingWorkflowIds } from "@/src/lib/dos/meeting-workflow";
 import { dosPrayerResourceAttribution, dosPrayerResourceCategories, dosPrayerResources, getDosPrayerResourceBySlug, type DosPrayerResource, type DosPrayerResourceCategory } from "@/src/lib/dos/prayer-resources";
 import { getCanonicalSiteUrl } from "@/src/lib/site-url";
+import { compactNamePart, joinNameParts, splitNameParts } from "@/src/lib/dos/person-name";
+import { formatPhoneNumber, phoneDigitsOnly } from "@/src/lib/dos/phone-format";
+import { GroupAddPersonSheet, type GroupAddMemberOutcome, type GroupAddNearDuplicate, type GroupAddPersonOption } from "@/src/components/dos/groups/GroupAddPersonSheet";
 import {
   dosResourceCatalog,
   dosSendableResourceCategories,
@@ -491,6 +494,7 @@ type GroupMemberAddResult = {
   alreadyMember?: boolean;
   error?: string;
   member?: DosAppGroupMember;
+  nearDuplicate?: GroupAddNearDuplicate;
   person?: {
     email: string | null;
     id: string;
@@ -3392,36 +3396,6 @@ function normalizeText(value: string | null | undefined) {
   return value?.trim() || "";
 }
 
-function normalizeNameForMatch(value: string | null | undefined) {
-  return (value ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-}
-
-function findNearDuplicatePerson(people: DosAppPerson[], name: string, email: string, phone: string) {
-  const normalizedName = normalizeNameForMatch(name);
-
-  if (!normalizedName) {
-    return null;
-  }
-
-  const normalizedEmail = normalizeText(email).toLowerCase();
-  const normalizedPhone = phoneDigitsOnly(phone);
-
-  return people.find((person) => {
-    if (person.status === "archived" || normalizeNameForMatch(person.name) !== normalizedName) {
-      return false;
-    }
-
-    if (!normalizedEmail && !normalizedPhone) {
-      return true;
-    }
-
-    const personEmail = normalizeText(person.email).toLowerCase();
-    const personPhone = phoneDigitsOnly(person.phone);
-
-    return (normalizedEmail && personEmail === normalizedEmail) || (normalizedPhone && personPhone === normalizedPhone);
-  }) ?? null;
-}
-
 function normalizeFieldVisibility(value: FormDataEntryValue | string | null | undefined, fallback: DosAppFieldVisibility = "primary"): DosAppFieldVisibility {
   return value === "secondary" || value === "hidden" || value === "primary" ? value : fallback;
 }
@@ -3434,33 +3408,6 @@ function showPersonInFieldList(person: DosAppPerson, showSecondary: boolean) {
   return showSecondary && person.fieldVisibility === "secondary";
 }
 
-function phoneDigitsOnly(value: string | null | undefined) {
-  const digits = (value ?? "").replace(/\D/g, "").slice(0, 11);
-
-  if (digits.length === 11 && digits.startsWith("1")) {
-    return digits.slice(1);
-  }
-
-  return digits.slice(0, 10);
-}
-
-function formatPhoneNumber(value: string | null | undefined) {
-  const digits = phoneDigitsOnly(value);
-
-  if (!digits) {
-    return "";
-  }
-
-  if (digits.length < 4) {
-    return `(${digits}`;
-  }
-
-  if (digits.length < 7) {
-    return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-  }
-
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-}
 
 function phoneActionHref(action: "sms" | "tel", value: string | null | undefined) {
   const digits = phoneDigitsOnly(value);
@@ -3571,25 +3518,6 @@ function hasHouseholdDetails(person: DosAppPerson | PersonFormDefaults) {
   return Boolean(person.spouseName?.trim() || person.childrenNames?.trim() || person.householdNotes?.trim());
 }
 
-function compactNamePart(value: string | null | undefined) {
-  return (value ?? "").trim().replace(/\s+/g, " ");
-}
-
-function splitNameParts(value: string | null | undefined) {
-  const normalized = compactNamePart(value);
-
-  if (!normalized) {
-    return { firstName: "", lastName: "" };
-  }
-
-  const [firstName = "", ...lastNameParts] = normalized.split(" ");
-
-  return {
-    firstName,
-    lastName: lastNameParts.join(" "),
-  };
-}
-
 function blankChildDraft(index = 0): PersonChildDraft {
   return {
     firstName: "",
@@ -3637,10 +3565,6 @@ function householdDraftFromDefaults(defaults?: PersonFormDefaults): PersonHouseh
     spouseVisibility: spouse.firstName ? "secondary" : "primary",
     spouseVisibilityTouched: false,
   };
-}
-
-function joinNameParts(firstName: string | null | undefined, lastName: string | null | undefined) {
-  return [compactNamePart(firstName), compactNamePart(lastName)].filter(Boolean).join(" ");
 }
 
 function householdDraftSpouseName(draft: PersonHouseholdDraft) {
@@ -7503,26 +7427,6 @@ function groupRecentActivityRows(group: DosAppGroup) {
   return [...prayers, ...completed].slice(0, 4);
 }
 
-function GroupV2StatCard({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="min-w-0 rounded-[18px] border border-[#DCEBFF] bg-white px-3 py-3 shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
-      <div className="flex items-center gap-2 text-[#2563EB]">
-        {icon}
-        <p className="truncate text-[10px] font-black uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani }}>{label}</p>
-      </div>
-      <p className="mt-2 truncate text-sm font-black text-[#0F172A]">{value}</p>
-    </div>
-  );
-}
-
 function GroupsWorkspaceV2({
   groups,
   groupsNotice,
@@ -7640,7 +7544,104 @@ function GroupsWorkspaceV2({
 }
 
 function normalizeGroupV2Tab(tab: GroupDetailTab): GroupDetailTab {
+  /* The legacy detail's Members tab is V2's People; a link or restored view
+     that names it lands in the same place. */
+  if (tab === "members") {
+    return "people";
+  }
+
   return tab === "people" || tab === "gatherings" || tab === "settings" || tab === "overview" || tab === "journeys" ? tab : "overview";
+}
+
+/* USA-283: the group home, rebuilt to the Book Study page's standard.
+ *
+ * What changed and why (Ryan's review, 2026-09-22):
+ *
+ * - One identity. The decorative name tile repeated the title; it is gone. A
+ *   quiet eyebrow (template · audience) sits over the one title, then a short
+ *   description and a single line of schedule and head-count facts.
+ * - The next gathering is the daily action, so it gets its own band with the
+ *   date, time and place, and Take Attendance lives there. Add Person is the
+ *   one other action in the header; everything that manages the group (edit,
+ *   schedule, links, archive) stays behind the overflow menu.
+ * - Sections are a single scrollable pill rail (the shared PillRail), not five
+ *   buttons wrapping into two rows.
+ * - Overview shows people and the current journey -- what a leader comes here
+ *   for -- instead of six stat cards, several of them zero and two repeating
+ *   the header. Counts appear only where they are news (a pending request).
+ * - DOS tokens throughout: white surfaces, hairlines, the type ladder, no
+ *   faint slate labels.
+ */
+function groupHomeEyebrow(group: DosAppGroup) {
+  return [groupTemplateDisplayLabel(group), groupAudienceLabel(group)].filter(Boolean).join(" · ");
+}
+
+function groupHomeJourneyKindLabel(resource: DosResource) {
+  return resource.type === "guided_resource" || resource.type === "reading_plan" ? libraryResourceKindLabel(resource) : resourceTypeLabel(resource);
+}
+
+function groupHomeMemberOrder(member: DosAppGroupMember) {
+  return ["leader", "co_leader", "helper", "member", "guest"].indexOf(member.role);
+}
+
+function GroupHomeActionButton({
+  icon,
+  label,
+  onClick,
+  variant = "secondary",
+}: {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  variant?: "primary" | "secondary";
+}) {
+  return (
+    <button
+      className={`inline-flex h-12 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-dos-3 px-[18px] text-dos-body font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-offset-2 ${
+        variant === "primary"
+          ? "bg-dos-blue text-white hover:bg-dos-blueText"
+          : "border border-dos-line bg-white text-dos-primary hover:border-dos-blue100"
+      }`}
+      onClick={onClick}
+      type="button"
+    >
+      {icon}
+      {label}
+    </button>
+  );
+}
+
+function GroupHomeSection({
+  action,
+  children,
+  title,
+}: {
+  action?: ReactNode;
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="min-w-0 rounded-dos-2 border border-dos-line bg-white px-4 pb-2 pt-4 md:px-5">
+      <div className="flex min-h-9 items-center justify-between gap-3">
+        <h2 className="text-dos-question text-dos-primary">{title}</h2>
+        {action}
+      </div>
+      <div className="mt-1">{children}</div>
+    </section>
+  );
+}
+
+function GroupHomeTextAction({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      className="-mr-2 inline-flex h-11 items-center gap-1 rounded-dos-3 px-2 text-dos-label text-dos-blueText transition-colors hover:bg-dos-blue50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+      onClick={onClick}
+      type="button"
+    >
+      {label}
+      <ChevronRight aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
+    </button>
+  );
 }
 
 function GroupDetailWorkspaceV2({
@@ -7702,13 +7703,18 @@ function GroupDetailWorkspaceV2({
   const nextGathering = nextExpectedGroupGathering(group);
   const [isMoreActionsOpen, setIsMoreActionsOpen] = useState(false);
   const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
+  const activeMemberCount = group.members.filter((member) => member.status === "active").length;
   /* The primary action opens the dated gathering record (attendance, what
      we covered, notes, prayer). The leader's own meeting log lives inside it
      as an optional detail; it is no longer the front door. */
   const meetingActionLabel = "Take Attendance";
-  const nextGatheringSummary = nextGathering
-    ? `${isTodayDate(nextGathering.startsAt) ? "Today" : formatGroupGatheringShortDate(nextGathering.startsAt)}${formatGroupGatheringTimeRange(nextGathering) ? ` · ${formatGroupGatheringTimeRange(nextGathering)}` : ""}`
-    : "Not scheduled";
+  const takeAttendance = () => (nextGathering ? onOpenGathering(nextGathering) : onAddOneOffGathering());
+  const nextGatheringIsToday = Boolean(nextGathering && isTodayDate(nextGathering.startsAt));
+  const nextGatheringLocation = nextGathering ? groupGatheringLocationParts(nextGathering, group) : null;
+  const description = group.description ?? group.tagline ?? "";
+  const sectionOptions: ReadonlyArray<PillRailOption<GroupDetailTab>> = groupV2DetailTabs.map((option) => (
+    option.value === "people" && pendingRequestCount > 0 ? { ...option, count: pendingRequestCount } : option
+  ));
   const moreActions = [
     { icon: <Pencil className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Edit Group", onClick: onEditGroup },
     { icon: <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />, label: "Edit Schedule", onClick: onSchedule },
@@ -7723,61 +7729,94 @@ function GroupDetailWorkspaceV2({
   }
 
   return (
-    <div className="space-y-3 pb-32 md:space-y-4 md:pb-4">
-      <TabPageHeader back={<MoreBackButton label="Back" onClick={onBack} />} title="Groups" />
-      <section className="overflow-hidden rounded-[22px] border border-[#DCEBFF] bg-white shadow-[0_14px_34px_rgba(37,99,235,0.055)]">
-        <div className="grid gap-3 p-3.5 sm:grid-cols-[224px_minmax(0,1fr)] md:p-4">
-          <div className="max-w-[220px] sm:max-w-none">
-            <GroupLogoMark group={group} />
-          </div>
-          <div className="grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
-            <div className="min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex flex-wrap gap-2">
-                  <GroupPill>{groupTemplateDisplayLabel(group)}</GroupPill>
-                  <GroupPill tone="gray">{groupAudienceLabel(group)}</GroupPill>
-                </div>
-                <button
-                  aria-label="More group actions"
-                  className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#DCEBFF] bg-white text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] lg:hidden"
-                  onClick={() => setIsMoreActionsOpen(true)}
-                  type="button"
-                >
-                  <MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-                </button>
-              </div>
-              <h1 className="mt-2 text-2xl font-black leading-tight tracking-[-0.03em] text-[#0F172A] md:text-[30px]" style={{ fontFamily: font.oswald }}>{group.name}</h1>
-              <p className="mt-1 line-clamp-2 max-w-3xl text-sm leading-6 text-[#475569]">{group.description ?? group.tagline ?? "Recurring discipleship rhythm."}</p>
-              <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-[11px] font-bold text-[#64748B]">
-                <span className="inline-flex min-w-0 items-center gap-1.5"><Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={1.9} />{group.rhythmLabel ?? "Rhythm TBD"}</span>
-                <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupMemberCountLabel(group.memberCount)}</span>
-                <span className="inline-flex min-w-0 items-center gap-1.5"><CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={1.9} />Next: {nextGatheringSummary}</span>
-                <span className="inline-flex items-center gap-1.5"><Shield className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />{groupLeaderCountLabel(leaders.length)}</span>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2 lg:justify-end">
-              <GroupQuickAction
-                icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
-                label={meetingActionLabel}
-                onClick={() => (nextGathering ? onOpenGathering(nextGathering) : onAddOneOffGathering())}
-                tone="primary"
-              />
-              <GroupQuickAction icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Add Person" onClick={onInvite} />
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 pb-dos-fab-clearance md:gap-4 md:pb-6">
+      <LibraryResourceBackButton label="Groups" onClick={onBack} />
+      <article className="min-w-0 overflow-hidden rounded-dos-2 border border-dos-line bg-white">
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)]">
+          <header className="min-w-0 px-4 pb-5 pt-5 md:px-6 md:pt-6">
+            <div className="flex min-w-0 items-start justify-between gap-3">
+              <p className="min-w-0 pt-1 text-dos-eyebrow uppercase text-dos-eyebrowSection">{groupHomeEyebrow(group)}</p>
               <button
                 aria-label="More group actions"
-                className="hidden h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[#BFDBFE] bg-white text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] lg:inline-flex"
+                className="-mr-2 -mt-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-dos-3 text-dos-primary transition-colors hover:bg-dos-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
                 onClick={() => setIsMoreActionsOpen(true)}
                 type="button"
               >
-                <MoreHorizontal className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
+                <MoreHorizontal className="h-5 w-5" aria-hidden="true" strokeWidth={2} />
               </button>
             </div>
-          </div>
+            <h1 className="mt-1.5 text-dos-title text-dos-primary md:text-dos-display">{group.name}</h1>
+            {description ? <p className="mt-2.5 line-clamp-3 max-w-2xl text-dos-body text-dos-body">{description}</p> : null}
+            <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-dos-meta text-dos-secondary">
+              <span className="inline-flex min-w-0 items-center gap-1.5"><Clock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={2} />{group.rhythmLabel ?? "No weekly schedule yet"}</span>
+              <span className="inline-flex items-center gap-1.5"><Users className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={2} />{groupMemberCountLabel(activeMemberCount)} · {groupLeaderCountLabel(leaders.length)}</span>
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2.5">
+              <GroupHomeActionButton icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={2} />} label="Add Person" onClick={onInvite} />
+            </div>
+          </header>
+          <section
+            aria-label="Next gathering"
+            className="border-t border-dos-line bg-dos-surface2 px-4 py-4 md:px-6 lg:border-l lg:border-t-0 lg:py-6"
+          >
+            <div className="flex min-h-6 items-center justify-between gap-3">
+              <p className="text-dos-eyebrow uppercase text-dos-eyebrowSection">{nextGatheringIsToday ? "Today" : "Next gathering"}</p>
+              {nextGathering ? (
+                <button className="-my-2.5 -mr-2 inline-flex h-11 items-center gap-1 rounded-dos-3 px-2 text-dos-label text-dos-blueText transition-colors hover:bg-dos-blue50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue" onClick={() => onTabChange("gatherings")} type="button">
+                  All gatherings
+                  <ChevronRight aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
+                </button>
+              ) : null}
+            </div>
+            {nextGathering ? (
+              <>
+                <p className="mt-2 text-dos-question text-dos-primary">
+                  {nextGatheringIsToday ? "Today" : formatGroupGatheringShortDate(nextGathering.startsAt)}
+                  {formatGroupGatheringTimeRange(nextGathering) ? <span className="font-normal text-dos-body"> · {formatGroupGatheringTimeRange(nextGathering)}</span> : null}
+                </p>
+                {nextGatheringLocation ? (
+                  <p className="mt-1 flex min-w-0 items-center gap-1.5 text-dos-meta text-dos-secondary">
+                    <MapPin className="h-3.5 w-3.5 shrink-0" aria-hidden="true" strokeWidth={2} />
+                    <span className="truncate">{nextGatheringLocation.label}</span>
+                  </p>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <p className="mt-2 text-dos-question text-dos-primary">Nothing scheduled</p>
+                <p className="mt-1 text-dos-meta text-dos-secondary">Set a weekly schedule, or record a gathering that already happened.</p>
+              </>
+            )}
+            <div className="mt-4 grid gap-2">
+              <GroupHomeActionButton
+                icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={2} />}
+                label={meetingActionLabel}
+                onClick={takeAttendance}
+                variant="primary"
+              />
+              {nextGathering ? null : (
+                <button className="h-11 rounded-dos-3 text-dos-label text-dos-blueText transition-colors hover:bg-dos-blue50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue" onClick={onSchedule} type="button">
+                  Set weekly schedule
+                </button>
+              )}
+            </div>
+          </section>
         </div>
-      </section>
-      <GroupDetailTabBar onChange={onTabChange} tab={selectedTab} tabs={groupV2DetailTabs} />
-      {notice ? <p className="rounded-[18px] border border-[#BFDBFE] bg-[#EBF2FF] px-4 py-3 text-sm font-bold text-[#1D4ED8]">{notice}</p> : null}
-      {selectedTab === "overview" ? <GroupOverviewTabV2 group={group} nextGathering={nextGathering} pendingRequestCount={pendingRequestCount} /> : null}
+        <nav aria-label={`${group.name} sections`} className="border-t border-dos-line px-4 md:px-6">
+          <PillRail edgeInset={4} label={`${group.name} sections`} onChange={onTabChange} options={sectionOptions} value={selectedTab} />
+        </nav>
+      </article>
+      {notice ? <p className="rounded-dos-1 bg-dos-blue50 px-4 py-3 text-dos-label text-dos-blueText" role="status">{notice}</p> : null}
+      {selectedTab === "overview" ? (
+        <GroupOverviewTabV2
+          group={group}
+          onAssignJourney={() => onAssignJourney()}
+          onInvite={onInvite}
+          onOpenSection={onTabChange}
+          pendingRequestCount={pendingRequestCount}
+          resourceAssignments={resourceAssignments}
+        />
+      ) : null}
       {selectedTab === "journeys" ? (
         <GroupJourneysTabV2
           group={group}
@@ -7805,24 +7844,22 @@ function GroupDetailWorkspaceV2({
       ) : null}
       {selectedTab === "settings" ? <GroupSettingsTab group={group} onEdit={onEditGroup} /> : null}
       {isMoreActionsOpen ? (
-        <Sheet onClose={() => setIsMoreActionsOpen(false)} showEyebrow={false} title="More">
-          <div className="grid gap-2">
+        <Sheet onClose={() => setIsMoreActionsOpen(false)} showEyebrow={false} title="Manage group">
+          <div className="grid">
             {moreActions.map((action) => (
               <button
-                className={`flex min-h-12 items-center justify-between rounded-[18px] border px-4 text-left text-sm font-black transition-colors ${
-                  action.label === "Archive"
-                    ? "border-[#FECACA] bg-[#FEF2F2] text-[#991B1B] hover:bg-[#FEE2E2]"
-                    : "border-[#DCEBFF] bg-white text-[#0F172A] hover:bg-[#F8FBFF]"
+                className={`flex min-h-[56px] items-center justify-between gap-3 border-t border-dos-line text-left text-dos-body font-semibold first:border-t-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-dos-blue ${
+                  action.label === "Archive" ? "text-dos-red" : "text-dos-primary"
                 }`}
                 key={action.label}
                 onClick={() => runMoreAction(action.onClick)}
                 type="button"
               >
                 <span className="inline-flex items-center gap-3">
-                  <span className={action.label === "Archive" ? "text-[#B91C1C]" : "text-[#2563EB]"}>{action.icon}</span>
+                  <span className={action.label === "Archive" ? "text-dos-red" : "text-dos-blue"}>{action.icon}</span>
                   {action.label}
                 </span>
-                <ChevronRight className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} />
+                <ChevronRight className="h-4 w-4 text-dos-secondary" aria-hidden="true" strokeWidth={2} />
               </button>
             ))}
           </div>
@@ -7834,57 +7871,118 @@ function GroupDetailWorkspaceV2({
 
 function GroupOverviewTabV2({
   group,
-  nextGathering,
+  onAssignJourney,
+  onInvite,
+  onOpenSection,
   pendingRequestCount,
+  resourceAssignments,
 }: {
   group: DosAppGroup;
-  nextGathering: GroupGatheringView | null;
+  onAssignJourney: () => void;
+  onInvite: () => void;
+  onOpenSection: (tab: GroupDetailTab) => void;
   pendingRequestCount: number;
+  resourceAssignments: DosAppResourceAssignment[];
 }) {
-  const leaders = group.members.filter((member) => member.status === "active" && ["leader", "co_leader", "helper"].includes(member.role));
-  const recentActivity = groupRecentActivityRows(group);
+  const people = group.members
+    .filter((member) => member.status === "active" || member.status === "invited")
+    .slice()
+    .sort((a, b) => groupHomeMemberOrder(a) - groupHomeMemberOrder(b) || a.personName.localeCompare(b.personName));
+  const shownPeople = people.slice(0, 6);
+  const { currentRows, upcomingRows } = computeGroupJourneyRows(group, resourceAssignments);
+  const journeyRows = [...currentRows, ...upcomingRows].slice(0, 2);
+  const openPrayers = group.prayerRequests.filter((request) => request.status !== "archived" && request.status !== "answered").slice(0, 3);
+  const recentActivity = groupRecentActivityRows(group).filter((item) => !item.id.startsWith("prayer-"));
 
   return (
-    <div className="grid gap-3">
-      <DesktopPanel eyebrow="Overview" title="Status">
-        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <GroupOverviewNextGatheringCard gathering={nextGathering} />
-          <GroupV2StatCard icon={<Users className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Members" value={groupMemberCountLabel(group.memberCount)} />
-          <GroupV2StatCard icon={<UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Pending Requests" value={`${pendingRequestCount} pending`} />
-          <GroupV2StatCard icon={<Heart className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Active Prayer" value={`${groupOpenPrayerCount(group)} active`} />
-          <GroupV2StatCard icon={<CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Completed Gatherings" value={`${groupCompletedGatherings(group).length} completed`} />
-          <GroupV2StatCard icon={<Shield className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />} label="Leaders" value={groupLeaderCountLabel(leaders.length)} />
-        </div>
-      </DesktopPanel>
-      {recentActivity.length ? (
-        <DesktopPanel eyebrow="Activity" title="Recent Activity">
-          <div className="grid gap-2">
-            {recentActivity.map((item) => (
-              <div className="flex min-w-0 items-center justify-between gap-3 rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2" key={item.id}>
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-black text-[#0F172A]">{item.title}</p>
-                  <p className="truncate text-xs font-semibold text-[#64748B]">{item.body}</p>
-                </div>
-                <span className="shrink-0 text-[10px] font-black uppercase tracking-[0.12em] text-[#94A3B8]" style={{ fontFamily: font.rajdhani }}>{item.date}</span>
-              </div>
-            ))}
-          </div>
-        </DesktopPanel>
-      ) : null}
-    </div>
-  );
-}
-
-function GroupOverviewNextGatheringCard({ gathering }: { gathering: GroupGatheringView | null }) {
-  return (
-    <div className="min-w-0 rounded-[18px] border border-[#DCEBFF] bg-white px-3 py-3 shadow-[0_10px_24px_rgba(37,99,235,0.04)]">
-      <div className="flex items-center gap-2 text-[#2563EB]">
-        <CalendarDays className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />
-        <p className="truncate text-[10px] font-black uppercase tracking-[0.14em]" style={{ fontFamily: font.rajdhani }}>Next Gathering</p>
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 md:gap-4 lg:grid-cols-2 lg:items-start">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 md:gap-4">
+        {pendingRequestCount > 0 ? (
+          <button
+            className="flex min-h-[60px] w-full items-center gap-3 rounded-dos-2 border border-dos-line bg-white px-4 py-3 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+            onClick={() => onOpenSection("people")}
+            type="button"
+          >
+            <IconTile><UserPlus className="h-4 w-4" aria-hidden="true" strokeWidth={2} /></IconTile>
+            <span className="min-w-0 flex-1">
+              <span className="block text-dos-body font-semibold text-dos-primary">{pendingRequestCount === 1 ? "1 person asked to join" : `${pendingRequestCount} people asked to join`}</span>
+              <span className="block text-dos-meta text-dos-secondary">Review in People</span>
+            </span>
+            <StatusPill tone="amber">Pending</StatusPill>
+          </button>
+        ) : null}
+        <GroupHomeSection
+          action={people.length ? <GroupHomeTextAction label={people.length > shownPeople.length ? `All ${people.length}` : "Manage"} onClick={() => onOpenSection("people")} /> : undefined}
+          title="People"
+        >
+          {shownPeople.length ? (
+            <div>
+              {shownPeople.map((member) => (
+                <Row
+                  key={member.id}
+                  leading={<Avatar name={member.personName} size="sm" />}
+                  primary={member.personName}
+                  secondary={member.title ?? groupRoleLabel(member.role)}
+                  trailing={member.status === "invited" ? <StatusPill tone="blue">Invited</StatusPill> : undefined}
+                />
+              ))}
+            </div>
+          ) : (
+            <DosEmptyState action={<Button compact icon="add" onClick={onInvite} variant="tinted">Add Person</Button>}>No one is in this group yet.</DosEmptyState>
+          )}
+        </GroupHomeSection>
       </div>
-      <p className="mt-2 truncate text-sm font-black text-[#0F172A]">{gathering?.title ?? "Not scheduled"}</p>
-      <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{gathering ? formatGroupGatheringTime(gathering) : "Set the recurring rhythm in Settings"}</p>
-      {gathering?.location ? <p className="mt-1 truncate text-xs font-semibold text-[#64748B]">{gathering.location}</p> : null}
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 md:gap-4">
+        <GroupHomeSection
+          action={journeyRows.length ? <GroupHomeTextAction label="Journeys" onClick={() => onOpenSection("journeys")} /> : undefined}
+          title={currentRows.length ? "Studying now" : "Journey"}
+        >
+          {journeyRows.length ? (
+            <div>
+              {journeyRows.map((row) => (
+                <Row
+                  chevron
+                  key={row.resourceSlug}
+                  leading={<IconTile><BookOpen className="h-4 w-4" aria-hidden="true" strokeWidth={2} /></IconTile>}
+                  onClick={() => onOpenSection("journeys")}
+                  primary={row.resource.title}
+                  secondary={[groupHomeJourneyKindLabel(row.resource), row.state === "upcoming" ? groupJourneyPeriodLabel(row) : `${row.assignments.length} ${row.assignments.length === 1 ? "person" : "people"}`].join(" · ")}
+                />
+              ))}
+            </div>
+          ) : (
+            <DosEmptyState action={<Button compact icon="library" onClick={onAssignJourney} variant="tinted">Choose a journey</Button>}>No book study or journey yet.</DosEmptyState>
+          )}
+        </GroupHomeSection>
+        {openPrayers.length ? (
+          <GroupHomeSection title="Prayer">
+            <div>
+              {openPrayers.map((request) => (
+                <Row
+                  key={request.id}
+                  leading={<IconTile><Heart className="h-4 w-4" aria-hidden="true" strokeWidth={2} /></IconTile>}
+                  primary={request.title}
+                  secondary={formatRelativeDate(request.createdAt)}
+                />
+              ))}
+            </div>
+          </GroupHomeSection>
+        ) : null}
+        {recentActivity.length ? (
+          <GroupHomeSection action={<GroupHomeTextAction label="Gatherings" onClick={() => onOpenSection("gatherings")} />} title="Recent">
+            <div>
+              {recentActivity.map((item) => (
+                <Row
+                  key={item.id}
+                  leading={<IconTile><CheckCircle2 className="h-4 w-4" aria-hidden="true" strokeWidth={2} /></IconTile>}
+                  primary={item.title}
+                  secondary={[item.date, item.body].filter(Boolean).join(" · ")}
+                />
+              ))}
+            </div>
+          </GroupHomeSection>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -7914,25 +8012,25 @@ function GroupPeopleTabV2({
   // is a short list, so it takes a full-width row; the two working panels get
   // the whole next row as equal halves.
   return (
-    <div className="grid gap-3">
-      <DesktopPanel
-        action={<button className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-[#2563EB] px-3 text-xs font-black text-white" onClick={onInvite} type="button"><Plus className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={2} />Add Person</button>}
-        eyebrow="Leaders"
-        title="Shared Leadership"
-      >
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 md:gap-4">
+      {/* USA-283: Add Person already leads the page header; here it is a
+          quiet text action so two filled buttons never compete. */}
+      <GroupHomeSection action={<GroupHomeTextAction label="Add Person" onClick={onInvite} />} title="Shared Leadership">
         {leaders.length ? (
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid sm:grid-cols-2 sm:gap-x-6 xl:grid-cols-3">
             {leaders.map((member) => (
-              <div className="min-w-0 rounded-[16px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2" key={member.id}>
-                <p className="text-sm font-black text-[#0F172A]">{member.personName}</p>
-                <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{member.title ?? groupRoleLabel(member.role)}</p>
-              </div>
+              <Row
+                key={member.id}
+                leading={<Avatar name={member.personName} size="sm" />}
+                primary={member.personName}
+                secondary={member.title ?? groupRoleLabel(member.role)}
+              />
             ))}
           </div>
         ) : (
-          <SectionEmptyState text="Add a primary leader, co-leader, or helper." title="No leaders assigned." />
+          <p className="pb-3 text-dos-body text-dos-secondary">No leaders assigned. Add a primary leader, co-leader, or helper in Edit Group.</p>
         )}
-      </DesktopPanel>
+      </GroupHomeSection>
       <GroupMembersTab
         group={group}
         isPreview={isPreview}
@@ -10609,11 +10707,14 @@ function GroupMembersTab({
   }
 
   return (
-    <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">
-      <DesktopPanel
+    /* USA-283: the same quiet sections as the group home. With nobody
+       waiting, requests to join shrink to one line above the members. */
+    <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 md:gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">
+      <GroupHomeSection
         action={(
           <button
-            className="inline-flex min-h-8 items-center justify-center gap-1.5 rounded-full border border-[#BFDBFE] bg-white px-3 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-60"
+            aria-label="Refresh pending requests"
+            className="-mr-2 inline-flex h-11 items-center justify-center gap-1.5 rounded-dos-3 px-2 text-dos-label text-dos-blueText transition-colors hover:bg-dos-blue50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue disabled:cursor-not-allowed disabled:text-dos-disabled"
             disabled={isLoadingJoinRequests}
             onClick={() => void loadJoinRequests()}
             type="button"
@@ -10622,8 +10723,7 @@ function GroupMembersTab({
             Refresh
           </button>
         )}
-        eyebrow="Pending Requests"
-        title={`${joinRequests.length} ${joinRequests.length === 1 ? "request" : "requests"}`}
+        title={joinRequests.length ? `Pending Requests · ${joinRequests.length}` : "Pending Requests"}
       >
         {joinRequestsMessage ? (
           <p className={`mb-3 rounded-[18px] border px-3 py-2 text-sm font-bold ${
@@ -10636,7 +10736,7 @@ function GroupMembersTab({
           </p>
         ) : null}
         {isLoadingJoinRequests ? (
-          <p className="rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3 text-sm font-semibold text-[#64748B]">Loading pending requests...</p>
+          <p className="pb-3 text-dos-body text-dos-secondary">Loading pending requests...</p>
         ) : joinRequests.length ? (
           <div className="grid gap-2">
             {joinRequests.map((request) => {
@@ -10807,13 +10907,10 @@ function GroupMembersTab({
             })}
           </div>
         ) : (
-          <SectionEmptyState
-            text="Public join requests will appear here for group leaders before anyone is added."
-            title="No pending requests."
-          />
+          <p className="pb-3 text-dos-body text-dos-secondary">No one is waiting. Requests from the group&apos;s public page appear here before anyone is added.</p>
         )}
-      </DesktopPanel>
-      <DesktopPanel eyebrow="Members" title={groupMemberCountLabel(group.memberCount)}>
+      </GroupHomeSection>
+      <GroupHomeSection title={`Members · ${group.memberCount}`}>
         {memberRemovalMessage ? (
           <p className={`mb-3 rounded-[18px] border px-3 py-2 text-sm font-bold ${
             memberRemovalMessage.tone === "success"
@@ -10835,23 +10932,25 @@ function GroupMembersTab({
           </p>
         ) : null}
         {visibleMembers.length ? (
-          <div className="grid gap-2">
+          <div>
             {visibleMembers.map((member) => {
               const isLeader = member.role === "leader" || group.leaderPersonId === member.personId;
               const isConfirmingRemoval = memberPendingRemovalId === member.id;
 
               return (
-                <div className="min-w-0 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-3" key={member.id}>
-                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-                    <div className="min-w-0 flex-1 basis-full min-[420px]:basis-auto">
-                      <p className="break-words text-sm font-black text-[#0F172A]">{member.personName}</p>
-                      <p className="mt-0.5 text-xs font-semibold text-[#64748B]">{groupRoleLabel(member.role)}</p>
-                      <p className="mt-0.5 text-[11px] font-bold text-[#94A3B8]">{groupMemberPortalStatusLabel(member)}</p>
+                <div className="min-w-0 border-t border-dos-line py-3 first:border-t-0" key={member.id}>
+                  <div className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+                    <div className="flex min-w-0 flex-1 basis-full items-center gap-3 min-[420px]:basis-auto">
+                      <Avatar name={member.personName} size="sm" />
+                      <div className="min-w-0 flex-1 basis-full min-[420px]:basis-auto">
+                        <p className="break-words text-dos-body font-semibold text-dos-primary">{member.personName}</p>
+                        <p className="text-dos-meta text-dos-secondary">{groupRoleLabel(member.role)} · {groupMemberPortalStatusLabel(member)}</p>
+                      </div>
                     </div>
                     <div className="flex min-w-0 flex-wrap items-center gap-2">
-                      <GroupPill tone={member.status === "active" ? "green" : "gray"}>{member.status.charAt(0).toUpperCase() + member.status.slice(1)}</GroupPill>
+                      <StatusPill tone={member.status === "active" ? "green" : "grey"}>{member.status.charAt(0).toUpperCase() + member.status.slice(1)}</StatusPill>
                       <button
-                        className="inline-flex min-h-8 items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-2.5 text-xs font-black text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF] disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex h-9 items-center justify-center rounded-dos-3 bg-dos-blue50 px-3 text-dos-label text-dos-blueText transition-colors hover:bg-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue disabled:cursor-not-allowed disabled:bg-dos-surface2 disabled:text-dos-disabled"
                         disabled={member.status !== "active" || sendingMemberAccessId === member.id}
                         onClick={() => void sendMemberAccess(member)}
                         title={`Copies a fresh secure Group link for ${member.personName}. Crawler-safe: the link is not consumed until they tap Open Group Home. This does not affect group membership.`}
@@ -10860,7 +10959,7 @@ function GroupMembersTab({
                         {sendingMemberAccessId === member.id ? "Creating..." : `Send ${participantFirstName(member.personName)} a fresh link`}
                       </button>
                       <button
-                        className="inline-flex min-h-8 items-center justify-center rounded-full border border-red-200 bg-white px-2.5 text-xs font-black text-red-600 transition-colors hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                        className="inline-flex h-9 items-center justify-center rounded-dos-3 px-3 text-dos-label text-dos-red transition-colors hover:bg-dos-redBg focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue disabled:cursor-not-allowed disabled:text-dos-disabled"
                         disabled={isLeader || removingMemberId === member.id}
                         onClick={() => {
                           setMemberRemovalMessage(null);
@@ -10874,9 +10973,9 @@ function GroupMembersTab({
                     </div>
                   </div>
                   {isConfirmingRemoval ? (
-                    <div className="mt-3 rounded-[16px] border border-red-200 bg-white px-3 py-2">
-                      <p className="text-sm font-bold text-[#0F172A]">Remove {member.personName} from this group?</p>
-                      <p className="mt-1 text-xs font-semibold leading-5 text-[#64748B]">This only deactivates the group membership. Their Person record stays in Field.</p>
+                    <div className="mt-3 rounded-dos-1 bg-dos-redBg px-3.5 py-3">
+                      <p className="text-dos-label text-dos-primary">Remove {member.personName} from this group?</p>
+                      <p className="mt-1 text-dos-meta text-dos-body">This only deactivates the group membership. Their Person record stays in Field.</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           className="inline-flex min-h-9 items-center justify-center rounded-full bg-red-600 px-3 text-xs font-black text-white transition-colors hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
@@ -10901,260 +11000,56 @@ function GroupMembersTab({
             })}
           </div>
         ) : (
-          <p className="text-sm text-[#64748B]">No members linked yet.</p>
+          <p className="pb-3 text-dos-body text-dos-secondary">No members linked yet.</p>
         )}
-      </DesktopPanel>
+      </GroupHomeSection>
     </div>
   );
 }
 
+/* USA-283: the add-person sheet itself lives in
+   src/components/dos/groups/GroupAddPersonSheet.tsx. This adapter hands it
+   the workspace's People in the shape it needs and nothing else. */
 function GroupInviteSheet({
   group,
-  isSubmitting,
-  message,
+  isPreview,
   onAddMember,
   onClose,
+  onViewPerson,
   people,
 }: {
   group: DosAppGroup;
-  isSubmitting: boolean;
-  message: { text: string; tone: "error" | "success" } | null;
-  /* Resolves true only when the person was actually added. */
-  onAddMember: (payload: GroupMemberAddPayload) => Promise<boolean>;
+  isPreview: boolean;
+  /* Reports exactly what the server did: added, already a member, refused,
+     or a possible existing person to review. */
+  onAddMember: (payload: GroupMemberAddPayload) => Promise<GroupAddMemberOutcome>;
   onClose: () => void;
+  onViewPerson: (personId: string) => void;
   people: DosAppPerson[];
 }) {
-  const [query, setQuery] = useState("");
-  const [guestEmail, setGuestEmail] = useState("");
-  const [guestName, setGuestName] = useState("");
-  const [guestPhone, setGuestPhone] = useState("");
-  const [role, setRole] = useState<DosAppGroupMember["role"]>("member");
-  const [status, setStatus] = useState<DosAppGroupMember["status"]>("active");
-  const [duplicateWarningDismissed, setDuplicateWarningDismissed] = useState(false);
-  const existingMemberPersonIds = new Set(group.members.filter((member) => member.status !== "removed").map((member) => member.personId));
-  const personOptions = filteredPeople(people, query)
-    .filter((person) => person.status !== "archived")
-    .slice(0, 8);
-  const canAddGuest = guestName.trim().length > 0;
-  const nearDuplicatePerson = findNearDuplicatePerson(people, guestName, guestEmail, guestPhone);
-  const blockedByDuplicateWarning = Boolean(nearDuplicatePerson) && !duplicateWarningDismissed;
-
-  /* A successful addition is saved work: the search that found the person is
-     cleared so the next person can be found, and nothing else is touched. A
-     guest being typed in the form below is a separate, unsaved draft and
-     stays exactly as it is (founder, 2026-09-11). */
-  async function addExistingPerson(person: DosAppPerson) {
-    const added = await onAddMember({
-      groupId: group.id,
-      personId: person.id,
-      role,
-      status,
-    });
-
-    if (added) {
-      setQuery("");
-    }
-  }
-
-  async function addGuest(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!canAddGuest || blockedByDuplicateWarning) {
-      return;
-    }
-
-    const added = await onAddMember({
-      confirmNearDuplicate: duplicateWarningDismissed,
-      email: guestEmail,
-      groupId: group.id,
-      name: guestName,
-      phone: guestPhone,
-      role,
-      status,
-    });
-
-    /* Only a saved guest is cleared; a refused one stays for correction. */
-    if (added) {
-      setGuestEmail("");
-      setGuestName("");
-      setGuestPhone("");
-      setDuplicateWarningDismissed(false);
-      setQuery("");
-    }
-  }
+  const options = useMemo<GroupAddPersonOption[]>(() => people.map((person) => ({
+    archived: person.status === "archived",
+    detail: relationshipLine(person),
+    email: person.email,
+    id: person.id,
+    name: person.name,
+    phone: person.phone,
+  })), [people]);
+  const memberPersonIds = useMemo(
+    () => group.members.filter((member) => member.status !== "removed").map((member) => member.personId),
+    [group.members],
+  );
 
   return (
-    <Sheet kind="editable" description="Add someone from Field or create a guest record. Messaging is not sent from this action." onClose={onClose} showEyebrow={false} title={`Add to ${group.name}`}>
-      <div className="space-y-4">
-        {message ? (
-          <p className={`rounded-[18px] border px-3 py-2 text-sm font-bold ${
-            message.tone === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-              : "border-red-200 bg-red-50 text-red-700"
-          }`}
-          >
-            {message.text}
-          </p>
-        ) : null}
-
-        <section className="rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <CompactOptionSelect
-                label="Role"
-                onChange={(value) => setRole(value as DosAppGroupMember["role"])}
-                options={[
-                  { label: "Member", value: "member" },
-                  { label: "Co-leader", value: "co_leader" },
-                  { label: "Helper", value: "helper" },
-                  { label: "Guest", value: "guest" },
-                ]}
-                value={role}
-              />
-            </div>
-            <div>
-              <FieldLabel>Status</FieldLabel>
-              <div className="flex rounded-full border border-[#DCEBFF] bg-white p-1">
-                {(["active", "invited"] as const).map((option) => (
-                  <button
-                    className={`min-h-8 flex-1 rounded-full px-3 text-xs font-black transition-colors ${status === option ? "bg-[#2563EB] text-white" : "text-[#64748B] hover:text-[#0F172A]"}`}
-                    key={option}
-                    onClick={() => setStatus(option)}
-                    type="button"
-                  >
-                    {option === "active" ? "Active" : "Invited"}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section>
-          <FieldLabel>Search Field</FieldLabel>
-          <div className="mt-2 flex min-h-12 items-center gap-2 rounded-[18px] border border-[#D6E4F7] bg-white px-3 focus-within:border-[#2563EB] focus-within:ring-4 focus-within:ring-[#2563EB]/10">
-            <Search className="h-4 w-4 text-[#94A3B8]" aria-hidden="true" strokeWidth={2} />
-            <input
-              className="min-w-0 flex-1 bg-transparent text-sm font-semibold text-[#0F172A] outline-none placeholder:text-[#94A3B8]"
-              data-unsaved="ignore"
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by name, phone, or relationship"
-              type="search"
-              value={query}
-            />
-          </div>
-          <div className="mt-3 grid gap-2">
-            {personOptions.length ? personOptions.map((person) => {
-              const alreadyMember = existingMemberPersonIds.has(person.id);
-
-              return (
-                <div className="flex min-w-0 items-center justify-between gap-3 rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-3" key={person.id}>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-black text-[#0F172A]">{person.name}</p>
-                    <p className="mt-0.5 truncate text-xs font-semibold text-[#64748B]">{[formatPhoneNumber(person.phone), person.email].filter(Boolean).join(" · ") || relationshipLine(person)}</p>
-                  </div>
-                  <button
-                    className={`inline-flex min-h-9 shrink-0 items-center justify-center rounded-full px-3 text-xs font-black transition-colors ${
-                      alreadyMember
-                        ? "border border-[#DCEBFF] bg-[#F8FAFC] text-[#94A3B8]"
-                        : "border border-[#BFDBFE] bg-white text-[#1D4ED8] hover:bg-[#EBF2FF]"
-                    }`}
-                    disabled={alreadyMember || isSubmitting}
-                    onClick={() => addExistingPerson(person)}
-                    type="button"
-                  >
-                    {alreadyMember ? "In Group" : "Add to Group"}
-                  </button>
-                </div>
-              );
-            }) : (
-              <SectionEmptyState text="Search Field people or add a new guest below." title="No people found." />
-            )}
-          </div>
-        </section>
-
-        <form className="space-y-3 rounded-[22px] border border-[#DCEBFF] bg-[#F8FBFF] p-3.5" onSubmit={addGuest}>
-          <div>
-            <p className="text-sm font-black text-[#0F172A]">New Guest</p>
-            <p className="mt-0.5 text-xs font-semibold text-[#64748B]">Creates or links a DOS person record, then adds them to this private group.</p>
-          </div>
-          <label className="block">
-            <FieldLabel>Name</FieldLabel>
-            <input
-              className={FieldInputClass()}
-              onChange={(event) => {
-                setGuestName(event.target.value);
-                setDuplicateWarningDismissed(false);
-              }}
-              required
-              value={guestName}
-            />
-          </label>
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block">
-              <FieldLabel>Phone</FieldLabel>
-              <input
-                className={FieldInputClass()}
-                inputMode="tel"
-                onChange={(event) => {
-                  setGuestPhone(event.target.value);
-                  setDuplicateWarningDismissed(false);
-                }}
-                type="tel"
-                value={guestPhone}
-              />
-            </label>
-            <label className="block">
-              <FieldLabel>Email</FieldLabel>
-              <input
-                className={FieldInputClass()}
-                onChange={(event) => {
-                  setGuestEmail(event.target.value);
-                  setDuplicateWarningDismissed(false);
-                }}
-                type="email"
-                value={guestEmail}
-              />
-            </label>
-          </div>
-          {nearDuplicatePerson ? (
-            <div className="rounded-[16px] border border-amber-300 bg-amber-50 p-3">
-              <p className="text-xs font-black uppercase tracking-[0.08em] text-amber-800">Possible existing person</p>
-              <p className="mt-1 text-sm font-semibold text-amber-900">
-                {nearDuplicatePerson.name} already exists in Field
-                {[formatPhoneNumber(nearDuplicatePerson.phone), nearDuplicatePerson.email].filter(Boolean).length
-                  ? ` (${[formatPhoneNumber(nearDuplicatePerson.phone), nearDuplicatePerson.email].filter(Boolean).join(" · ")})`
-                  : ""}. Add that person instead of creating a new one, unless this is genuinely someone else.
-              </p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                <button
-                  className="inline-flex min-h-9 items-center justify-center rounded-full bg-amber-800 px-3 text-xs font-black text-white transition-colors hover:bg-amber-900 disabled:cursor-not-allowed disabled:opacity-60"
-                  disabled={isSubmitting}
-                  onClick={() => addExistingPerson(nearDuplicatePerson)}
-                  type="button"
-                >
-                  Add existing person instead
-                </button>
-                <button
-                  className="inline-flex min-h-9 items-center justify-center rounded-full border border-amber-400 bg-white px-3 text-xs font-black text-amber-900 transition-colors hover:bg-amber-100"
-                  onClick={() => setDuplicateWarningDismissed(true)}
-                  type="button"
-                >
-                  This is a different person
-                </button>
-              </div>
-            </div>
-          ) : null}
-          <button
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#2563EB] px-4 text-sm font-black text-white shadow-[0_12px_28px_rgba(37,99,235,0.22)] transition-colors hover:bg-[#1D4ED8] disabled:cursor-not-allowed disabled:opacity-60"
-            disabled={!canAddGuest || isSubmitting || blockedByDuplicateWarning}
-            type="submit"
-          >
-            {isSubmitting ? "Adding..." : blockedByDuplicateWarning ? "Resolve possible duplicate above" : "Add to Group"}
-          </button>
-        </form>
-      </div>
-    </Sheet>
+    <GroupAddPersonSheet
+      groupName={group.name}
+      isPreview={isPreview}
+      memberPersonIds={memberPersonIds}
+      onAdd={(request) => onAddMember({ ...request, groupId: group.id })}
+      onClose={onClose}
+      onViewPerson={onViewPerson}
+      people={options}
+    />
   );
 }
 
@@ -16795,10 +16690,12 @@ const groupDetailTabs: ReadonlyArray<SegmentedTabOption<GroupDetailTab>> = [
   { label: "Settings", value: "settings" },
 ];
 
-const groupV2DetailTabs: ReadonlyArray<SegmentedTabOption<GroupDetailTab>> = [
+/* USA-283: People before Journeys -- who is in the group is the question a
+   leader asks most often after "when do we meet next". */
+const groupV2DetailTabs: ReadonlyArray<PillRailOption<GroupDetailTab>> = [
   { label: "Overview", value: "overview" },
-  { label: "Journeys", value: "journeys" },
   { label: "People", value: "people" },
+  { label: "Journeys", value: "journeys" },
   { label: "Gatherings", value: "gatherings" },
   { label: "Settings", value: "settings" },
 ];
@@ -40323,7 +40220,6 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   const [isGroupInviteOpen, setIsGroupInviteOpen] = useState(false);
   const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false);
   const [groupCreateMessage, setGroupCreateMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
-  const [groupInviteMessage, setGroupInviteMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [groupSettingsMessage, setGroupSettingsMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [gatheringFormSheet, setGatheringFormSheet] = useState<{ gathering: GroupGatheringView | null; groupId: string } | null>(null);
   /* USA-271: the open gathering record (attendance, notes, prayer). */
@@ -41956,7 +41852,6 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     setGroupDetailTab(tab);
     setGroupsNotice("");
     setGroupCreateMessage(null);
-    setGroupInviteMessage(null);
     setGroupSettingsMessage(null);
     scrollAppToTop();
   }
@@ -42026,13 +41921,11 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     }
 
     setGroupsNotice("");
-    setGroupInviteMessage(null);
     setIsGroupInviteOpen(true);
   }
 
   function closeGroupInviteSheet() {
     setIsGroupInviteOpen(false);
-    setGroupInviteMessage(null);
   }
 
   function openGroupSettingsSheet() {
@@ -42229,20 +42122,21 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     }
   }
 
-  async function addGroupMember(payload: GroupMemberAddPayload): Promise<boolean> {
-    setGroupInviteMessage(null);
+  /* USA-283: the add-person sheet owns its own confirmation and review, so
+     this reports exactly what happened instead of a yes/no: added, already a
+     member, refused, or a possible existing person the leader must review. */
+  async function addGroupMember(payload: GroupMemberAddPayload): Promise<GroupAddMemberOutcome> {
     setErrorMessage("");
 
     if (isPreview) {
       /* The DB-free preview adds the member in memory so the sheet's own
          behaviour (success, cleared search, honest exit) can be exercised.
-         Nothing is saved and the message says so. */
+         Nothing is saved and the sheet says so. */
       const person = payload.personId ? people.find((item) => item.id === payload.personId) ?? null : null;
       const personName = person?.name ?? payload.name?.trim() ?? "";
 
       if (!personName) {
-        setGroupInviteMessage({ text: "Preview mode is read-only. Demo changes are not saved.", tone: "error" });
-        return false;
+        return { error: "Preview mode is read-only. Demo changes are not saved.", ok: false };
       }
 
       const previewMember: DosAppGroupMember = {
@@ -42257,15 +42151,16 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
         status: payload.status,
         title: null,
       };
+      const alreadyMember = Boolean(selectedGroup?.members.some((member) => member.personId === previewMember.personId && member.status !== "removed"));
 
       setGroupMemberAdditions((current) => ({
         ...current,
         [payload.groupId]: [...(current[payload.groupId] ?? []).filter((member) => member.personId !== previewMember.personId), previewMember],
       }));
-      setGroupInviteMessage({ text: `${personName} added to ${selectedGroup?.name ?? "group"} in this preview only. Nothing is saved.`, tone: "success" });
+      setGroupsNotice(`${personName} added to ${selectedGroup?.name ?? "group"} in this preview only. Nothing is saved.`);
       setGroupDetailTab("members");
 
-      return true;
+      return { alreadyMember, ok: true, personId: previewMember.personId, personName };
     }
 
     setIsSubmitting(true);
@@ -42282,6 +42177,10 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
         method: "POST",
       });
       const result = await response.json().catch(() => ({})) as GroupMemberAddResult;
+
+      if (response.status === 409 && result.nearDuplicate) {
+        return { error: result.error ?? "This may be someone already in People.", nearDuplicate: result.nearDuplicate, ok: false };
+      }
 
       if (!response.ok || !result.member) {
         throw new Error(result.error ?? "Unable to add this person to the group.");
@@ -42305,20 +42204,19 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
           : [...current, optimisticPersonFromGroupResult(resultPerson)]);
       }
 
-      const message = result.alreadyMember
+      setGroupsNotice(result.alreadyMember
         ? `${result.member.personName} is already in this group.`
-        : `${result.member.personName} added to ${selectedGroup?.name ?? "group"}.`;
-
-      setGroupsNotice(message);
-      setGroupInviteMessage({ text: message, tone: "success" });
+        : `${result.member.personName} added to ${selectedGroup?.name ?? "group"}.`);
+      /* The page behind the sheet shows the member list (People on V2, where
+         normalizeGroupV2Tab maps it), so closing the sheet lands on them. */
       setGroupDetailTab("members");
+      /* Re-read the server so the membership and the new Person come from the
+         database, not only from this optimistic copy. */
       router.refresh();
 
-      return true;
+      return { alreadyMember: Boolean(result.alreadyMember), ok: true, personId: result.member.personId, personName: result.member.personName };
     } catch (error) {
-      setGroupInviteMessage({ text: error instanceof Error ? error.message : "Unable to add this person to the group.", tone: "error" });
-
-      return false;
+      return { error: error instanceof Error ? error.message : "Unable to add this person to the group.", ok: false };
     } finally {
       setIsSubmitting(false);
     }
@@ -48155,7 +48053,6 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                       } else {
                         setSelectedGroupId(null);
                         setGroupsNotice("");
-                        setGroupInviteMessage(null);
                         setIsGroupInviteOpen(false);
                         setGroupSettingsMessage(null);
                         setIsGroupSettingsOpen(false);
@@ -49636,10 +49533,13 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
         {isGroupInviteOpen && selectedGroup ? (
           <GroupInviteSheet
             group={selectedGroup}
-            isSubmitting={isSubmitting}
-            message={groupInviteMessage}
+            isPreview={isPreview}
             onAddMember={addGroupMember}
             onClose={closeGroupInviteSheet}
+            onViewPerson={(personId) => {
+              closeGroupInviteSheet();
+              openPersonDetail(personId);
+            }}
             people={people}
           />
         ) : null}

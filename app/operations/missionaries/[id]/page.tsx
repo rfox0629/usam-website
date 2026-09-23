@@ -352,6 +352,19 @@ export default async function OperationsMissionaryDetailPage({
                   </div>
                 </OperationsPanel>
 
+                {item.applicationAnswers.length > 0 ? (
+                  <OperationsPanel title="Application Answers">
+                    <div className="space-y-6">
+                      {item.applicationAnswers.map((group) => (
+                        <section key={group.title}>
+                          <p className="mb-3 text-[11px] uppercase tracking-[0.14em] text-slate-500">{group.title}</p>
+                          <DetailGrid empty="" items={group.items} />
+                        </section>
+                      ))}
+                    </div>
+                  </OperationsPanel>
+                ) : null}
+
                 <OperationsPanel title="Household">
                   <div className="space-y-5">
                     <DetailGrid empty="No household context is captured yet." items={item.householdDetails} />

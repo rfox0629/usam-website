@@ -348,6 +348,10 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   // a successful later click starts a new intentional send.
   const resumeEmailAttemptRef = useRef<{ id: string; inFlight: boolean } | null>(null);
 
+  // The draft object the last successful save sent, so leaving the page only
+  // re-sends when something has changed since.
+  const lastSavedDraftRef = useRef<JoinApplicationDraft | null>(null);
+
   // Skips the autosave that would otherwise fire immediately on mount and
   // create an empty draft row for anyone who merely opened the page.
   const dirtyRef = useRef(false);
@@ -414,6 +418,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
           setToken(result.resumeToken);
         }
 
+        lastSavedDraftRef.current = draft;
         setSaveState("saved");
 
         if (shouldSendResumeEmail) {
@@ -438,6 +443,73 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     },
     [draft, stepId, token],
   );
+
+  /*
+   * Keep the resume token in the address bar once the first save mints it.
+   *
+   * The token used to live only in component state, so a refresh, an
+   * accidental back swipe, or a phone reclaiming the tab reopened a blank
+   * application: the draft was safe on the server but nothing on the page
+   * could find it again unless the applicant had emailed themselves a link.
+   * With ?resume= in the URL, reloading goes through the same server restore
+   * the emailed link uses. replaceState, so no history entry is added.
+   */
+  useEffect(() => {
+    if (!token || submitState === "submitted") {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.get("resume") !== token) {
+      url.searchParams.set("resume", token);
+      window.history.replaceState(window.history.state, "", url.toString());
+    }
+  }, [submitState, token]);
+
+  /*
+   * The debounced autosave can still be waiting when the tab is closed, or
+   * when a phone puts the browser in the background and later discards it,
+   * which would drop the last few keystrokes. When the page is hidden, send
+   * the current draft once more with keepalive so the request outlives the
+   * page. Only once a token exists: without one, the save would create a
+   * second draft that nothing could ever reopen.
+   */
+  const latestSaveRef = useRef({ currentStep: stepId, draft, token });
+  latestSaveRef.current = { currentStep: stepId, draft, token };
+
+  useEffect(() => {
+    const flush = () => {
+      const latest = latestSaveRef.current;
+
+      if (!latest.token || !dirtyRef.current || lastSavedDraftRef.current === latest.draft || submitState === "submitted") {
+        return;
+      }
+
+      lastSavedDraftRef.current = latest.draft;
+
+      void fetch("/api/join/draft", {
+        body: JSON.stringify({ currentStep: latest.currentStep, draft: latest.draft, resumeToken: latest.token }),
+        headers: { "Content-Type": "application/json" },
+        keepalive: true,
+        method: "POST",
+      }).catch(() => undefined);
+    };
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        flush();
+      }
+    };
+
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
+  }, [submitState]);
 
   // Autosave a short while after typing stops, so a browser closing unexpectedly
   // does not cost the applicant their work.
@@ -571,6 +643,15 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
       }
     }
 
+    // A reference Operations cannot reach is not a reference. A row with a
+    // relationship but no name, or a name with no way to contact them, is
+    // named here rather than counted as answered.
+    const references = (draft.answers.references ?? "").trim();
+
+    if (references && parseListValue(references, 3).some(([name, , contact]) => !name.trim() || !contact.trim())) {
+      missing.push({ label: "A name and a way to reach each reference", sectionId: "references", stepId: "experience" });
+    }
+
     if (!supportPath) {
       missing.push({ label: "Whether you expect to raise monthly support", sectionId: "path", stepId: "support" });
     }
@@ -651,6 +732,14 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
       }
 
       if (target?.tagName === "BUTTON" && !modified) {
+        return;
+      }
+
+      // Inside a repeating answer (references, household, prayer partners)
+      // Enter, or Return on a phone keyboard, was taking the applicant off the
+      // page halfway through entering a person. It stays on the page there;
+      // Continue and the modifier shortcut still advance.
+      if (target?.closest(".join-list") && !modified) {
         return;
       }
 
@@ -1467,17 +1556,40 @@ function SupportSection({
 function ListField({
   addLabel,
   columns,
+  id,
   onChange,
   value,
 }: {
   addLabel?: string;
   columns: JoinListColumn[];
+  id?: string;
   onChange: (value: string) => void;
   value: string;
 }) {
-  const rows = parseListValue(value, columns.length);
+  /*
+   * The rows being edited are held here, not re-derived from the stored text on
+   * every render. The stored text drops blank rows and trims each cell, which is
+   * right for what gets saved but wrong for what is on screen: re-deriving from
+   * it swallowed the space typed between a first and last name, and threw away
+   * the blank row "Add another" had just appended, so a second reference could
+   * never be added. `source` is the stored text these rows were last in step
+   * with; when the stored value changes from outside (a restored draft), the
+   * rows are rebuilt from it.
+   */
+  const [editing, setEditing] = useState(() => ({ rows: parseListValue(value, columns.length), source: value }));
+  let rows = editing.rows;
 
-  const write = (next: string[][]) => onChange(serializeListValue(next));
+  if (value !== editing.source) {
+    rows = parseListValue(value, columns.length);
+    setEditing({ rows, source: value });
+  }
+
+  const write = (next: string[][]) => {
+    const serialized = serializeListValue(next);
+
+    setEditing({ rows: next, source: serialized });
+    onChange(serialized);
+  };
 
   return (
     <div className="join-list">
@@ -1494,6 +1606,9 @@ function ListField({
                 <span className="join-list-cell-label">{column.label}</span>
                 <input
                   className="join-input"
+                  // The question's own label points at the first cell, so it is
+                  // not a label for nothing.
+                  id={rowIndex === 0 && cellIndex === 0 ? id : undefined}
                   onChange={(event) => {
                     const next = rows.map((existing) => [...existing]);
 
@@ -1552,7 +1667,7 @@ function FieldInput({
       {field.help ? <p className="join-field-help">{field.help}</p> : null}
 
       {field.kind === "list" && field.columns ? (
-        <ListField columns={field.columns} addLabel={field.addLabel} onChange={onChange} value={value} />
+        <ListField addLabel={field.addLabel} columns={field.columns} id={field.id} onChange={onChange} value={value} />
       ) : field.kind === "long" ? (
         <textarea
           className={`join-textarea${isNarrative ? " join-textarea-tall" : ""}`}
