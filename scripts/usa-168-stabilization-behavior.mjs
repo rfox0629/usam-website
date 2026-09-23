@@ -2121,9 +2121,10 @@ await check("Basic DOS surfaces do not leak engagement values when the feature i
      relationship and stop, rather than "Discipling · +3" or a placeholder. */
   const line = strip(client.slice(
     client.indexOf("function dashboardTimeInvestmentRelationshipLine("),
-    /* USA-257 removed DashboardAlignmentRow with Today's Alignment; the
-       helper is now followed by the Notifications panel. */
-    client.indexOf("function DashboardNotificationsPanel("),
+    /* USA-257 removed DashboardAlignmentRow with Today's Alignment, and
+       USA-282's follow-up retired the Notifications panel that stood after
+       this helper; the commitment status labels follow it now. */
+    client.indexOf("const commitmentStatusLabels:"),
   ));
 
   assert(
@@ -2389,7 +2390,18 @@ await check("Every editable sheet declares itself, and the primitive protects it
 
   assert(sheet.includes("useUnsavedWorkGuard({"), "Sheet owns the guard for editable surfaces.");
   assert(sheet.includes("onClick={requestClose}"), "The X routes through the guard.");
-  assert(/event.key === "Escape"[\s\S]{0,120}requestClose\(\)/.test(sheet), "Escape routes through the guard.");
+  /* USA-282 follow-up: Escape is handled by the shared useEscapeWhenOnTop, so
+     that two stacked surfaces do not both answer one key. It still routes
+     through the guard -- that is what is asserted here, on both halves. */
+  assert(sheet.includes("useEscapeWhenOnTop(requestClose)"), "Escape routes through the guard.");
+  assert(
+    /event\.key !== "Escape"[\s\S]{0,400}onEscapeRef\.current\(\)/.test(surfaces),
+    "And the shared handler is the one reading the key.",
+  );
+  assert(
+    /dosSurfaceEscapeStack\[dosSurfaceEscapeStack\.length - 1\] !== surfaceId/.test(surfaces),
+    "Only the surface on top answers Escape, so a stacked sheet is not closed with the one above it.",
+  );
   assert(sheet.includes("{guard.confirmation}"), "The sheet renders the discard confirmation.");
 
   /* Dirtiness is read from the live surface, so a sheet is protected by saying

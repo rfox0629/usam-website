@@ -299,7 +299,7 @@ assertIncludes(client, "`Completed ${resourceAssignmentTitle(assignment)}`", "co
    accountabilityDueRows / AccountabilityDashboardCard are retired; the
    capability is asserted by what the check-in list renders. */
 assertIncludes(client, "accountabilityCheckInRows({", "the check-in list is built from the shared eligibility rules");
-assertIncludes(client, "<HomeCheckInsPanel", "Home renders the compact check-in preview");
+assertIncludes(client, "<HomeAccountabilityPanel", "Home renders the accountability section");
 assertIncludes(client, "<CheckInsWorkspace", "People carries the full check-in list");
 assertIncludes(client, "resourceAssignmentForFollowUpSchedule(schedule, data.resourceAssignments)", "the check-in list connects follow-up schedules to assignments");
 /* USA-282: two growth follow-ups can exist for one assignment (midpoint and
@@ -311,7 +311,11 @@ assertIncludes(client, "kind: marker.kind", "a growth follow-up row carries its 
 assertIncludes(client, "groupName: assignment?.sourceGroupId ? groupNameById.get(assignment.sourceGroupId) ?? null : null", "a growth follow-up row carries its group context");
 /* Home previews and hands off; check-in, completion, and rescheduling run
    from the Person and Library surfaces, which still wire the same handlers. */
-assertIncludes(client, "onOpenCheckIn={openCheckInRow}", "a Home check-in row opens the accountability item itself");
+/* USA-282 follow-up: Home lists people, so a Home row opens the person and
+   the person's own sheet opens the item. A growth follow-up therefore still
+   reaches its record in two taps, and never names itself on Home. */
+assertIncludes(client, "onOpenAccountabilityPerson={openAccountabilityPerson}", "a Home accountability row opens that person");
+assertIncludes(client, "onOpenItem={openCheckInRow}", "and the person's own sheet opens the accountability item itself");
 assertIncludes(client, "onLogResourceCheckIn={openResourceAssignmentCheckIn}", "resource check-in flow stays reachable");
 assertIncludes(client, 'onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}', "completion action stays reachable");
 assertIncludes(client, "onEditResourceAssignment={openResourceAssignmentEdit}", "reschedule/edit action stays reachable");

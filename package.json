@@ -74,7 +74,7 @@
     "test:dos-log-meeting-form": "node --no-warnings scripts/dos-log-meeting-form-regression.mjs",
     "test:dos-kitchen-table-boundary": "node --no-warnings scripts/dos-kitchen-table-usam-boundary-behavior.mjs",
     "test:dos-accountability-composer": "node --no-warnings scripts/dos-accountability-composer-regression.mjs",
-    "test:dos-accountability-delete-e2e": "node --no-warnings --experimental-loader ./scripts/dos-accountability-delete-e2e/loader.mjs scripts/dos-accountability-delete-e2e.mjs",
+    "test:dos-accountability-e2e": "node --no-warnings --experimental-loader ./scripts/dos-accountability-e2e/loader.mjs scripts/dos-accountability-e2e.mjs",
     "test:dos-accountability-check-ins": "node --no-warnings --experimental-loader ./scripts/ts-loader.mjs scripts/dos-accountability-check-ins-regression.mjs",
     "test:usa-168-stabilization": "node --no-warnings scripts/usa-168-stabilization-behavior.mjs",
     "test:usa-168-person-ui": "node scripts/usa-168-person-ui-regression.mjs",

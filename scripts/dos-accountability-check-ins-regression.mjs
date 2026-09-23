@@ -11,9 +11,15 @@ import { readFileSync } from "node:fs";
 import {
   accountabilityCheckInCounts,
   accountabilityCheckInNeedsAttention,
-  accountabilityCheckInHomeSections,
+  accountabilityCheckInPeople,
   accountabilityCheckInRows,
-  accountabilityCheckInRowsForFilter,
+  accountabilityPeopleCounts,
+  accountabilityPeopleDueToday,
+  accountabilityPeopleForFilter,
+  accountabilityPeopleForStatus,
+  accountabilityPeopleSummaryLabel,
+  accountabilityPersonStatusOrder,
+  accountabilityUpcomingWindowDays,
   isAccountabilityCheckInFilter,
 } from "../src/lib/dos/accountability-checkins.ts";
 import { resourceAssignmentFollowUpDates, resourceAssignmentFollowUpScheduleTitle } from "../src/lib/dos/resource-assignments.ts";
@@ -51,7 +57,13 @@ function commitment(overrides) {
   };
 }
 
-const people = new Map([["person-a", "Nathaniel Bliss"], ["person-b", "Nathan Lind"]]);
+const people = new Map([
+  ["person-a", "Nathaniel Bliss"],
+  ["person-b", "Nathan Lind"],
+  /* Two different people who share a name. Grouping is by id, so they must
+     never collapse into one row. */
+  ["person-c", "Nathan Lind"],
+]);
 
 const build = ({ commitments = [], schedules = [] }) => accountabilityCheckInRows({
   commitments,
@@ -108,43 +120,86 @@ const build = ({ commitments = [], schedules = [] }) => accountabilityCheckInRow
   const counts = accountabilityCheckInCounts(rows);
 
   assert.deepEqual(counts, { all: 4, attention: 2, upcoming: 1 });
-  assert.equal(accountabilityCheckInRowsForFilter(rows, "attention").length, counts.attention);
-  assert.equal(accountabilityCheckInRowsForFilter(rows, "upcoming").length, counts.upcoming);
-  assert.equal(accountabilityCheckInRowsForFilter(rows, "all").length, counts.all);
-  // Home's two sections are drawn from the same rows as the attention filter.
-  const sections = accountabilityCheckInHomeSections(rows);
 
-  assert.equal(sections.today.length + sections.overdue.length, counts.attention);
-  assert.deepEqual(
-    [...sections.today, ...sections.overdue].map((row) => row.id).sort(),
-    accountabilityCheckInRowsForFilter(rows, "attention").map((row) => row.id).sort(),
+  /* The people the filters group are drawn from exactly these rows, so a
+     person can never appear in a group their items do not support. */
+  const grouped = accountabilityCheckInPeople({ dateValue, formatDate, rows, today, upcomingWindowDays: Number.POSITIVE_INFINITY });
+  const peopleCounts = accountabilityPeopleCounts(grouped);
+
+  assert.equal(
+    grouped.reduce((total, person) => total + person.items.length, 0),
+    counts.all,
+    "every eligible row belongs to exactly one person",
   );
+  assert.equal(peopleCounts.due_today + peopleCounts.past_due + peopleCounts.coming_up <= peopleCounts.total, true);
+  assert.equal(accountabilityPeopleForFilter(grouped, "all").length, peopleCounts.total);
   // Nothing the leader owns can hide from every filter.
   assert.equal(counts.attention + counts.upcoming + rows.filter((row) => row.bucket === "no_due_date").length, counts.all);
 }
 
 // ---------------------------------------------------------------------------
-// 3. Home's sections: Today and Overdue, each in the list's own order, and
-//    nothing that is not due.
+// 3. Home lists PEOPLE: one placement each, grouped and ordered.
+{
+  const rows = build({
+    commitments: [commitment({ id: "c-goal", personId: "person-a", targetDate: "2026-09-13" })],
+    schedules: [
+      /* One person, three records: a missed rhythm, a milestone due today and
+         a goal that is also late. */
+      schedule({ id: "s-a-late", personId: "person-a", nextCheckIn: "2026-09-08" }),
+      schedule({ id: "s-a-today", personId: "person-a", nextCheckIn: today }),
+      /* Someone whose only item is due today. */
+      schedule({ id: "s-b-today", personId: "person-b", nextCheckIn: today }),
+      /* Someone scheduled inside the window, and the same name as person-b. */
+      schedule({ id: "s-c-soon", personId: "person-c", nextCheckIn: "2026-09-25" }),
+    ],
+  });
+  const grouped = accountabilityCheckInPeople({ dateValue, formatDate, rows, today });
+
+  // Several items for one person produce one row, which says how many.
+  assert.equal(grouped.length, 3, "three people, however many records they hold");
+  const nathaniel = grouped.find((person) => person.personId === "person-a");
+  assert.equal(nathaniel.items.length, 3);
+  assert.equal(nathaniel.itemCountLabel, "3 check-ins", "the unit is always said");
+
+  // Past due wins the classification, measured from the OLDEST outstanding
+  // date -- and the person is still due today for today's agenda.
+  assert.equal(nathaniel.status, "past_due");
+  assert.equal(nathaniel.statusDate, "2026-09-08");
+  assert.equal(nathaniel.hasDueToday, true);
+  assert.deepEqual(accountabilityPeopleDueToday(grouped).map((person) => person.personId).sort(), ["person-a", "person-b"]);
+
+  // Two people with the same name stay two people.
+  assert.equal(grouped.filter((person) => person.personName === "Nathan Lind").length, 2);
+  assert.equal(grouped.find((person) => person.personId === "person-c").itemCountLabel, null, "a single item needs no count");
+
+  // Display order: due today, then past due, then coming up.
+  assert.deepEqual(grouped.map((person) => person.status), ["due_today", "past_due", "coming_up"]);
+  assert.deepEqual(accountabilityPersonStatusOrder, ["due_today", "past_due", "coming_up"]);
+
+  // Counts are of PEOPLE; the summary says both numbers with their units.
+  assert.deepEqual(accountabilityPeopleCounts(grouped), { coming_up: 1, due_today: 1, past_due: 1, total: 3 });
+  assert.equal(accountabilityPeopleSummaryLabel(grouped), "3 people · 5 check-ins");
+  assert.equal(accountabilityPeopleForStatus(grouped, "past_due").length, 1);
+  assert.equal(accountabilityPeopleForFilter(grouped, "all").length, 3);
+  assert.equal(accountabilityPeopleForFilter(grouped, "due_today")[0].personId, "person-b");
+}
+
+// 3b. Home's "coming up" stays inside the existing window; the full list has
+//     no window, so nothing scheduled later hides from every surface.
 {
   const rows = build({
     schedules: [
-      schedule({ id: "s1", nextCheckIn: "2026-09-10" }),
-      schedule({ id: "s2", nextCheckIn: "2026-09-11" }),
-      schedule({ id: "s3", nextCheckIn: "2026-09-12" }),
-      schedule({ id: "s4", nextCheckIn: today }),
-      schedule({ id: "s5", nextCheckIn: "2026-10-01" }),
+      schedule({ id: "s-soon", personId: "person-a", nextCheckIn: "2026-09-26" }),
+      schedule({ id: "s-later", personId: "person-b", nextCheckIn: "2026-11-30" }),
     ],
   });
-  const sections = accountabilityCheckInHomeSections(rows);
+  const home = accountabilityCheckInPeople({ dateValue, formatDate, rows, today });
+  const full = accountabilityCheckInPeople({ dateValue, formatDate, rows, today, upcomingWindowDays: Number.POSITIVE_INFINITY });
 
-  assert.deepEqual(sections.overdue.map((row) => row.id), ["schedule-s1", "schedule-s2", "schedule-s3"]);
-  assert.deepEqual(sections.today.map((row) => row.id), ["schedule-s4"]);
-  // Upcoming and undated are not "due", so neither section can show them.
-  assert.equal([...sections.today, ...sections.overdue].every((row) => row.bucket === "overdue" || row.bucket === "due_today"), true);
-  // Home shows the date on its own; the status word is the section heading.
-  assert.equal(sections.overdue[0].dueDateLabel, "2026-09-10");
-  assert.equal(rows.find((row) => row.bucket === "no_due_date") ?? null, null);
+  assert.equal(accountabilityUpcomingWindowDays, 7);
+  assert.deepEqual(home.filter((person) => person.status === "coming_up").map((person) => person.personId), ["person-a"]);
+  assert.equal(home.find((person) => person.personId === "person-b").status, null, "outside the window it carries no group on Home");
+  assert.deepEqual(full.filter((person) => person.status === "coming_up").map((person) => person.personId), ["person-a", "person-b"]);
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +217,7 @@ const build = ({ commitments = [], schedules = [] }) => accountabilityCheckInRow
   });
 
   assert.deepEqual(rows.map((row) => row.id).sort(), ["commitment-c-active", "schedule-s-active"]);
-  assert.equal(accountabilityCheckInRowsForFilter(rows, "all").length, 2);
+  assert.equal(accountabilityCheckInPeople({ dateValue, formatDate, rows, today }).length, 1, "both open records belong to one person");
 }
 
 // ---------------------------------------------------------------------------
@@ -277,8 +332,12 @@ const build = ({ commitments = [], schedules = [] }) => accountabilityCheckInRow
 
   assert.deepEqual(rows, []);
   assert.deepEqual(accountabilityCheckInCounts(rows), { all: 0, attention: 0, upcoming: 0 });
-  assert.deepEqual(accountabilityCheckInHomeSections(rows), { overdue: [], today: [] });
-  assert.equal(isAccountabilityCheckInFilter("attention"), true);
+  assert.deepEqual(accountabilityCheckInPeople({ dateValue, formatDate, rows, today }), []);
+  assert.deepEqual(accountabilityPeopleCounts([]), { coming_up: 0, due_today: 0, past_due: 0, total: 0 });
+  for (const filter of ["due_today", "past_due", "coming_up", "all"]) {
+    assert.equal(isAccountabilityCheckInFilter(filter), true);
+  }
+  assert.equal(isAccountabilityCheckInFilter("attention"), false, "the item-shaped filters are retired");
   assert.equal(isAccountabilityCheckInFilter("everything"), false);
 }
 
@@ -324,11 +383,12 @@ assert.equal((client.match(/journeyFollowUpSheetCopy\(checkInRows,/g) ?? []).len
 assert.match(client, /if \(!schedule \|\| !parseResourceAssignmentFollowUpScheduleTitle\(schedule\.title\)\) \{\s*return null;/, "A leader's own rhythm keeps the copy it has (spec §1 B12).");
 assert.match(client, /onCheckIn=\{\(\) => openPersonAccountabilityCheckIn\(record\.personId, schedule, commitment\)\}/, "The item's Check in opens the existing form for that person and item.");
 {
-  const row = client.slice(client.indexOf("function CheckInListRow("), client.indexOf("function HomeCheckInRow("));
+  const row = client.slice(client.indexOf("function AccountabilityPersonListRow("), client.indexOf("function CheckInsWorkspace("));
 
   assert.equal((row.match(/<button/g) ?? []).length, 1, "The whole row is one tap target (spec §3).");
   assert.match(row, /min-h-\[60px\]/, "The row keeps a comfortable tap target.");
   assert.match(row, /<ChevronRight/, "The row shows it opens something.");
+  assert.equal(/row\.topic|row\.context/.test(row), false, "The list's row is a person, and says nothing about the subject.");
 }
 assert.match(client, /<PersonAccountabilityCheckInSheet/);
 assert.match(read("app/api/dos/app/accountability/check-ins/route.ts"), /nextAccountabilityCheckInDate\(/, "A recurring rhythm rolls forward with the existing recurrence rules.");
@@ -352,8 +412,16 @@ assert.match(client, /if \(result\?\.checkIn\) \{\s*setCommitmentSheet\(null\);/
 // Home's preview and the full list read the same module; nothing recomputes
 // eligibility on its own.
 assert.equal((client.match(/accountabilityCheckInRows\(\{/g) ?? []).length, 1, "Eligibility is computed in exactly one place.");
-assert.match(client, /checkInAttentionCount=\{checkInCounts\.attention\}/);
-assert.match(client, /counts=\{checkInCounts\}/);
+/* Every accountability surface -- Home, the list, today's agenda, the People
+   control -- groups the SAME rows with the same function, so no two of them
+   can disagree about who is behind or how many. */
+assert.equal((client.match(/accountabilityCheckInPeople\(\{/g) ?? []).length, 2, "Grouping happens twice: Home's window, and the full list's lack of one.");
+assert.match(client, /upcomingWindowDays: accountabilityUpcomingWindowDays/);
+assert.match(client, /upcomingWindowDays: Number\.POSITIVE_INFINITY/);
+assert.match(client, /accountabilityPeople=\{checkInPeople\}/);
+assert.match(client, /counts=\{checkInPeopleCounts\}/);
+assert.match(client, /people=\{accountabilityPeopleForFilter\(checkInPeopleAll, checkInsFilter\)\}/);
+assert.match(client, /const accountabilityPeopleNeedingAttention = checkInPeopleCounts\.due_today \+ checkInPeopleCounts\.past_due;/, "The People control counts people, from the same grouping.");
 assert.equal(client.includes("function accountabilityDueRows"), false, "The old Home-only bucketing is retired.");
 assert.equal(client.includes("AccountabilityDashboardCard"), false, "The three-count-box Accountability card is retired.");
 assert.equal(client.includes("more on the people themselves"), false, "The dead-end line is gone.");
@@ -364,15 +432,50 @@ assert.equal(client.includes("more on the people themselves"), false, "The dead-
    holds and a phone is read in public, so Home says who and when only --
    in the row, and in the accessible name it exposes. */
 {
-  const homeRow = client.slice(client.indexOf("function HomeCheckInRow("), client.indexOf("function HomeCheckInSectionHeading("));
+  const homeRow = client.slice(client.indexOf("function HomeAccountabilityPersonRow("), client.indexOf("function HomeAccountabilitySectionHeading("));
 
   assert.equal((homeRow.match(/<button/g) ?? []).length, 1, "Home's row is one tap target too.");
-  assert.match(homeRow, /row\.personName/);
-  assert.match(homeRow, /row\.dueDateLabel/);
-  assert.equal(/row\.topic|row\.context|checkInSecondaryLine|CheckInStatusChip/.test(homeRow), false, "No topic, resource title or description reaches Home.");
+  assert.match(homeRow, /person\.personName/);
+  assert.match(homeRow, /person\.statusDateLabel/);
+  assert.match(homeRow, /person\.itemCountLabel/);
+  assert.equal(/\.topic|\.context|checkInSecondaryLine|CheckInStatusChip/.test(homeRow), false, "No topic, resource title or description reaches Home.");
   assert.equal(/title=\{/.test(homeRow), false, "No tooltip carries the subject either.");
-  assert.match(homeRow, /aria-label=\{row\.dueDateLabel \? `Check in with \$\{row\.personName\}, due/, "The accessible name is the name and the date only.");
+  assert.match(homeRow, /aria-label=\{\[`Check in with \$\{person\.personName\}`/, "The accessible name is the name, the date and the count -- nothing else.");
+  assert.match(homeRow, />Check in<\/span>/, "The row offers the check-in by name.");
 }
+
+/* Today replaced Notifications, and carries only today. */
+{
+  const todayPanel = client.slice(client.indexOf("function HomeTodayPanel("), client.indexOf("function CommitmentSuccessSheet("));
+
+  assert.match(todayPanel, /eyebrow="Today"/);
+  assert.match(todayPanel, /homeTodaySummaryLabel\(counts\)/, "The summary says what each number counts.");
+  assert.match(todayPanel, /homeTodayEmptyLabel/);
+  assert.equal(client.includes("function DashboardNotificationsPanel("), false, "The notifications panel that duplicated the backlog is gone.");
+  assert.equal(client.includes("badge: `${checkInAttentionCount} due`"), false, "And so is its badge for that backlog.");
+  assert.match(client, /icon === "anniversary" \|\| item\.icon === "birthday" \|\| item\.icon === "meeting"/, "Today covers meetings, birthdays and anniversaries.");
+  assert.match(client, /isHomeTodayDate\(displayDayKeyForValue\(item\.date\), reportToday\)/, "Today is today only, in the workspace's display timezone.");
+  assert.match(client, /peopleToCheckIn: todayCheckInPeople\.length/, "And the people with a check-in due today.");
+  assert.match(client, /accountabilityPeopleDueToday\(checkInPeopleAll\)/, "Today's list is independent of the group a person is classified into.");
+}
+
+/* The person's own items, opened deliberately: topics belong here. */
+{
+  const personSheet = client.slice(client.indexOf("function PersonAccountabilitySheet("), client.indexOf("function TodayAgendaSheet("));
+
+  assert.match(personSheet, /person\.items\.map/, "Every open item is listed.");
+  assert.match(personSheet, /row\.topic/, "With its topic, which this surface is allowed to say.");
+  assert.match(personSheet, /onOpenItem\(row\)/, "Each item opens its own record, so one check-in cannot complete another.");
+}
+assert.match(client, /function openAccountabilityPerson\(person: AccountabilityPerson\) \{/);
+assert.match(client, /if \(person\.items\.length === 1\) \{\s*openCheckInRow\(person\.items\[0\]\);/, "One item opens directly; several open the person.");
+
+/* An old rhythm that no longer fits can be moved or stopped, on the record. */
+assert.match(client, /async function submitAccountabilityReschedule\(/);
+assert.match(client, /\{ id: rescheduleSchedule\.id, nextCheckIn \},\s*"PATCH",/, "Reschedule moves only the next date.");
+assert.match(client, /async function toggleAccountabilitySchedulePause\(/);
+assert.match(client, /\{ id: schedule\.id, status: paused \? "active" : "paused" \},\s*"PATCH",/, "Pause and resume go through the existing status field.");
+assert.match(client, /pauseLabel=\{schedule\?\.status === "paused" \? "Resume" : "Pause"\}/);
 
 /* The delete is one operation, asked for once, and offered wherever an
    accountability record is managed: the record's own menu, the item a
@@ -402,10 +505,11 @@ assert.equal(client.includes("if (!result) {"), true, "A failed delete keeps the
   assert.match(commitments, /\.eq\("linked_commitment_id", commitmentId\)/, "Nor the shadow commitment a Journey assignment carries.");
 }
 
-/* The count on the People control is the same figure as Home and the
-   notification, from the same helper. */
-assert.match(client, /\{checkInCounts\.attention \? \(/, "The People control carries the count.");
-assert.match(client, /`Check-ins, \$\{checkInCounts\.attention\} need attention`/, "It reads as a count of check-ins, not of people.");
+/* The People control opens the list and carries the same number its first
+   two filters carry, counted in people. */
+assert.match(client, /\{accountabilityPeopleNeedingAttention \? \(/, "The People control carries the count.");
+assert.match(client, /`Accountability, \$\{accountabilityPeopleNeedingAttention\} \$\{accountabilityPeopleNeedingAttention === 1 \? "person needs" : "people need"\} a check-in`/, "It reads as people, with the unit said.");
+assert.match(client, /<span>Accountability<\/span>/, "And the control is named for what it opens.");
 
 // The module stays pure: no clock, no locale, no React.
 assert.equal(/new Date\(|Date\.now\(|toLocale|from "react"/.test(lib), false, "The eligibility module takes its day key and formatter from the caller.");

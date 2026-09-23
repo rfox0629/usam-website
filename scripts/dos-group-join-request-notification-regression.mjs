@@ -14,6 +14,10 @@ function assertIncludes(source, needle, message) {
   assert(source.includes(needle), message);
 }
 
+function assertExcludes(source, needle, message) {
+  assert(!source.includes(needle), message);
+}
+
 function assertOrder(source, first, second, message) {
   const firstIndex = source.indexOf(first);
   const secondIndex = source.indexOf(second);
@@ -148,8 +152,19 @@ assertIncludes(appClient, "function handleGroupJoinRequestResolved(groupId: stri
 assertIncludes(appClient, "const wasPending = joinRequests.find((request) => request.id === requestId)?.status ===", "reviewJoinRequest must check the pre-action status before deciding whether to decrement.");
 assertIncludes(appClient, "onJoinRequestResolved(group.id);", "reviewJoinRequest must call onJoinRequestResolved after a resolving action.");
 assertIncludes(appClient, 'const requestedGroupId = searchParams.get("openGroup");', "DOS client must read an openGroup query param for email deep links.");
-assertIncludes(appClient, "DashboardNotificationsPanel", "Dashboard must render the unified notifications panel.");
-assertIncludes(appClient, 'subtitle: "Group join request"', "Dashboard must render pending group join requests as notifications.");
-assertIncludes(appClient, "onClick: () => onOpenGroupJoinRequests(item.groupId)", "Group join request notifications must open the group's pending requests.");
+/* USA-282 follow-up: Home's Notifications panel is retired -- it had become a
+   second copy of the accountability backlog listed directly below it, and
+   Today replaced it with today's own events. A join request is not today's
+   event, so it is not there.
+
+   What must not be lost is the way to it, and that is asserted here rather
+   than assumed: the request is still surfaced on the group that received it,
+   counted on its card in the Groups list, opened straight into its Members
+   tab, and reachable from the notification email's deep link. */
+assertIncludes(appClient, "pendingRequestCount > 0 ?", "A group's card must still show its pending-request count.");
+assertIncludes(appClient, "{pendingRequestCount} pending {pendingRequestCount === 1 ? \"request\" : \"requests\"}", "Named with its unit.");
+assertIncludes(appClient, "onClick={() => onOpenGroupJoinRequests(group.id)}", "And opening it must reach that group's pending requests.");
+assertIncludes(appClient, "pendingRequestCounts: Record<string, number>", "The Groups list must carry the per-group counts.");
+assertExcludes(appClient, "DashboardNotificationsPanel", "The retired Home notifications panel must not come back without a decision.");
 
 console.log("dos-group-join-request-notification-regression: all checks passed.");

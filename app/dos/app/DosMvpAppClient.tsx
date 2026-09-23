@@ -156,15 +156,29 @@ import {
 } from "@/src/lib/dos/accountability-presentation";
 import {
   accountabilityCheckInCounts,
-  accountabilityCheckInHomeSections,
-  accountabilityCheckInNeedsAttention,
+  accountabilityCheckInPeople,
   accountabilityCheckInRows,
-  accountabilityCheckInRowsForFilter,
+  accountabilityPeopleForFilter,
+  accountabilityPeopleSummaryLabel,
+  accountabilityPeopleCounts,
+  accountabilityPeopleDueToday,
+  accountabilityPeopleForStatus,
+  accountabilityPersonStatusLabels,
+  accountabilityPersonStatusOrder,
+  accountabilityUpcomingWindowDays,
   isAccountabilityCheckInFilter,
   type AccountabilityCheckInCounts,
   type AccountabilityCheckInFilter,
   type AccountabilityCheckInRow,
+  type AccountabilityPerson,
 } from "@/src/lib/dos/accountability-checkins";
+import {
+  homeTodayEmptyLabel,
+  homeTodaySummaryLabel,
+  homeTodayTotal,
+  isHomeTodayDate,
+  type HomeTodayCounts,
+} from "@/src/lib/dos/home-today";
 import {
   dosAccountabilityFrequencies,
   dosCommitmentCategories,
@@ -2010,6 +2024,16 @@ type GroupGatheringView = DosAppGroupGathering & {
   derived?: boolean;
   sourceGatheringId?: string | null;
 };
+
+/* A calendar date in the workspace's display timezone, whatever shape the
+   stored value has: a date key stays itself, an instant is read in the zone.
+   A meeting at 7pm Chicago is stored as tomorrow in UTC, and reading its
+   first ten characters put it on the wrong day. */
+function displayDayKeyForValue(value: string | null | undefined) {
+  const date = value ? parseDisplayDate(value) : null;
+
+  return date ? displayDateKey(date) : value?.slice(0, 10) ?? "";
+}
 
 function groupGatheringDateKey(value: string | null | undefined) {
   const date = value ? parseDisplayDate(value) : null;
@@ -12529,14 +12553,6 @@ type DashboardUpcomingRow = {
   title: string;
 };
 
-type DashboardNotificationItem = {
-  badge: string;
-  icon: ReactNode;
-  id: string;
-  onClick: () => void;
-  subtitle: string;
-  title: string;
-};
 
 /* `mentor_meeting:<id>` opens that saved discipleship meeting (USA-265: from
    the Person record or the report). */
@@ -12608,36 +12624,6 @@ function dashboardEngagementScoreLabel(person: DosAppPerson) {
 function dashboardTimeInvestmentRelationshipLine(person: DosAppPerson, showEngagement: boolean, relationship = dashboardDiscipleshipRelationshipLabel(person)) {
 
   return showEngagement ? `${relationship} · ${dashboardEngagementScoreLabel(person)}` : relationship;
-}
-
-function DashboardNotificationsPanel({ items }: { items: DashboardNotificationItem[] }) {
-  return (
-    <DesktopPanel className="min-w-0" compact eyebrow="Notifications">
-      <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF] bg-white">
-        {items.length ? items.map((item) => (
-          <button
-            className="grid min-h-[52px] w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-[#EAF2FF] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[34px_minmax(0,1fr)_auto]"
-            key={item.id}
-            onClick={item.onClick}
-            type="button"
-          >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[12px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-              {item.icon}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{item.title}</span>
-              <span className="mt-0.5 hidden truncate text-xs font-semibold leading-4 text-[#64748B] sm:block">{item.subtitle}</span>
-            </span>
-            <span className="max-w-[142px] shrink-0 truncate rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-right text-[10px] font-black uppercase leading-none tracking-[0.08em] text-[#1D4ED8] sm:max-w-[180px]" style={{ fontFamily: font.rajdhani }}>
-              {item.badge}
-            </span>
-          </button>
-        )) : (
-          <p className="px-3 py-2.5 text-sm font-semibold text-[#64748B]">No notifications today.</p>
-        )}
-      </div>
-    </DesktopPanel>
-  );
 }
 
 const commitmentStatusLabels: Record<DosCommitmentStatus, string> = {
@@ -13058,10 +13044,6 @@ function ResourceAssignmentCard({
  * blue/white language Home requires (USA-257 §8), so "Overdue" is carried by
  * the word, not by a red.
  */
-function checkInSecondaryLine(row: AccountabilityCheckInRow) {
-  return row.context ? `${row.topic} · ${row.context}` : row.topic;
-}
-
 /* USA-282: what a growth follow-up's own sheets say.
  *
  * Opened from the check-in list, the detail and check-in sheets read
@@ -13100,102 +13082,40 @@ type PendingAccountabilityDelete = {
   title: string;
 };
 
-function CheckInStatusChip({ row }: { row: AccountabilityCheckInRow }) {
-  const needsAttention = accountabilityCheckInNeedsAttention(row);
-
-  return (
-    <span
-      className={`inline-flex h-5 shrink-0 items-center whitespace-nowrap rounded-dos-3 px-2 text-dos-pill ${
-        needsAttention ? "bg-dos-blue50 text-dos-blueText" : "bg-dos-surface2 text-dos-secondary"
-      }`}
-    >
-      {row.statusLabel}
-    </span>
-  );
-}
-
-/* The whole row is the tap target (spec §3), and it opens the accountability
-   item itself for this person -- never their generic profile. The item is
-   where the check-in already lives, beside the recent check-ins a leader
-   wants to read before recording another, and its action is already named
-   for what it records.
-
-   A second control beside the row was tried and removed: it cost about 90px
-   of a 390px screen, which truncated the topic to "Purity · W…" and
-   "Growth fo…" -- so two follow-ups for one person read identically again,
-   which is the founder's screenshot. */
-function CheckInListRow({
+/* USA-282 follow-up: Home is discreet, and Home lists PEOPLE.
+ *
+ * A row says who, when, and how many -- never what. A leader's phone is read
+ * in public and the subject of someone's accountability is the most private
+ * thing DOS holds, so it is not in the row, not in a tooltip, and not in an
+ * accessibility label. It is one deliberate tap away, inside the person.
+ *
+ * One row per person, by canonical id: a weekly rhythm and two Journey
+ * milestones are three records and one person to sit down with. */
+function HomeAccountabilityPersonRow({
   onOpen,
-  row,
+  person,
 }: {
   onOpen: () => void;
-  row: AccountabilityCheckInRow;
+  person: AccountabilityPerson;
 }) {
+  const meta = [person.statusDateLabel, person.itemCountLabel].filter(Boolean).join(" · ");
+
   return (
     <div className="flex min-w-0 items-center border-t border-dos-line first:border-t-0">
       <button
-        className="flex min-h-[60px] min-w-0 flex-1 items-center gap-2.5 py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
-        onClick={onOpen}
-        type="button"
-      >
-        <Avatar name={row.personName} size="sm" />
-        {/* Name, then status, then what it is about -- and none of the three
-            squeezes the others.
-
-            The name and the chip share a wrapping line, so the name takes the
-            width it needs and the chip drops beneath it only when they cannot
-            both fit. Fixing them on one line truncated ordinary names to
-            "George Je…" in Home's narrow column; putting the chip in front of
-            the topic instead truncated the topic to "Growth follow-…", which
-            hid the Midpoint / Completion phase -- the one thing that tells
-            two follow-ups for the same person apart. The topic therefore gets
-            a line of its own, full width. */}
-        <span className="min-w-0 flex-1">
-          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-            <span className="max-w-full truncate text-dos-body font-semibold text-dos-primary">{row.personName}</span>
-            <CheckInStatusChip row={row} />
-          </span>
-          <span className="mt-1 block truncate text-dos-meta text-dos-secondary">{checkInSecondaryLine(row)}</span>
-        </span>
-        <ChevronRight aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
-      </button>
-    </div>
-  );
-}
-
-/* USA-282 follow-up: Home is discreet.
-
-   A row here says who and when, and offers the check-in -- nothing about
-   what the accountability is. A leader's phone is read in public, and the
-   topic of someone's accountability is the most private thing DOS holds, so
-   it is not on the home screen, not in a tooltip, and not in an
-   accessibility label either. The subject is one tap away, on the item
-   itself, where the leader has chosen to look at it. */
-function HomeCheckInRow({
-  onOpen,
-  row,
-}: {
-  onOpen: () => void;
-  row: AccountabilityCheckInRow;
-}) {
-  return (
-    <div className="flex min-w-0 items-center border-t border-dos-line first:border-t-0">
-      <button
-        /* The name and the date, and nothing else: the accessible name says
-           exactly what the row shows. */
-        aria-label={row.dueDateLabel ? `Check in with ${row.personName}, due ${row.dueDateLabel}` : `Check in with ${row.personName}`}
+        /* The name, the date and the number of check-ins -- the same three
+           things the row shows, and nothing the row does not. */
+        aria-label={[`Check in with ${person.personName}`, person.statusDateLabel, person.itemCountLabel].filter(Boolean).join(", ")}
         className="flex min-h-[56px] min-w-0 flex-1 items-center gap-2.5 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
         onClick={onOpen}
         type="button"
       >
-        <Avatar name={row.personName} size="sm" />
+        <Avatar name={person.personName} size="sm" />
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-dos-body font-semibold text-dos-primary">{row.personName}</span>
-          {row.dueDateLabel ? <span className="mt-0.5 block text-dos-meta text-dos-secondary">{row.dueDateLabel}</span> : null}
+          <span className="block truncate text-dos-body font-semibold text-dos-primary">{person.personName}</span>
+          {meta ? <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{meta}</span> : null}
         </span>
-        {/* The action the row performs, named. It is inside the one tap
-            target rather than beside it: a second button cost about 90px of a
-            390px screen, and there is no second thing to do to a row. */}
+        {/* The action the row performs, named, inside the one tap target. */}
         <span aria-hidden="true" className="ml-2 shrink-0 text-dos-label font-semibold text-dos-blueText">Check in</span>
         <ChevronRight aria-hidden="true" className="ml-1 h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
       </button>
@@ -13203,10 +13123,9 @@ function HomeCheckInRow({
   );
 }
 
-/* A section heading and its count. This is what replaced the three large
-   count boxes: the number sits on the list it counts, so it is never a
-   figure with nowhere to go. */
-function HomeCheckInSectionHeading({ count, label }: { count: number; label: string }) {
+/* A section heading and its count. The count is PEOPLE -- the heading is a
+   group of people -- while a row's own count says "check-ins" out loud. */
+function HomeAccountabilitySectionHeading({ count, label }: { count: number; label: string }) {
   return (
     <div className="flex items-baseline gap-2 pb-1 pt-2.5 first:pt-0">
       <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{label}</p>
@@ -13215,158 +13134,197 @@ function HomeCheckInSectionHeading({ count, label }: { count: number; label: str
   );
 }
 
-/* Home's Check-ins: today, then what is already late, then the way to
-   everything else. It sits directly under the Home action buttons, above Top
-   Time Investments, and is the only accountability list on Home -- the lower
-   card with three large count boxes and "N more on the people themselves" is
-   gone, because a number with no destination is not a list. */
-const homeCheckInVisibleRows = 6;
+/* Home's Accountability: who needs a check-in, today first. It sits directly
+   under the Home action buttons, above Top Time Investments, and it is the
+   only backlog on Home -- Today above it carries only today, so the two never
+   list the same thing twice. */
+const homeAccountabilityVisiblePeople = 6;
 
-function HomeCheckInsPanel({
+function HomeAccountabilityPanel({
   onOpenAll,
-  onOpenRow,
-  onOpenUpcoming,
-  rows,
-  upcomingCount,
+  onOpenPerson,
+  people,
 }: {
   onOpenAll: () => void;
-  onOpenRow: (row: AccountabilityCheckInRow) => void;
-  onOpenUpcoming: () => void;
-  rows: AccountabilityCheckInRow[];
-  upcomingCount: number;
+  onOpenPerson: (person: AccountabilityPerson) => void;
+  people: AccountabilityPerson[];
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const sections = accountabilityCheckInHomeSections(rows);
-  /* Today is never the thing that gets cut. It is the smaller list and it is
-     the day's own work, so it is shown in full and the remainder of the
-     visible rows goes to the overdue backlog. */
-  const visibleToday = isExpanded ? sections.today : sections.today.slice(0, homeCheckInVisibleRows);
-  const visibleOverdue = isExpanded
-    ? sections.overdue
-    : sections.overdue.slice(0, Math.max(0, homeCheckInVisibleRows - visibleToday.length));
-  const hiddenCount = (sections.today.length - visibleToday.length) + (sections.overdue.length - visibleOverdue.length);
+  const visible = people.slice(0, homeAccountabilityVisiblePeople);
+  const sections = accountabilityPersonStatusOrder
+    .map((status) => ({
+      label: accountabilityPersonStatusLabels[status],
+      /* The count is of everyone in that group, not only of those shown, so
+         the heading never shrinks to fit the page. */
+      total: accountabilityPeopleForStatus(people, status).length,
+      visible: accountabilityPeopleForStatus(visible, status),
+    }))
+    .filter((section) => section.visible.length);
 
   return (
     <DesktopPanel
-      action={<DashboardHeaderAction onClick={onOpenAll}>View all check-ins</DashboardHeaderAction>}
+      action={people.length > visible.length
+        ? <DashboardHeaderAction onClick={onOpenAll}>{`View all ${people.length}`}</DashboardHeaderAction>
+        : <DashboardHeaderAction onClick={onOpenAll}>View all</DashboardHeaderAction>}
       className="min-w-0"
       compact
-      eyebrow="Check-ins"
+      eyebrow="Accountability"
     >
-      {rows.length ? (
-        <>
-          {visibleToday.length ? (
-            <>
-              <HomeCheckInSectionHeading count={sections.today.length} label="Today" />
-              <div className="grid">
-                {visibleToday.map((row) => (
-                  <HomeCheckInRow key={row.id} onOpen={() => onOpenRow(row)} row={row} />
-                ))}
-              </div>
-            </>
-          ) : null}
-          {visibleOverdue.length ? (
-            <>
-              <HomeCheckInSectionHeading count={sections.overdue.length} label="Overdue" />
-              <div className="grid">
-                {visibleOverdue.map((row) => (
-                  <HomeCheckInRow key={row.id} onOpen={() => onOpenRow(row)} row={row} />
-                ))}
-              </div>
-            </>
-          ) : null}
-          {/* The rest open here, in place. The old card counted them and then
-              sent the reader away to find them one person at a time. */}
-          {hiddenCount || isExpanded ? (
-            <button
-              className="mt-2 flex min-h-11 w-full items-center justify-center rounded-dos-3 border border-dos-line bg-white text-dos-label font-semibold text-dos-blueText transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
-              onClick={() => setIsExpanded((current) => !current)}
-              type="button"
-            >
-              {isExpanded ? "Show fewer" : `Show ${hiddenCount} more`}
-            </button>
-          ) : null}
-        </>
+      {people.length ? (
+        sections.map((section) => (
+          <Fragment key={section.label}>
+            <HomeAccountabilitySectionHeading count={section.total} label={section.label} />
+            <div className="grid">
+              {section.visible.map((person) => (
+                <HomeAccountabilityPersonRow key={person.personId} onOpen={() => onOpenPerson(person)} person={person} />
+              ))}
+            </div>
+          </Fragment>
+        ))
       ) : (
         /* One short line. An empty list needs no explanation of what it would
            have contained. */
-        <p className="text-sm font-semibold text-[#64748B]">No check-ins need attention.</p>
+        <p className="text-sm font-semibold text-[#64748B]">No one needs a check-in right now.</p>
       )}
-      {/* Upcoming is reachable without taking a row from today: one quiet
-          line under the list, opening the full list already on that filter. */}
-      {upcomingCount ? (
+    </DesktopPanel>
+  );
+}
+
+/* Home's Today, in place of Notifications.
+ *
+ * Notifications had become a second copy of the check-in backlog: "9 due" on
+ * top of the nine rows below it. Today answers the question the old panel was
+ * being asked to answer and could not -- what is actually happening today --
+ * and says it in units, so no number sits on Home without saying what it
+ * counts. It is today only: what is late belongs to Accountability, what is
+ * coming belongs to Upcoming. */
+function HomeTodayPanel({
+  counts,
+  onOpen,
+}: {
+  counts: HomeTodayCounts;
+  onOpen: () => void;
+}) {
+  const total = homeTodayTotal(counts);
+
+  return (
+    <DesktopPanel className="min-w-0" compact eyebrow="Today">
+      {total ? (
         <button
-          className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 border-t border-dos-line pt-2 text-left text-dos-meta font-semibold text-dos-secondary transition-colors hover:text-dos-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
-          onClick={onOpenUpcoming}
+          aria-label={`Today: ${homeTodaySummaryLabel(counts)}`}
+          className="flex min-h-[52px] w-full items-center gap-3 rounded-[18px] border border-[#EAF2FF] bg-white px-3 py-2 text-left transition-colors hover:bg-[#F8FBFF] focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+          onClick={onOpen}
           type="button"
         >
-          <span>Upcoming</span>
-          <span className="flex items-center gap-1 text-dos-blueText">
-            {upcomingCount}
-            <ChevronRight aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
+          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[12px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+            <CalendarDays aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
           </span>
+          <span className="min-w-0 flex-1 text-dos-body font-semibold text-dos-primary">{homeTodaySummaryLabel(counts)}</span>
+          <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
         </button>
-      ) : null}
+      ) : (
+        <p className="text-sm font-semibold text-[#64748B]">{homeTodayEmptyLabel}</p>
+      )}
     </DesktopPanel>
   );
 }
 
 const checkInFilterLabels: Record<AccountabilityCheckInFilter, string> = {
   all: "All",
-  attention: "Needs attention",
-  upcoming: "Upcoming",
+  coming_up: "Coming up",
+  due_today: "Due today",
+  past_due: "Past due",
 };
 
 const checkInEmptyCopy: Record<AccountabilityCheckInFilter, string> = {
-  all: "No open check-ins. Completed ones stay on the person's record.",
-  attention: "Nothing overdue or due today.",
-  upcoming: "Nothing scheduled ahead.",
+  all: "No one has an open check-in. Completed ones stay on the person's record.",
+  coming_up: "Nothing scheduled ahead.",
+  due_today: "No one is due today.",
+  past_due: "Nobody is behind.",
 };
+
+/* A person in the full list. Same discretion rule as Home -- who, when, how
+   many -- because this list is read in the same places a phone is. The topics
+   are one tap further, inside the person. */
+function AccountabilityPersonListRow({
+  onOpen,
+  person,
+}: {
+  onOpen: () => void;
+  person: AccountabilityPerson;
+}) {
+  const meta = [person.statusLabel, person.statusDateLabel, person.itemCountLabel].filter(Boolean).join(" · ");
+
+  return (
+    <div className="flex min-w-0 items-center border-t border-dos-line first:border-t-0">
+      <button
+        aria-label={[`Check in with ${person.personName}`, person.statusLabel, person.statusDateLabel, person.itemCountLabel].filter(Boolean).join(", ")}
+        className="flex min-h-[60px] min-w-0 flex-1 items-center gap-2.5 py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
+        onClick={onOpen}
+        type="button"
+      >
+        <Avatar name={person.personName} size="sm" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-dos-body font-semibold text-dos-primary">{person.personName}</span>
+          <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{meta}</span>
+        </span>
+        <ChevronRight aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+      </button>
+    </div>
+  );
+}
 
 /* The full list, inside People (USA-282). It opens over the People list the
    same way My Record does (USA-272), so the list underneath keeps its
    search, circle filter and scroll position and Back simply uncovers it.
-   Three compact filters carry the counts that used to be three large boxes on
-   Home. There is no new bottom-nav tab. */
+
+   It lists people, grouped exactly as Home groups them, so the two never
+   disagree about who is behind. Unlike Home it carries no upcoming window:
+   everything scheduled, however far out, is reachable under Coming up and
+   All -- which is what makes Home's window safe. */
 function CheckInsWorkspace({
   counts,
   filter,
   onBack,
   onFilterChange,
-  onOpenRow,
-  rows,
+  onOpenPerson,
+  people,
   saveConfirmation,
 }: {
-  counts: AccountabilityCheckInCounts;
+  counts: ReturnType<typeof accountabilityPeopleCounts>;
   filter: AccountabilityCheckInFilter;
   onBack: () => void;
   onFilterChange: (filter: AccountabilityCheckInFilter) => void;
-  onOpenRow: (row: AccountabilityCheckInRow) => void;
-  rows: AccountabilityCheckInRow[];
+  onOpenPerson: (person: AccountabilityPerson) => void;
+  people: AccountabilityPerson[];
   saveConfirmation: string;
 }) {
+  const grouped = filter === "all"
+    ? accountabilityPersonStatusOrder
+      .map((status) => ({
+        label: accountabilityPersonStatusLabels[status],
+        people: accountabilityPeopleForStatus(people, status),
+      }))
+      .concat([{ label: "No date", people: people.filter((person) => person.status === null) }])
+      .filter((section) => section.people.length)
+    : [{ label: "", people }];
+
   return (
-    /* The Person and My Record overlay shell, exactly (USA-272). It sits over
-       the People list rather than replacing it, which is what lets Back
-       restore the search, the circle filter and the scroll position without
-       this list having to remember any of them -- and what keeps this list's
-       own scroll position across a save, because a check-in opens a sheet
-       over it rather than navigating away from it. */
     <div className={`absolute inset-0 space-y-3 overflow-y-auto px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${dosAppBackgroundClassName} pb-dos-fab-clearance md:px-10 md:pb-24 lg:px-14`}>
       <PageHeader
         backLabel="Back to people"
         lede="People you need to follow up with."
         onBack={onBack}
-        title="Check-ins"
+        title="Accountability"
       />
       <PillRail
         edgeInset={4}
-        label="Check-in filters"
+        label="Accountability filters"
         onChange={onFilterChange}
         options={[
-          { count: counts.attention, label: checkInFilterLabels.attention, value: "attention" as const },
-          { count: counts.upcoming, label: checkInFilterLabels.upcoming, value: "upcoming" as const },
-          { count: counts.all, label: checkInFilterLabels.all, value: "all" as const },
+          { count: counts.due_today, label: checkInFilterLabels.due_today, value: "due_today" as const },
+          { count: counts.past_due, label: checkInFilterLabels.past_due, value: "past_due" as const },
+          { count: counts.coming_up, label: checkInFilterLabels.coming_up, value: "coming_up" as const },
+          { count: counts.total, label: checkInFilterLabels.all, value: "all" as const },
         ]}
         value={filter}
       />
@@ -13380,16 +13338,171 @@ function CheckInsWorkspace({
           {saveConfirmation}
         </p>
       ) : null}
-      {rows.length ? (
-        <div className="grid">
-          {rows.map((row) => (
-            <CheckInListRow key={row.id} onOpen={() => onOpenRow(row)} row={row} />
+      {people.length ? (
+        <>
+          {/* Both numbers, each saying what it counts: a leader plans the day
+              by people and works through check-ins. */}
+          <p className="text-dos-meta font-semibold text-dos-secondary">{accountabilityPeopleSummaryLabel(people)}</p>
+          {grouped.map((section) => (
+            <div key={section.label || "filtered"}>
+              {section.label ? (
+                <p className="pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+                  {section.label}
+                </p>
+              ) : null}
+              <div className="grid">
+                {section.people.map((person) => (
+                  <AccountabilityPersonListRow key={person.personId} onOpen={() => onOpenPerson(person)} person={person} />
+                ))}
+              </div>
+            </div>
           ))}
-        </div>
+        </>
       ) : (
         <DosEmptyState>{checkInEmptyCopy[filter]}</DosEmptyState>
       )}
     </div>
+  );
+}
+
+/* The person, opened deliberately.
+ *
+ * Home and the list say who, when and how many. This is where what lives:
+ * every open item this person has, each with the action its own kind already
+ * carries, and each opening its own record. Checking one off leaves the rest
+ * exactly where they are -- there is no "complete the person" here, because a
+ * person is not a task. */
+function PersonAccountabilitySheet({
+  onClose,
+  onOpenItem,
+  person,
+}: {
+  onClose: () => void;
+  onOpenItem: (row: AccountabilityCheckInRow) => void;
+  person: AccountabilityPerson;
+}) {
+  return (
+    <DosDetailSheet
+      fit="content"
+      identity={person.personName}
+      onClose={onClose}
+      title="Accountability"
+    >
+      <div className="grid gap-1">
+        <p className="text-dos-meta font-semibold text-dos-secondary">
+          {person.itemCountLabel ?? "1 check-in"}
+        </p>
+        <div className="grid">
+          {person.items.map((row) => (
+            <div className="flex min-w-0 items-center border-t border-dos-line first:border-t-0" key={row.id}>
+              <button
+                className="flex min-h-[60px] min-w-0 flex-1 items-center gap-2.5 py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
+                onClick={() => onOpenItem(row)}
+                type="button"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-dos-body font-semibold text-dos-primary">{row.topic}</span>
+                  <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">
+                    {[row.statusLabel, row.context].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <ChevronRight aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </DosDetailSheet>
+  );
+}
+
+/* Today, opened from the summary above the action buttons.
+ *
+ * One agenda for the day: the meetings, the birthdays and anniversaries, and
+ * the people with a check-in due today. Each entry opens the thing it names,
+ * using the detail the product already has. Nothing overdue and nothing
+ * scheduled later appears here -- those have their own places, and repeating
+ * them is what made Notifications a second copy of the backlog. */
+function TodayAgendaSheet({
+  checkInPeople,
+  onClose,
+  onOpenCheckInPerson,
+  onOpenTimelineItem,
+  timelineItems,
+}: {
+  checkInPeople: AccountabilityPerson[];
+  onClose: () => void;
+  onOpenCheckInPerson: (person: AccountabilityPerson) => void;
+  onOpenTimelineItem: (item: UpcomingTimelineItem) => void;
+  timelineItems: UpcomingTimelineItem[];
+}) {
+  const meetings = timelineItems.filter((item) => item.icon === "meeting");
+  const occasions = timelineItems.filter((item) => item.icon !== "meeting");
+  const sections: Array<{ label: string; rows: Array<{ id: string; onOpen: () => void; meta: string; title: string }> }> = [
+    {
+      label: "Meetings",
+      rows: meetings.map((item) => ({
+        id: item.id,
+        meta: upcomingDashboardBadge(item),
+        onOpen: () => onOpenTimelineItem(item),
+        title: upcomingDashboardTitle(item),
+      })),
+    },
+    {
+      label: "Birthdays and anniversaries",
+      rows: occasions.map((item) => ({
+        id: item.id,
+        meta: upcomingDashboardBadge(item),
+        onOpen: () => onOpenTimelineItem(item),
+        title: upcomingDashboardTitle(item),
+      })),
+    },
+    {
+      label: "Check in with",
+      /* Names and counts only, exactly as on Home: today's agenda is read in
+         the same public places. */
+      rows: checkInPeople.map((person) => ({
+        id: person.personId,
+        meta: person.itemCountLabel ?? "1 check-in",
+        onOpen: () => onOpenCheckInPerson(person),
+        title: person.personName,
+      })),
+    },
+  ].filter((section) => section.rows.length);
+
+  return (
+    <DosDetailSheet fit="content" onClose={onClose} title="Today">
+      {sections.length ? (
+        <div className="grid gap-3">
+          {sections.map((section) => (
+            <div key={section.label}>
+              <p className="pb-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+                {section.label}
+              </p>
+              <div className="grid">
+                {section.rows.map((row) => (
+                  <div className="flex min-w-0 items-center border-t border-dos-line first:border-t-0" key={`${section.label}-${row.id}`}>
+                    <button
+                      className="flex min-h-[56px] min-w-0 flex-1 items-center gap-2.5 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
+                      onClick={row.onOpen}
+                      type="button"
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-dos-body font-semibold text-dos-primary">{row.title}</span>
+                        {row.meta ? <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{row.meta}</span> : null}
+                      </span>
+                      <ChevronRight aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-[14.5px] leading-[1.5] text-dos-body">{homeTodayEmptyLabel}</p>
+      )}
+    </DosDetailSheet>
   );
 }
 
@@ -14148,6 +14261,9 @@ function PersonAccountabilityDetailSheet({
   onClose,
   onDelete,
   onEdit,
+  onPause,
+  onReschedule,
+  pauseLabel = "Pause",
   personName = null,
   progressKind,
   recentProgress,
@@ -14162,6 +14278,10 @@ function PersonAccountabilityDetailSheet({
   onClose: () => void;
   onDelete?: () => void;
   onEdit?: () => void;
+  /* A rhythm only: a one-time goal has nothing to pause or move. */
+  onPause?: () => void;
+  onReschedule?: () => void;
+  pauseLabel?: string;
   /* The Person this belongs to, shown once in the header. */
   personName?: string | null;
   progressKind: AccountabilityProgressKind;
@@ -14180,6 +14300,16 @@ function PersonAccountabilityDetailSheet({
                 are not editable as though someone had written them. */}
             {onEdit && !isSystemGenerated ? <AppButton onClick={onEdit} tone="white">Edit</AppButton> : null}
           </div>
+          {/* When an old rhythm no longer fits: move the next one, or stop it
+              without losing what it has recorded. Both live here, on the
+              record itself, rather than on a list that must stay discreet.
+              A paused rhythm leaves the lists and keeps its history. */}
+          {(onReschedule || onPause) && !isSystemGenerated ? (
+            <div className="grid grid-cols-2 gap-2">
+              {onReschedule ? <AppButton icon="calendar" onClick={onReschedule} tone="white">Reschedule</AppButton> : null}
+              {onPause ? <AppButton icon="bell" onClick={onPause} tone="white">{pauseLabel}</AppButton> : null}
+            </div>
+          ) : null}
           {/* The same delete the record's own menu offers, reachable from the
               item a check-in row opens -- so the Check-ins list needs no menu
               of its own on a row that is already one tap target. A Journey's
@@ -15691,38 +15821,32 @@ function AccountabilityScheduleSheet({
 }
 
 function DesktopHomeDashboard({
-  checkInAttentionCount,
-  checkInRows,
-  checkInUpcomingCount,
+  accountabilityPeople,
   engagementLevelsEnabled,
   meetingActivity,
   onAddPerson,
   onCreateCommitment,
   onLogMeeting,
-  onOpenCheckIn,
-  onOpenCheckIns,
-  onOpenCheckInsUpcoming,
+  onOpenAccountability,
+  onOpenAccountabilityPerson,
   onOpenGroupJoinRequests,
+  onOpenToday,
   onOpenMeeting,
   onOpenPerson,
   onOpenReport,
   onOpenTable,
   onOpenTableCalendar,
   onScheduleMeeting,
-  pendingGroupJoinRequestItems = [],
   people,
   timeInvestments,
+  todayCounts,
   upcomingItems,
 }: {
-  /* USA-282: how many follow-ups are overdue or due today, from the one
-     eligibility function the full list reads, so Home's number and the
-     list's first filter can never disagree. */
-  checkInAttentionCount: number;
-  /* The few that need attention, already ordered overdue first. Home shows
-     these and hands off to the full list under People; the workflow does not
-     live here (USA-257). */
-  checkInRows: AccountabilityCheckInRow[];
-  checkInUpcomingCount: number;
+  /* One entry per person, already grouped and ordered by the one eligibility
+     function every accountability surface reads. Home shows the first few and
+     hands off to the full list under People; the workflow does not live here
+     (USA-257). */
+  accountabilityPeople: AccountabilityPerson[];
   /* The Engagement Levels Advanced Feature, resolved from the workspace's
      feature flags by the same helper every other surface uses. */
   engagementLevelsEnabled: boolean;
@@ -15733,18 +15857,19 @@ function DesktopHomeDashboard({
   onAddPerson: () => void;
   onCreateCommitment: () => void;
   onLogMeeting: () => void;
-  onOpenCheckIn: (row: AccountabilityCheckInRow) => void;
-  onOpenCheckIns: () => void;
-  onOpenCheckInsUpcoming: () => void;
+  onOpenAccountability: () => void;
+  onOpenAccountabilityPerson: (person: AccountabilityPerson) => void;
   onOpenGroupJoinRequests: (groupId: string) => void;
+  onOpenToday: () => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenPerson: (personId: string) => void;
   onOpenReport: () => void;
   onOpenTable: () => void;
   onOpenTableCalendar: () => void;
   onScheduleMeeting: () => void;
-  pendingGroupJoinRequestItems?: PendingGroupJoinRequestItem[];
   people: DosAppPerson[];
+  /* What is happening today, counted in units by the shared helper. */
+  todayCounts: HomeTodayCounts;
   /* The report's "Time I invested" rows, already ranked by logged duration.
      Time invested in the missionary (being discipled) is reported, never
      ranked here. */
@@ -15781,10 +15906,6 @@ function DesktopHomeDashboard({
     };
   });
   const dashboardUpcomingRows = realUpcomingRows;
-  const todayDashboardRows = dashboardUpcomingRows
-    .filter((item) => item.label === "Now" || item.label.startsWith("Now ·") || item.label === "Today" || item.label.startsWith("Today ·"))
-    .slice(0, 3);
-
   function openDashboardUpcomingRow(item: DashboardUpcomingRow) {
     if (item.meeting) {
       onOpenMeeting(item.meeting.id);
@@ -15794,38 +15915,6 @@ function DesktopHomeDashboard({
       onOpenTableCalendar();
     }
   }
-
-  const dashboardNotificationItems: DashboardNotificationItem[] = [
-    /* USA-282: the top notification is preserved and now opens the same full
-       check-in list the preview and "View all check-ins" open, with the same
-       count -- one number, one destination. */
-    ...(checkInAttentionCount
-      ? [{
-        badge: `${checkInAttentionCount} due`,
-        icon: <ClipboardCheck className="h-4 w-4" aria-hidden="true" strokeWidth={2} />,
-        id: "check-ins",
-        onClick: onOpenCheckIns,
-        subtitle: "Overdue and due today",
-        title: "Check-ins need attention",
-      }]
-      : []),
-    ...pendingGroupJoinRequestItems.map((item) => ({
-      badge: `${item.count} pending`,
-      icon: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={2} />,
-      id: `group-${item.groupId}`,
-      onClick: () => onOpenGroupJoinRequests(item.groupId),
-      subtitle: "Group join request",
-      title: item.groupName,
-    })),
-    ...todayDashboardRows.map((item) => ({
-      badge: `${item.label} · ${item.badge}`,
-      icon: <TimelineIcon icon={item.icon} />,
-      id: `today-${item.id}`,
-      onClick: () => openDashboardUpcomingRow(item),
-      subtitle: item.badge,
-      title: item.title,
-    })),
-  ];
 
   /* USA-257 Home order, as amended by USA-282: notifications, the primary
      actions, and the compact Check-ins preview directly beneath them, then
@@ -15850,7 +15939,13 @@ function DesktopHomeDashboard({
       <div className="grid w-full gap-3">
         <div className="grid gap-3 lg:grid-cols-[minmax(300px,0.74fr)_minmax(0,1.26fr)] lg:items-start">
           <div className="grid min-w-0 gap-3">
-            <DashboardNotificationsPanel items={dashboardNotificationItems} />
+            {/* USA-282 follow-up: Today, in place of Notifications. The old
+                panel carried a "N due" badge for the very backlog listed
+                directly below it; today's meetings, birthdays, anniversaries
+                and check-ins are what this space is for. Notifications that
+                are not today's -- a group's join requests -- keep their own
+                home on the Groups list and the group itself. */}
+            <HomeTodayPanel counts={todayCounts} onOpen={onOpenToday} />
 
             <section className="grid gap-2 rounded-[22px] border border-[#EAF2FF] bg-white p-2.5 shadow-[0_14px_34px_rgba(37,99,235,0.045)] md:hidden" aria-label="Home quick actions">
               <button
@@ -15877,16 +15972,13 @@ function DesktopHomeDashboard({
               </div>
             </section>
 
-            {/* USA-282: the compact Check-ins preview, directly below the
-                Home action buttons. It replaces the lower Accountability
-                section, so Home carries one check-in list rather than two
-                competing ones. */}
-            <HomeCheckInsPanel
-              onOpenAll={onOpenCheckIns}
-              onOpenRow={onOpenCheckIn}
-              onOpenUpcoming={onOpenCheckInsUpcoming}
-              rows={checkInRows}
-              upcomingCount={checkInUpcomingCount}
+            {/* USA-282 follow-up: Accountability, directly below the Home
+                action buttons and above Top Time Investments. One row per
+                person, today first. */}
+            <HomeAccountabilityPanel
+              onOpenAll={onOpenAccountability}
+              onOpenPerson={onOpenAccountabilityPerson}
+              people={accountabilityPeople}
             />
           </div>
 
@@ -40032,7 +40124,14 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
      same reason: the check-in sheet opens over this list rather than
      navigating away from it. */
   const [isCheckInsOpen, setIsCheckInsOpen] = useState(false);
-  const [checkInsFilter, setCheckInsFilter] = useState<AccountabilityCheckInFilter>("attention");
+  /* The list opens grouped, showing every group, because that is what "view
+     all" means; the filters narrow it from there. */
+  const [checkInsFilter, setCheckInsFilter] = useState<AccountabilityCheckInFilter>("all");
+  /* The person whose items are open over the list or over Home. Held by id
+     rather than by value so a save's refreshed data flows straight into it. */
+  const [accountabilityPersonId, setAccountabilityPersonId] = useState<string | null>(null);
+  const [isTodayAgendaOpen, setIsTodayAgendaOpen] = useState(false);
+  const [rescheduleSchedule, setRescheduleSchedule] = useState<DosAppAccountabilitySchedule | null>(null);
   /* A save inside the list has nothing else on screen to prove it worked, and
      the "Saved" sheet's Open Person Profile would take the reader off the
      list they are working. One short line instead (the USA-246 pattern). */
@@ -40800,7 +40899,11 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   /* The same instant as the YYYY-MM-DD key the accountability buckets compare
      against -- todayCommitmentDateKey() reads the wall clock, and so differed
      between the server render and hydration. */
-  const reportToday = useMemo(() => reportNow.toISOString().slice(0, 10), [reportNow]);
+  /* In the workspace's display timezone, not UTC. Read at 8pm in Chicago the
+     UTC key is already tomorrow, which moved "due today" a day early for the
+     last four hours of every day. Still derived from the render instant, so
+     the server render and hydration agree (USA-257 §9). */
+  const reportToday = useMemo(() => displayDateKey(reportNow) || reportNow.toISOString().slice(0, 10), [reportNow]);
   /* USA-282: the one check-in list. Home's preview, the Home notification and
      the full list under People all read these rows, so their counts cannot
      disagree -- which is exactly what "3 due" beside "14 more on the people
@@ -40858,9 +40961,44 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     });
   }, [commitmentsEnabled, data.accountabilitySchedules, data.commitments, data.resourceAssignments, groups, personNamesById, reportNow, reportToday]);
   const checkInCounts = useMemo(() => accountabilityCheckInCounts(checkInRows), [checkInRows]);
-  /* Home shows the rows that need attention -- overdue and due today -- and
-     the panel itself decides how many fit before the expander. */
-  const checkInAttentionRows = useMemo(() => accountabilityCheckInRowsForFilter(checkInRows, "attention"), [checkInRows]);
+  /* The date a check-in row shows, formatted once so Home, the list and the
+     person's own sheet cannot disagree about how a date reads. */
+  const formatCheckInDate = useCallback(
+    (value: string | null) => (
+      reportNow.getFullYear() === parseDisplayDate(value)?.getFullYear() ? formatShortDate(value) : formatDate(value)
+    ),
+    [reportNow],
+  );
+  /* USA-282 follow-up: Home lists people, not items. Home keeps "coming up"
+     inside the product's existing seven-day window -- the one the retired
+     count card called "7 DAYS" -- while the full list passes no window, so
+     anything scheduled later is still reachable there. */
+  const checkInPeople = useMemo(() => accountabilityCheckInPeople({
+    dateValue: dateSortValue,
+    formatDate: formatCheckInDate,
+    rows: checkInRows,
+    today: reportToday,
+    upcomingWindowDays: accountabilityUpcomingWindowDays,
+  }), [checkInRows, formatCheckInDate, reportToday]);
+  const checkInPeopleAll = useMemo(() => accountabilityCheckInPeople({
+    dateValue: dateSortValue,
+    formatDate: formatCheckInDate,
+    rows: checkInRows,
+    today: reportToday,
+    upcomingWindowDays: Number.POSITIVE_INFINITY,
+  }), [checkInRows, formatCheckInDate, reportToday]);
+  const checkInPeopleCounts = useMemo(() => accountabilityPeopleCounts(checkInPeopleAll), [checkInPeopleAll]);
+  /* People who are past due or due today -- the number on the People control,
+     counted the same way the list's first two filters count. */
+  const accountabilityPeopleNeedingAttention = checkInPeopleCounts.due_today + checkInPeopleCounts.past_due;
+  const accountabilityPerson = useMemo(
+    () => checkInPeopleAll.find((person) => person.personId === accountabilityPersonId) ?? null,
+    [accountabilityPersonId, checkInPeopleAll],
+  );
+  /* Today's agenda asks who is due TODAY, which is not the same question as
+     Home's list: someone classified Past due by an older rhythm still belongs
+     in today when something of theirs is due today. */
+  const todayCheckInPeople = useMemo(() => accountabilityPeopleDueToday(checkInPeopleAll), [checkInPeopleAll]);
   const homeMinistryReport = useMemo(
     () => buildDosMinistryReport({ ...ministryReportInput, now: reportNow, range: "30d" }),
     [ministryReportInput, reportNow],
@@ -40984,6 +41122,19 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
       reminders: data.reminders,
     })
   ), [data.meetings, data.reminders, people]);
+  /* Today's meetings, birthdays and anniversaries, read in the workspace's
+     display timezone. Reminders and prayer items keep their place in
+     Upcoming rather than moving here. */
+  const todayTimelineItems = useMemo(() => upcomingTimelineItems.filter((item) => (
+    (item.icon === "anniversary" || item.icon === "birthday" || item.icon === "meeting")
+    && isHomeTodayDate(displayDayKeyForValue(item.date), reportToday)
+  )), [reportToday, upcomingTimelineItems]);
+  const todayCounts = useMemo<HomeTodayCounts>(() => ({
+    anniversaries: todayTimelineItems.filter((item) => item.icon === "anniversary").length,
+    birthdays: todayTimelineItems.filter((item) => item.icon === "birthday").length,
+    meetings: todayTimelineItems.filter((item) => item.icon === "meeting").length,
+    peopleToCheckIn: todayCheckInPeople.length,
+  }), [todayCheckInPeople, todayTimelineItems]);
   const nextStepItems = useMemo(() => (
     upcomingTimelineItems.slice(0, 5)
   ), [upcomingTimelineItems]);
@@ -43335,6 +43486,75 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
      person it names -- not their generic profile. Both destinations are the
      Person record's own sheets, so there is one detail surface and one
      check-in form in the product, not a second set for this list. */
+  /* Opening a person from Home or from the list.
+     
+     One item and there is nothing to choose between, so it opens that item
+     directly; several and the person's own sheet lists them, each keeping its
+     own action. Either way the leader lands on a record, never on a summary
+     that pretends to be one. */
+  function openAccountabilityPerson(person: AccountabilityPerson) {
+    setErrorMessage("");
+
+    if (person.items.length === 1) {
+      openCheckInRow(person.items[0]);
+      return;
+    }
+
+    setIsTodayAgendaOpen(false);
+    setAccountabilityPersonId(person.personId);
+  }
+
+  /* Moving the next check-in, and stopping a rhythm that no longer fits.
+     Both go through the existing schedule endpoint: a rescheduled rhythm
+     keeps its cadence and only its next date moves, and a paused one keeps
+     every check-in ever recorded under it -- it simply stops asking. */
+  async function submitAccountabilityReschedule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!rescheduleSchedule) {
+      return;
+    }
+
+    const nextCheckIn = String(new FormData(event.currentTarget).get("next_check_in") ?? "").trim();
+
+    if (!nextCheckIn) {
+      setErrorMessage("Choose the next check-in date.");
+      return;
+    }
+
+    const result = await submitJson(
+      "/api/dos/app/accountability/schedules",
+      { id: rescheduleSchedule.id, nextCheckIn },
+      "PATCH",
+      false,
+    );
+
+    if (result) {
+      setRescheduleSchedule(null);
+      announceAccountabilitySaved(rescheduleSchedule.personId, "Check-in rescheduled.");
+    }
+  }
+
+  async function toggleAccountabilitySchedulePause(schedule: DosAppAccountabilitySchedule) {
+    const paused = schedule.status === "paused";
+    const result = await submitJson(
+      "/api/dos/app/accountability/schedules",
+      { id: schedule.id, status: paused ? "active" : "paused" },
+      "PATCH",
+      false,
+    );
+
+    if (result) {
+      setCommitmentSheet(null);
+      announceAccountabilitySaved(schedule.personId, paused ? "Check-in resumed." : "Check-in paused.");
+    }
+  }
+
+  function openTodayAgenda() {
+    setErrorMessage("");
+    setIsTodayAgendaOpen(true);
+  }
+
   function openCheckInRow(row: AccountabilityCheckInRow) {
     if (row.kind === "one_time_goal") {
       const commitment = data.commitments.find((candidate) => candidate.id === row.sourceId);
@@ -47572,17 +47792,15 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                 />
               </div>
               <DesktopHomeDashboard
-                checkInAttentionCount={checkInCounts.attention}
-                checkInRows={checkInAttentionRows}
-                checkInUpcomingCount={checkInCounts.upcoming}
+                accountabilityPeople={checkInPeople}
                 engagementLevelsEnabled={engagementLevelsEnabled}
                 meetingActivity={homeMinistryReport.totals}
                 onAddPerson={() => openForm("person")}
                 onCreateCommitment={() => openCommitmentCreate()}
                 onLogMeeting={() => openForm("meeting")}
-                onOpenCheckIn={openCheckInRow}
-                onOpenCheckIns={() => openCheckIns("attention")}
-                onOpenCheckInsUpcoming={() => openCheckIns("upcoming")}
+                onOpenAccountability={() => openCheckIns("all")}
+                onOpenAccountabilityPerson={openAccountabilityPerson}
+                onOpenToday={openTodayAgenda}
                 onOpenGroupJoinRequests={openGroupJoinRequests}
                 onOpenMeeting={openMeetingDetail}
                 onOpenPerson={openPersonDetail}
@@ -47592,8 +47810,8 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                   setActiveTab("meetings");
                 }}
                 onScheduleMeeting={() => openScheduleMeeting()}
-                pendingGroupJoinRequestItems={pendingGroupJoinRequestItems}
                 people={people}
+                todayCounts={todayCounts}
                 timeInvestments={homeMinistryReport.investedRows}
                 upcomingItems={upcomingTimelineItems}
               />
@@ -47681,18 +47899,18 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                       helper, so there is still only one number for one
                       thing. */}
                   <button
-                    aria-label={checkInCounts.attention
-                      ? `Check-ins, ${checkInCounts.attention} need attention`
-                      : "Check-ins"}
+                    aria-label={accountabilityPeopleNeedingAttention
+                      ? `Accountability, ${accountabilityPeopleNeedingAttention} ${accountabilityPeopleNeedingAttention === 1 ? "person needs" : "people need"} a check-in`
+                      : "Accountability"}
                     className="flex h-11 shrink-0 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
                     onClick={() => openCheckIns()}
                     type="button"
                   >
                     <ClipboardCheck aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.9} />
-                    <span>Check-ins</span>
-                    {checkInCounts.attention ? (
+                    <span>Accountability</span>
+                    {accountabilityPeopleNeedingAttention ? (
                       <span aria-hidden="true" className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-dos-3 bg-dos-blue50 px-1.5 text-dos-pill font-semibold text-dos-blueText">
-                        {checkInCounts.attention}
+                        {accountabilityPeopleNeedingAttention}
                       </span>
                     ) : null}
                   </button>
@@ -48654,12 +48872,12 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             overlays the People list for the same reason My Record does. */}
         {activeTab === "people" && isCheckInsOpen && !isMyRecordOpen && !selectedPerson ? (
           <CheckInsWorkspace
-            counts={checkInCounts}
+            counts={checkInPeopleCounts}
             filter={checkInsFilter}
             onBack={closeCheckIns}
             onFilterChange={setCheckInsFilter}
-            onOpenRow={openCheckInRow}
-            rows={accountabilityCheckInRowsForFilter(checkInRows, checkInsFilter)}
+            onOpenPerson={openAccountabilityPerson}
+            people={accountabilityPeopleForFilter(checkInPeopleAll, checkInsFilter)}
             saveConfirmation={checkInSaveConfirmation}
           />
         ) : null}
@@ -49180,6 +49398,62 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             the same way, and so the question can name what is going and what
             happens to it. It portals above every sheet, which is why it sits
             here rather than inside either panel. */}
+        {/* The person's own items, opened deliberately from Home, from the
+            list, or from today's agenda. It stays mounted while one of its
+            items is open, so closing the item returns here rather than
+            dropping the reader back to where they started. */}
+        {accountabilityPerson ? (
+          <PersonAccountabilitySheet
+            onClose={() => setAccountabilityPersonId(null)}
+            onOpenItem={openCheckInRow}
+            person={accountabilityPerson}
+          />
+        ) : null}
+
+        {rescheduleSchedule ? (
+          <Sheet kind="editable" onClose={() => setRescheduleSchedule(null)} showEyebrow={false} title="Reschedule check-in">
+            <form className="grid gap-4" onSubmit={submitAccountabilityReschedule}>
+              <DosFormField label="Next check-in">
+                <input
+                  className={FieldInputClass(false)}
+                  defaultValue={rescheduleSchedule.nextCheckIn ?? todayCommitmentDateKey()}
+                  name="next_check_in"
+                  required
+                  type="date"
+                />
+              </DosFormField>
+              <p className="text-dos-meta text-dos-secondary">
+                The cadence stays as it is. Only the next date moves.
+              </p>
+              {errorMessage ? <p className="rounded-xl bg-[#FEF2F2] px-3 py-2 text-[13px] font-semibold text-[#B42318]">{errorMessage}</p> : null}
+              <div className="grid gap-2">
+                <AppButton disabled={isSubmitting} icon="calendar" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save"}</AppButton>
+                <AppButton disabled={isSubmitting} onClick={() => setRescheduleSchedule(null)} tone="white">Cancel</AppButton>
+              </div>
+            </form>
+          </Sheet>
+        ) : null}
+
+        {isTodayAgendaOpen ? (
+          <TodayAgendaSheet
+            checkInPeople={todayCheckInPeople}
+            onClose={() => setIsTodayAgendaOpen(false)}
+            onOpenCheckInPerson={openAccountabilityPerson}
+            onOpenTimelineItem={(item) => {
+              setIsTodayAgendaOpen(false);
+
+              if (item.meeting) {
+                openMeetingDetail(item.meeting.id);
+              } else if (item.personId) {
+                openPersonDetail(item.personId);
+              } else {
+                setActiveTab("meetings");
+              }
+            }}
+            timelineItems={todayTimelineItems}
+          />
+        ) : null}
+
         {/* USA-282 follow-up: deleting an accountability record asks first, in
             the same dialog a Journey removal uses, and names what goes with
             it. It sits here, above every sheet, because the delete can be
@@ -49440,6 +49714,9 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                 : commitment
                   ? () => openPersonAccountabilityEdit(commitment)
                   : undefined}
+              onPause={schedule ? () => void toggleAccountabilitySchedulePause(schedule) : undefined}
+              onReschedule={schedule ? () => setRescheduleSchedule(schedule) : undefined}
+              pauseLabel={schedule?.status === "paused" ? "Resume" : "Pause"}
               progressKind={progressKind}
               recentProgress={recentProgress}
               title={journeyCopy?.title ?? (schedule ? resourceAssignmentFollowUpScheduleDisplayTitle(schedule.title) : commitment?.title ?? "Accountability")}

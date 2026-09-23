@@ -1,7 +1,7 @@
 "use client";
 
 import { ArrowLeft, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode, RefObject } from "react";
 import { backdropMayDismiss, discardConfirmationCopy, exitNeedsConfirmation, formIsDirty, isViewingControl, type DiscardConfirmationCopy, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
@@ -156,6 +156,53 @@ export function DiscardChangesDialog({
  *
  * It renders above everything, including the sheet that raised it, at a
  * z-index above Sheet's own 1000. */
+/* USA-282 follow-up: Escape belongs to the surface on top.
+ *
+ * Two surfaces can be open at once -- a person's accountability items, with
+ * one of those items opened over them -- and each one listening to the window
+ * meant a single Escape closed both, dropping the reader past the sheet they
+ * meant to come back to. Every surface registers while it is mounted and only
+ * the last one registered answers the key. */
+const dosSurfaceEscapeStack: string[] = [];
+
+function useEscapeWhenOnTop(onEscape: () => void) {
+  const surfaceId = useId();
+  const onEscapeRef = useRef(onEscape);
+
+  onEscapeRef.current = onEscape;
+
+  useEffect(() => {
+    dosSurfaceEscapeStack.push(surfaceId);
+
+    return () => {
+      const index = dosSurfaceEscapeStack.lastIndexOf(surfaceId);
+
+      if (index !== -1) {
+        dosSurfaceEscapeStack.splice(index, 1);
+      }
+    };
+  }, [surfaceId]);
+
+  useEffect(() => {
+    /* globalThis.KeyboardEvent because this file imports React KeyboardEvent. */
+    function handleKeyDown(event: globalThis.KeyboardEvent) {
+      if (event.key !== "Escape") {
+        return;
+      }
+
+      if (dosSurfaceEscapeStack[dosSurfaceEscapeStack.length - 1] !== surfaceId) {
+        return;
+      }
+
+      onEscapeRef.current();
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [surfaceId]);
+}
+
 export function DosConfirmDialog({
   cancelLabel = "Cancel",
   confirmLabel,
@@ -469,19 +516,7 @@ export function Sheet({
      sheet is never unmounted and every entered value survives. */
   const requestClose = guard.requestExit;
 
-  useEffect(() => {
-    /* globalThis.KeyboardEvent because this file imports React KeyboardEvent. */
-    function handleKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key === "Escape") {
-        requestClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => window.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kind, onClose]);
+  useEscapeWhenOnTop(requestClose);
 
   const panelClassName = size === "wide"
     ? "max-w-[1060px] overflow-hidden rounded-t-[28px] rounded-b-[24px] md:rounded-[30px]"
@@ -673,18 +708,7 @@ export function DosDetailSheet({
 
   const requestClose = guard.requestExit;
 
-  useEffect(() => {
-    function handleKeyDown(event: globalThis.KeyboardEvent) {
-      if (event.key === "Escape") {
-        requestClose();
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-
-    return () => window.removeEventListener("keydown", handleKeyDown);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, onClose]);
+  useEscapeWhenOnTop(requestClose);
 
   const content = (
     <div

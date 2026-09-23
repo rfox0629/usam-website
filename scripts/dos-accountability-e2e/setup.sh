@@ -3,9 +3,9 @@
 # accountability DELETE handlers can be exercised end to end, against the
 # repository's own migrations, without touching any real workspace.
 #
-#   scripts/dos-accountability-delete-e2e/setup.sh
-#   npm run test:dos-accountability-delete-e2e
-#   scripts/dos-accountability-delete-e2e/teardown.sh
+#   scripts/dos-accountability-e2e/setup.sh
+#   npm run test:dos-accountability-e2e
+#   scripts/dos-accountability-e2e/teardown.sh
 #
 # Needs the postgres 16 server binaries (Ubuntu: postgresql-16) and a
 # postgrest binary on PATH or at $POSTGREST_BIN.
@@ -114,4 +114,4 @@ fs.writeFileSync(root + "/service.jwt", header + "." + body + "." + signature);
 ' "$ROOT"
 
 echo "ready. run:"
-echo "  NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:$PROXY_PORT SUPABASE_SERVICE_ROLE_KEY=\$(cat $ROOT/service.jwt) npm run test:dos-accountability-delete-e2e"
+echo "  NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:$PROXY_PORT SUPABASE_SERVICE_ROLE_KEY=\$(cat $ROOT/service.jwt) npm run test:dos-accountability-e2e"

@@ -223,9 +223,104 @@ about the people list itself — the visible results, with nothing competing
 beside the Household toggle — and this badge counts check-ins, not people. It
 is the same figure as Home and the notification, from the same helper.
 
+## Home, rebuilt around people (founder review, second pass)
+
+The previous pass left the same backlog in two places: a Notifications badge
+reading "9 due" directly above the nine rows it was counting. And because Home
+must not name a topic, a person with three records took three rows that read
+identically. Both are gone.
+
+### Today, in place of Notifications
+
+Above the action buttons, one line: **"2 meetings · 1 birthday · 1 anniversary
+· 3 people to check in with."** Every number says what it counts. Tapping it
+opens one agenda for the day, where each entry opens the thing it names -- the
+meeting, the person, or that person's check-ins.
+
+Today is **today only**. Nothing overdue (Accountability carries that) and
+nothing scheduled later (Upcoming carries that); repeating them is what made
+the old panel a second copy of the backlog. The day key is the workspace's
+display timezone, read from the server render's instant -- previously a UTC
+key, which moved "due today" a day early for the last few hours of every
+evening in Chicago.
+
+Empty, it reads **"Nothing scheduled for today."**
+
+Reminders and prayer items stay in Upcoming rather than moving here, and a
+group's join requests keep their own home on the Groups list and inside the
+group -- asserted now in `dos-group-join-request-notification-regression.mjs`,
+which used to assert they appeared on Home.
+
+### Accountability, one row per person
+
+Below the action buttons, above Top Time Investments. A row carries **the
+person's name, a date, a discreet item count ("3 check-ins"), and Check in** --
+never a topic, in the row, a tooltip, or an accessibility label.
+
+Grouping is by **canonical person id**, so two people who share a name stay two
+people. Classification takes the worst item, display leads with the nearest
+work:
+
+| | |
+|---|---|
+| A person with any past-due item | **Past due**, dated by their *oldest* outstanding item |
+| Otherwise, anything due today | **Due today** |
+| Otherwise, something scheduled ahead | **Coming up**, dated by the *earliest* |
+
+Sections read **Due today, Past due, Coming up** -- today first, so an overdue
+backlog cannot bury the day's own work. Section counts are **people**; the
+count on a row is **check-ins**, with the unit said out loud. Six people show,
+then **View all N** opens the full grouped list under People.
+
+Home's "Coming up" keeps the product's existing seven-day window -- the one the
+retired card called "7 DAYS". The full list has no window, so anything later is
+still reachable there, along with anyone whose only items carry no date at all
+(grouped under "No date").
+
+**Today and Accountability answer different questions.** Someone with a
+past-due rhythm *and* a check-in due today reads as Past due in the list and
+still appears in today's agenda. In the fixture that is Tim Tran.
+
+### Opening a person
+
+One item opens that item. Several open the person's own sheet, which lists
+every open item **with its topic** -- this surface was opened deliberately --
+each one opening its own record, so checking one off leaves the others exactly
+where they were. The item's record now also carries **Reschedule** (moves only
+the next date, keeping the cadence) and **Pause / Resume** (the rhythm stops
+asking and keeps every check-in recorded under it).
+
+Escape used to close both stacked sheets at once, dropping the reader past the
+person they meant to return to. `Sheet` and `DosDetailSheet` now share a small
+registry so only the surface on top answers the key.
+
+### Missed weeks do not accumulate
+
+Inspected before changing anything: a rhythm holds **one** outstanding date, so
+four missed weeks are one reminder, not four catch-up tasks, and the check-in
+route already advanced from the date the check-in actually happened rather than
+from the missed date. Both are now proven against a database rather than
+assumed.
+
+One real gap was found and fixed: the date is the leader's to set, so a
+**back-dated** check-in ("we met three weeks ago") rolled the rhythm forward to
+another date in the past, and it read as overdue the moment it was answered.
+The route now steps the cadence until the next date is genuinely ahead, keeping
+both the cadence and the weekday. An on-time check-in is untouched.
+
+One quirk is **reported rather than changed**: a weekly Monday rhythm checked
+in on a Tuesday advances to the Monday *after* next -- thirteen days -- because
+the existing rule adds a week and then snaps forward to the weekday. That is
+this repository's long-standing cadence rule; it is asserted as it stands and
+raised below.
+
+A check-in never completes a Journey or its milestone: the assignment's status
+and its shadow commitment are the Journey's to change, and the e2e suite proves
+it.
+
 ## The delete, verified against a database
 
-Source assertions cannot prove a cascade. `scripts/dos-accountability-delete-e2e.mjs`
+Source assertions cannot prove a cascade. `scripts/dos-accountability-e2e.mjs`
 runs the real `DELETE` handlers against a throwaway Postgres carrying this
 repository's migrations, then queries the database directly. Ten checks, all
 passing:

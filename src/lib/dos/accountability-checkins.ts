@@ -38,7 +38,10 @@ import {
 } from "./accountability-presentation";
 import { resourceAssignmentFollowUpTopic, type DosResourceAssignmentFollowUpKind } from "./resource-assignments";
 
-export const accountabilityCheckInFilters = ["attention", "upcoming", "all"] as const;
+/* The full list's filters, which are now the same three groups Home shows,
+   plus everything. They are stated in the person's terms ("past due"), not
+   the item's ("overdue"), because the list is a list of people. */
+export const accountabilityCheckInFilters = ["due_today", "past_due", "coming_up", "all"] as const;
 
 export type AccountabilityCheckInFilter = typeof accountabilityCheckInFilters[number];
 
@@ -299,20 +302,197 @@ export function accountabilityCheckInCounts(rows: ReadonlyArray<AccountabilityCh
   };
 }
 
-/* Needs attention is overdue and due today. Upcoming is what is scheduled
-   ahead. All is every open follow-up, which is those two plus the ones with
-   no date -- so nothing the leader owns can hide from every filter. */
-export function accountabilityCheckInRowsForFilter(
-  rows: ReadonlyArray<AccountabilityCheckInRow>,
+/* ---------------------------------------------------------------------------
+   One placement per person (USA-282 follow-up).
+
+   Home listed ITEMS, so a person with a weekly rhythm and two Journey
+   milestones took three rows and read as a duplicate -- and hiding the topic
+   (which Home must, in public) left nothing to tell those rows apart. Home
+   lists PEOPLE now. The items still exist, unmerged and untouched; they are
+   revealed by opening the person, which is a deliberate act.
+
+   Grouping is by the canonical person id, never by name, so two people who
+   share a name stay two people. */
+
+export type AccountabilityPersonStatus = "coming_up" | "due_today" | "past_due";
+
+/* The window Home calls "coming up". It is the one the retired Accountability
+   card already used for its third box ("7 DAYS"), kept so the meaning of
+   upcoming does not quietly change; anything later is still reachable in the
+   full list. */
+export const accountabilityUpcomingWindowDays = 7;
+
+export type AccountabilityPerson = {
+  /* Whether anything of theirs is due today, regardless of the status the
+     person carries. Someone with a past-due rhythm AND a check-in due today
+     reads as Past due here, but today's agenda still has to include them. */
+  hasDueToday: boolean;
+  /* Every open item for this person, in the list's order. */
+  items: AccountabilityCheckInRow[];
+  /* "3 check-ins" -- the unit is always said, because a bare number beside a
+     person reads as their count of anything. Null for a single item, where
+     the number would add nothing. */
+  itemCountLabel: string | null;
+  personId: string;
+  personName: string;
+  /* What the status is measured from: the oldest outstanding date when past
+     due, today when due today, the earliest scheduled date when coming up.
+     Null only when nothing they have carries a date. */
+  statusDate: string | null;
+  statusDateLabel: string | null;
+  status: AccountabilityPersonStatus | null;
+  statusLabel: string;
+};
+
+export const accountabilityPersonStatusLabels: Record<AccountabilityPersonStatus, string> = {
+  coming_up: "Coming up",
+  due_today: "Due today",
+  past_due: "Past due",
+};
+
+/* Display order, which is not the order of precedence. A person is CLASSIFIED
+   by their worst item (past due beats due today), but the sections READ with
+   today first: today is the day's own work and it is small, and an overdue
+   backlog above it would bury it. */
+export const accountabilityPersonStatusOrder: AccountabilityPersonStatus[] = ["due_today", "past_due", "coming_up"];
+
+function earliest(values: ReadonlyArray<string>, dateValue: (value: string | null) => number) {
+  return values.length
+    ? values.reduce((first, candidate) => (dateValue(candidate) < dateValue(first) ? candidate : first))
+    : null;
+}
+
+export function accountabilityCheckInPeople({
+  dateValue,
+  formatDate,
+  rows,
+  today,
+  upcomingWindowDays = accountabilityUpcomingWindowDays,
+}: {
+  dateValue: (value: string | null) => number;
+  formatDate: (value: string | null) => string;
+  rows: ReadonlyArray<AccountabilityCheckInRow>;
+  today: string;
+  /* Home keeps "coming up" inside the window; the full list passes Infinity
+     so nothing scheduled later can hide from every surface. */
+  upcomingWindowDays?: number;
+}): AccountabilityPerson[] {
+  const byPerson = new Map<string, AccountabilityCheckInRow[]>();
+
+  for (const row of rows) {
+    const existing = byPerson.get(row.personId);
+
+    if (existing) {
+      existing.push(row);
+    } else {
+      byPerson.set(row.personId, [row]);
+    }
+  }
+
+  const todayValue = dateValue(today);
+  const windowLimit = Number.isFinite(upcomingWindowDays)
+    ? todayValue + upcomingWindowDays * 86_400_000
+    : Number.POSITIVE_INFINITY;
+
+  const people = Array.from(byPerson.entries()).map(([personId, items]) => {
+    const overdue = items.filter((item) => item.bucket === "overdue").map((item) => item.dueDate as string);
+    const dueToday = items.filter((item) => item.bucket === "due_today");
+    const upcoming = items
+      .filter((item) => item.bucket === "upcoming" && dateValue(item.dueDate) <= windowLimit)
+      .map((item) => item.dueDate as string);
+
+    const status: AccountabilityPersonStatus | null = overdue.length
+      ? "past_due"
+      : dueToday.length
+        ? "due_today"
+        : upcoming.length
+          ? "coming_up"
+          : null;
+    const statusDate = status === "past_due"
+      ? earliest(overdue, dateValue)
+      : status === "due_today"
+        ? today
+        : status === "coming_up"
+          ? earliest(upcoming, dateValue)
+          : null;
+
+    return {
+      hasDueToday: dueToday.length > 0,
+      items,
+      itemCountLabel: items.length > 1 ? `${items.length} check-ins` : null,
+      personId,
+      personName: items[0].personName,
+      status,
+      statusDate,
+      statusDateLabel: statusDate ? formatDate(statusDate) : null,
+      statusLabel: status ? accountabilityPersonStatusLabels[status] : "No date",
+    };
+  });
+
+  return people.sort((first, second) => {
+    const rank = accountabilityPersonStatusOrder.indexOf(first.status as AccountabilityPersonStatus)
+      - accountabilityPersonStatusOrder.indexOf(second.status as AccountabilityPersonStatus);
+
+    if (rank !== 0) {
+      /* A person with no dated item at all sorts last rather than first. */
+      return first.status === null ? 1 : second.status === null ? -1 : rank;
+    }
+
+    if (first.statusDate && second.statusDate) {
+      const byDate = dateValue(first.statusDate) - dateValue(second.statusDate);
+
+      if (byDate !== 0) {
+        return byDate;
+      }
+    }
+
+    return first.personName.localeCompare(second.personName) || first.personId.localeCompare(second.personId);
+  });
+}
+
+/* Counts of PEOPLE, for the section headings. The items have their own count,
+   on the person's own row, where the unit is said out loud. */
+export function accountabilityPeopleCounts(people: ReadonlyArray<AccountabilityPerson>) {
+  return {
+    coming_up: people.filter((person) => person.status === "coming_up").length,
+    due_today: people.filter((person) => person.status === "due_today").length,
+    past_due: people.filter((person) => person.status === "past_due").length,
+    total: people.length,
+  };
+}
+
+export function accountabilityPeopleForStatus(
+  people: ReadonlyArray<AccountabilityPerson>,
+  status: AccountabilityPersonStatus,
+) {
+  return people.filter((person) => person.status === status);
+}
+
+/* Today's agenda asks a different question from Home's Accountability list:
+   not "who is behind" but "who is due today". Someone classified Past due by
+   an older item still belongs here when something of theirs is due today. */
+export function accountabilityPeopleDueToday(people: ReadonlyArray<AccountabilityPerson>) {
+  return people.filter((person) => person.hasDueToday);
+}
+
+export function accountabilityPeopleForFilter(
+  people: ReadonlyArray<AccountabilityPerson>,
   filter: AccountabilityCheckInFilter,
 ) {
-  if (filter === "attention") {
-    return rows.filter(accountabilityCheckInNeedsAttention);
+  if (filter === "all") {
+    return [...people];
   }
 
-  if (filter === "upcoming") {
-    return rows.filter((row) => row.bucket === "upcoming");
-  }
+  return accountabilityPeopleForStatus(people, filter);
+}
 
-  return [...rows];
+/* "3 people · 7 check-ins" -- the list says both, because they are different
+   numbers and a leader plans by the first and works through the second. */
+export function accountabilityPeopleSummaryLabel(people: ReadonlyArray<AccountabilityPerson>) {
+  const items = people.reduce((total, person) => total + person.items.length, 0);
+
+  return [
+    `${people.length} ${people.length === 1 ? "person" : "people"}`,
+    `${items} ${items === 1 ? "check-in" : "check-ins"}`,
+  ].join(" · ");
 }

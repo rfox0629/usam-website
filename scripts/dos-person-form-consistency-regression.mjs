@@ -242,9 +242,10 @@ assert.ok(
 );
 const peopleRailAnchor = client.indexOf('<PillRail edgeInset={4} fit label="Field circles"');
 assert.ok(peopleRailAnchor !== -1, "the People circle rail exists");
-/* USA-282 added the Check-ins control to the action row, so the window has
-   to reach past it to the Household control it is about. */
-const peopleFilterBlock = client.slice(peopleRailAnchor - 1400, peopleRailAnchor + 4400);
+/* USA-282 added the Accountability control to the action row, and its
+   follow-up gave it a count and an accessible name, so the window has to
+   reach past it to the Household control it is about. */
+const peopleFilterBlock = client.slice(peopleRailAnchor - 1400, peopleRailAnchor + 5400);
 assert.ok(
   peopleFilterBlock.indexOf('label="Field circles"') < peopleFilterBlock.indexOf('aria-pressed={showSecondaryFieldPeople}'),
   "the household control sits immediately after the circle rail, not above it",

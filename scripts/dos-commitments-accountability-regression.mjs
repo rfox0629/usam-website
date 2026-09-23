@@ -93,7 +93,7 @@ assertNotIncludes(quickActionsMatch[0], 'label: "Pray Now"', "dashboard quick ac
    check-in preview plus one complete list under People. The capability is
    asserted by what Home now renders, not by the retired component name. */
 assertNotIncludes(client, "AccountabilityDashboardCard", "the three-count-box Accountability card is retired");
-assertIncludes(client, "<HomeCheckInsPanel", "Home renders the compact check-in preview");
+assertIncludes(client, "<HomeAccountabilityPanel", "Home renders the accountability section");
 assertIncludes(client, "<CheckInsWorkspace", "People renders the complete check-in list");
 /* USA-168 replaced the Person's two separate Accountability cards -- a
    commitments summary and a schedules card, both titled "Accountability" --

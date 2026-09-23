@@ -3,7 +3,7 @@ import { pathToFileURL, fileURLToPath } from "node:url";
 import { dirname, resolve as resolvePath } from "node:path";
 
 const realAuth = pathToFileURL(resolvePath(process.cwd(), "src/lib/dos/auth.ts")).href;
-const shim = pathToFileURL(resolvePath(process.cwd(), "scripts/dos-accountability-delete-e2e/auth-shim.ts")).href;
+const shim = pathToFileURL(resolvePath(process.cwd(), "scripts/dos-accountability-e2e/auth-shim.ts")).href;
 
 function withExtension(absolutePath) {
   if (existsSync(absolutePath)) return absolutePath;
@@ -17,7 +17,7 @@ export async function resolve(specifier, context, next) {
   let url = null;
 
   if (specifier === "server-only" || specifier === "client-only") {
-    return next(pathToFileURL(resolvePath(process.cwd(), "scripts/dos-accountability-delete-e2e/server-only.mjs")).href, context);
+    return next(pathToFileURL(resolvePath(process.cwd(), "scripts/dos-accountability-e2e/server-only.mjs")).href, context);
   }
 
   /* next 16 ships no "exports" map, so bare subpaths like "next/server" need
