@@ -1478,20 +1478,13 @@
   min-width: 0;
 }
 
+/* Weighted tracks, set per question from its columns (listColumnTemplate):
+   equal thirds cut a name off mid word, and an age needs a fraction of the
+   width a name or an email does. */
 @media (min-width: 700px) {
   .join-list-cells {
-    grid-auto-flow: column;
-    grid-auto-columns: 1fr;
+    grid-template-columns: var(--join-list-columns, repeat(auto-fit, minmax(0, 1fr)));
     align-items: end;
-  }
-
-  /* An age needs a fraction of the width a name does. */
-  .join-list-cells:has(.join-list-cell-narrow) {
-    grid-auto-columns: 1fr;
-  }
-
-  .join-list-cell-narrow {
-    max-width: 96px;
   }
 }
 
@@ -1507,12 +1500,30 @@
   font-weight: 700;
   letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: var(--muted-2);
+  color: var(--muted);
   margin-bottom: 5px;
 }
 
 .join-list-cell .join-input {
   margin-top: 0;
+  text-overflow: ellipsis;
+}
+
+.join-list-cell .join-input[aria-invalid="true"] {
+  border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-tint);
+}
+
+.join-list-row[data-incomplete="true"] {
+  flex-wrap: wrap;
+}
+
+.join-list-issue {
+  flex-basis: 100%;
+  margin-top: 6px !important;
+  font-size: 0.84rem;
+  line-height: 1.5;
+  color: var(--danger);
 }
 
 .join-list-remove {
@@ -1608,7 +1619,7 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: var(--muted);
   margin-left: auto !important;
   display: inline-flex;
   align-items: center;
@@ -1644,7 +1655,21 @@
   flex: none;
 }
 
+/* The way back to Review after an Edit. Short form on a phone, where it
+   shares the footer with Back and Continue. */
+.join-button-return .join-return-short {
+  display: none;
+}
+
 @media (max-width: 560px) {
+  .join-button-return .join-return-long {
+    display: none;
+  }
+
+  .join-button-return .join-return-short {
+    display: inline;
+  }
+
   .join-footer .join-button {
     padding: 13px 16px;
     font-size: 0.8rem;
@@ -1658,15 +1683,46 @@
 /* ------------------------------------------------------------------ notice */
 
 .join-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
   border-left: 2px solid var(--gold);
   background: var(--gold-tint);
   border-radius: 0 6px 6px 0;
-  padding: 10px 14px;
+  padding: 10px 8px 10px 14px;
   margin-bottom: 20px;
   font-size: 0.89rem;
   line-height: 1.58;
   color: var(--gold-ink);
   animation: join-lift 0.7s var(--ease-out) both;
+}
+
+.join-notice p {
+  flex: 1;
+  min-width: 0;
+}
+
+/* A comfortable touch target, visually quiet. */
+.join-notice-close {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: -4px 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--gold-ink);
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.join-notice-close:hover,
+.join-notice-close:focus-visible {
+  background: rgba(138, 106, 22, 0.1);
 }
 
 .join-error {
@@ -1704,7 +1760,7 @@
   text-align: left;
   font: inherit;
   font-size: 0.91rem;
-  color: var(--muted);
+  color: var(--ink);
   padding: 11px 0;
   cursor: pointer;
   display: flex;
@@ -1724,13 +1780,97 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--faint);
+  color: var(--gold-ink);
+}
+
+/* -------------------------------------------------- review: your answers */
+
+.join-summary {
+  display: grid;
+  gap: 22px;
+}
+
+.join-summary-group {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 16px 18px 6px;
+}
+
+.join-summary-title {
+  font-family: var(--font-body);
+  font-size: 1rem;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  margin-bottom: 4px !important;
+}
+
+.join-summary-rows {
+  display: grid;
+  margin: 0;
+}
+
+.join-summary-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 14px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line);
+}
+
+.join-summary-row:first-child {
+  border-top: 0;
+}
+
+.join-summary-row dt {
+  grid-column: 1;
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+.join-summary-row dd {
+  grid-column: 1;
+  margin: 4px 0 0;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  color: var(--ink);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.join-summary-edit {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: start;
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--gold-ink);
+  font-family: var(--font-tech);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 140ms ease, background 140ms ease;
+}
+
+.join-summary-edit:hover,
+.join-summary-edit:focus-visible {
+  border-color: var(--gold);
+  background: var(--gold-tint);
 }
 
 .join-review-note {
   font-size: 0.89rem;
   line-height: 1.6;
-  color: var(--muted-2);
+  color: var(--muted);
   padding: 11px 0;
 }
 

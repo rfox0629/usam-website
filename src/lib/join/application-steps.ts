@@ -181,8 +181,22 @@ export type JoinApplicationDraft = {
   applyingAsCouple: boolean;
   disclosures: Record<string, boolean>;
   photos: JoinApplicationPhoto[];
+  /**
+   * The screen the applicant was on when the draft was last saved, as a page
+   * key (see pageKey in app/join/UsamApplicationClient.tsx). Lets a resume
+   * reopen the exact question rather than the start of its step. Optional:
+   * drafts saved before it existed only carry the step, and reopen there.
+   */
+  position?: string;
   spouse: JoinApplicantIdentity;
 };
+
+/** What a stored page key may look like. Anything else is dropped. */
+export const joinDraftPositionPattern = /^[A-Za-z0-9._/-]{1,160}$/;
+
+export function normalizeJoinDraftPosition(value: unknown) {
+  return typeof value === "string" && joinDraftPositionPattern.test(value) ? value : undefined;
+}
 
 export function emptyJoinApplicantIdentity(): JoinApplicantIdentity {
   return { email: "", firstName: "", lastName: "", phone: "" };

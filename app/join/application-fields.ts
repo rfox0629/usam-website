@@ -19,6 +19,8 @@ export type JoinListColumn = {
   label: string;
   /** Sits in a smaller track, for an age or similar short value. */
   narrow?: boolean;
+  /** Share of the remaining width at desktop size. Defaults to 1. */
+  weight?: number;
 };
 
 export type JoinField = {
@@ -99,7 +101,7 @@ export const joinApplicationFields: Record<Exclude<JoinApplicationStepId, "revie
       help: "Add each child and anyone else living with you, one person at a time.",
       addLabel: "Add another person",
       columns: [
-        { id: "name", label: "Name" },
+        { id: "name", label: "Name", weight: 1.6 },
         { id: "age", label: "Age", narrow: true },
         { id: "relationship", label: "Relationship" },
       ],
@@ -135,9 +137,9 @@ export const joinApplicationFields: Record<Exclude<JoinApplicationStepId, "revie
       help: "Please give three people.",
       addLabel: "Add another reference",
       columns: [
-        { id: "name", label: "Name" },
+        { id: "name", label: "Name", weight: 1.2 },
         { id: "relationship", label: "Relationship to you" },
-        { id: "contact", label: "How to reach them" },
+        { id: "contact", label: "How to reach them", weight: 1.3 },
       ],
       required: true,
       section: "references",

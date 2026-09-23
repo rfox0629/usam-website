@@ -22,7 +22,14 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-import { listRowCount, parseListValue, serializeListValue } from "../app/join/field-list.ts";
+import {
+  incompleteReferences,
+  listCellId,
+  listRowCount,
+  parseListValue,
+  referenceRowGaps,
+  serializeListValue,
+} from "../app/join/field-list.ts";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 const check = (label, condition) => {
@@ -53,14 +60,55 @@ const listField = client.slice(client.indexOf("function ListField("), client.ind
 check("the list control keeps the rows being edited in state", listField.includes("useState(() => ({ rows: parseListValue(value, columns.length), source: value }))"));
 check("the list control rebuilds its rows only when the stored value changes from outside", listField.includes("if (value !== editing.source)"));
 check("the list control no longer re-derives its rows from the stored text on every render", !/const rows = parseListValue\(value/.test(listField));
-check("the question label points at the first cell", listField.includes("id={rowIndex === 0 && cellIndex === 0 ? id : undefined}"));
+check("the question label points at the first cell", listCellId("references", 0, 0) === "references" && listField.includes("id={listCellId(id, rowIndex, cellIndex)}"));
+check("every other cell has its own id Review can point at", listCellId("references", 2, 2) === "references-row3-cell3");
 check("Enter inside a repeating answer stays on the page", client.includes('target?.closest(".join-list") && !modified'));
 
 // ---- refresh restores the draft
 check("the resume token is kept in the address bar once minted", client.includes('url.searchParams.set("resume", token)') && client.includes("window.history.replaceState"));
 check("leaving the page sends unsaved edits once more", client.includes('window.addEventListener("pagehide", flush)') && client.includes("keepalive: true"));
 check("the last-chance save never creates a draft without a token", client.includes("!latest.token ||"));
-check("the review names an incomplete reference", client.includes("A name and a way to reach each reference"));
+// ---- USA-285: Review names the incomplete reference and what it lacks
+const refs = serializeListValue([
+  ["Jordan Example", "Former pastor", "jordan@example.test"],
+  ["Taylor Placeholder", "Coworker", ""],
+  ["", "Mentor", "555-0104"],
+]);
+const incomplete = incompleteReferences(refs);
+
+check("a complete reference is not flagged", !incomplete.some((item) => item.rowIndex === 0));
+check("a reference with no contact is named with what it lacks", incomplete.some((item) => item.label === "Reference 2 (Taylor Placeholder): add a phone or email" && item.cellIndex === 2));
+check("a reference with no name says so", incomplete.some((item) => item.label === "Reference 3: add a name" && item.cellIndex === 0));
+check("an empty reference list flags nothing (the required check covers it)", incompleteReferences("").length === 0);
+check("the on-page marks agree with Review", JSON.stringify(referenceRowGaps(["Taylor", "Coworker", ""])) === "[2]" && JSON.stringify(referenceRowGaps(["", "", ""])) === "[]");
+check("each incomplete reference jumps to its empty cell", client.includes("focusId: listCellId(\"references\", reference.rowIndex, reference.cellIndex)"));
+check("the old catch-all reference message is gone", !client.includes("A name and a way to reach each reference"));
+check("Review jumps offer the way straight back", client.includes("Back to review") && client.includes("fromReview: true"));
+
+// ---- USA-285: Review shows the answers, with Edit links
+check("Review renders an answer summary", client.includes("<ReviewSummary draft={draft} onJump={onJump} />"));
+check("the summary reads from the same field list as the form", client.includes("for (const field of visibleFieldsForStep(stepId, draft.applyingAsCouple))"));
+check("every summary row has an Edit link back to its question", client.includes("aria-label={`Edit ${row.label}`}"));
+
+// ---- USA-285: resume reopens the exact question
+const steps = read("src/lib/join/application-steps.ts");
+const draftRoute = read("app/api/join/draft/route.ts");
+const drafts = read("src/lib/join/drafts.ts");
+
+check("the draft carries the page it was saved on", steps.includes("position?: string;") && client.includes("draft: { ...draft, position: currentPageKey }"));
+check("the draft API keeps a well-formed position and drops anything else", draftRoute.includes("position: normalizeJoinDraftPosition(record.position)") && drafts.includes("position: normalizeJoinDraftPosition(record.position)"));
+check("a page key is built from names, never from a page index", client.includes("return `${page.stepId}/${page.sectionId}/${leaf}`;"));
+check("an older draft without a position opens at its step", client.includes("const found = built.findIndex((candidate) => candidate.stepId === step);"));
+check("the notice only claims the exact question when it is", client.includes("this is the question you stopped on") && client.includes("We have opened the part of the application you were working on"));
+check("the old 'exactly where you left it' promise is gone", !client.includes("exactly where you left it"));
+
+// ---- USA-285: the welcome-back notice is dismissible and does not follow the applicant
+check("the notice can be dismissed", client.includes('aria-label="Dismiss this message"') && client.includes("setNoticeVisible(false)"));
+check("the notice goes once the applicant moves on", client.includes("if (clamped !== safeIndex) {\n      setNoticeVisible(false);"));
+
+// ---- USA-285: household names are not cut off
+check("list columns are weighted rather than equal thirds", client.includes("function listColumnTemplate(") && read("app/join/join-experience.css").includes("grid-template-columns: var(--join-list-columns"));
+check("a page with a repeating answer gets the wide measure", client.includes('className={`join-q${hasList ? " join-q-wide" : ""}`}'));
 
 // ---- every question reaches the submitted application
 const fields = read("app/join/application-fields.ts");
@@ -86,6 +134,23 @@ check("Operations reads /join prayer partners", operations.includes("joinListRow
 check("Operations lists both /join photos", operations.includes("asArray(asRecord(row.contact_payload).photos)"));
 check("Operations shows church, calling, experience, mission and profile draft answers", ["Church", "Calling", "Experience", "Mission", "Profile Draft (Unpublished)"].every((title) => operations.includes(`title: "${title}"`)));
 check("the Operations record renders the application answers", detailPage.includes("item.applicationAnswers.map"));
+
+// ---- USA-285: Operations display fixes
+const photoRoute = read("app/operations/missionaries/[id]/photos/[kind]/route.ts");
+
+check("a household member's age is labelled Age", detailPage.includes('<FieldBlock label="Age" value={item.age} />') && !detailPage.includes("item.status ?? item.age"));
+check("budget categories follow the application's Household then Ministry order", operations.includes('supportBudgetCategories.filter((category) => category.group === "household")') && detailPage.includes("<BudgetGroups groups={item.budgetGroups} />"));
+check("budget categories use the application's labels, not raw keys", operations.includes("const known = new Set<string>(supportBudgetCategories.map((category) => category.key))"));
+check("a /join testimony is split into its questions", operations.includes("function joinStoryParts(") && operations.includes('"Walk with God"'));
+check("the story empty state shows only when nothing was captured", detailPage.includes("item.storyTestimony || item.storyAnswers.length > 0") && !detailPage.includes("No structured story answers are captured yet."));
+check("Profile and DOS setup say what exists, not 'linked'", operations.includes('PROFILE_PRIVATE_DRAFT = "Private record (unpublished)"') && operations.includes('DOS_NO_LOGIN = "Application record only (no login)"') && !/"(Profile|Workspace) linked"/.test(detailPage.replace(/\/\/.*$/gm, "")));
+check("login status comes from an actual applicant user", operations.includes("if (cleanText(row.applicant_user_id)) {"));
+check("a value saved before the option change is still shown", detailPage.includes("defaultValue && !options.includes(defaultValue) ? [...options, defaultValue] : options"));
+check("reviewers can open both photos", operations.includes("viewHref: joinPhotoViewHref(row, photo.kind)") && detailPage.includes("src={item.viewHref}"));
+check("the photo route checks the missionaries module", photoRoute.includes('canAccessOperationsModule(authorization, "missionaries")'));
+check("the photo is streamed, never a shareable signed URL", !photoRoute.includes("createSignedUrl") && !operations.slice(operations.indexOf("export async function loadOperationsApplicationPhoto")).includes("createSignedUrl"));
+check("the photo response is private and uncacheable", photoRoute.includes('"Cache-Control": "private, no-store, max-age=0"'));
+check("only paths /join wrote are read, from the private bucket", operations.includes('!path.startsWith("pending/") || path.includes("..") || bucket !== JOIN_APPLICATION_PHOTO_BUCKET'));
 
 // ---- in the browser, when a dev server is available
 const base = process.env.JOIN_BROWSER_BASE;
@@ -125,6 +190,38 @@ if (base) {
 
       await page.waitForURL(/resume=regression-token/, { timeout: 5000 });
       check(`${width}px: the resume token is in the address bar after the first save`, page.url().includes("resume=regression-token"));
+
+      // USA-285: a second reference with no way to reach them is named on
+      // Review, and Fix lands in the empty cell with the way back.
+      await rows.nth(0).locator("input").nth(2).fill("jordan@example.test");
+      await rows.nth(1).locator("input").nth(0).fill("Taylor Placeholder");
+      await rows.nth(1).locator("input").nth(1).fill("Coworker");
+
+      for (let step = 0; step < 30 && !(await page.getByRole("heading", { name: "Review and submit" }).count()); step += 1) {
+        // The support path gates Continue until a path is chosen; "No" keeps
+        // the walk short.
+        const choose = page.locator(".join-choice").filter({ hasText: "already funded" });
+
+        if (await choose.count()) {
+          await choose.first().click();
+        }
+
+        await page.getByRole("button", { name: /^Continue/ }).click();
+      }
+
+      check(`${width}px: Review names the incomplete reference and what it lacks`, (await page.getByText("Reference 2 (Taylor Placeholder): add a phone or email").count()) === 1);
+      check(`${width}px: Review shows the answers`, (await page.locator(".join-summary").getByText(/Jordan Example/).count()) > 0);
+      check(`${width}px: Review does not scroll sideways`, await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth));
+
+      await page.getByRole("button", { name: /Reference 2 \(Taylor Placeholder\)/ }).click();
+      await page.waitForFunction(() => document.activeElement?.id === "references-row2-cell3", null, { timeout: 5000 });
+      check(`${width}px: Fix puts the cursor in the empty contact cell`, (await page.evaluate(() => document.activeElement?.id)) === "references-row2-cell3");
+      check(`${width}px: the empty cell is marked`, (await page.locator("#references-row2-cell3").getAttribute("aria-invalid")) === "true");
+
+      await page.locator("#references-row2-cell3").fill("taylor@example.test");
+      await page.getByRole("button", { name: /Back to review|^Review$/ }).click();
+      check(`${width}px: the way back returns to Review`, (await page.getByRole("heading", { name: "Review and submit" }).count()) === 1);
+      check(`${width}px: the fixed reference is no longer flagged`, (await page.getByText(/Taylor Placeholder\): add/).count()) === 0);
       await page.close();
     }
   } finally {

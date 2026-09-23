@@ -11,6 +11,10 @@ import {
 import { hasOperationsTestMarker, payloadHasOperationsTestMarker } from "@/src/lib/operations/test-records";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { planningFundraisingTarget, planningOrganizationalSupport } from "@/src/lib/organizational-support";
+import { supportBudgetCategories } from "@/src/lib/join/application-steps";
+
+/** The private bucket /join uploads applicant photos into. */
+export const JOIN_APPLICATION_PHOTO_BUCKET = "usam-application-photos";
 
 type UsamApplicationRow = {
   admin_notes?: string | null;
@@ -96,6 +100,18 @@ export type OperationsOnboardingDocumentItem = {
   kind: string;
   path: string | null;
   status: string;
+  /**
+   * An Operations-only route that streams the private file to an authorized
+   * reviewer. Null when the file's location is not one that route can serve.
+   */
+  viewHref: string | null;
+};
+
+/** One Household or Ministry block of the private monthly worksheet. */
+export type OperationsOnboardingBudgetGroup = {
+  items: OperationsOnboardingDetailItem[];
+  subtotal: string | null;
+  title: string;
 };
 
 export type OperationsOnboardingAnswerGroup = {
@@ -108,6 +124,7 @@ export type OperationsOnboardingDetail = OperationsOnboardingItem & {
   adminApprovedMonthlyGoalLabel: string | null;
   applicantPhone: string | null;
   applicationAnswers: OperationsOnboardingAnswerGroup[];
+  budgetGroups: OperationsOnboardingBudgetGroup[];
   canManage: boolean;
   callingFocus: string | null;
   createdAt: string | null;
@@ -388,6 +405,31 @@ function decisionLabel(status: string | null | undefined) {
   return "Pending";
 }
 
+/**
+ * Profile and DOS setup, before a reviewer sets either.
+ *
+ * Submitting /join creates a private household record so a couple is one
+ * application over two people. It is not published and nobody can log into
+ * it. These used to read "Profile linked" and "Workspace linked", which sounded
+ * like a public page and an account had been set up on submission. They now say
+ * what exists: an unpublished record, and whether an actual login is attached.
+ */
+export const PROFILE_PRIVATE_DRAFT = "Private record (unpublished)";
+export const DOS_NO_LOGIN = "Application record only (no login)";
+export const DOS_LOGIN_ACTIVE = "Login active";
+
+function profileDefault(row: UsamApplicationRow) {
+  return row.missionary_profile_id ? PROFILE_PRIVATE_DRAFT : "Draft needed";
+}
+
+function dosSetupDefault(row: UsamApplicationRow) {
+  if (cleanText(row.applicant_user_id)) {
+    return DOS_LOGIN_ACTIVE;
+  }
+
+  return row.workspace_id ? DOS_NO_LOGIN : null;
+}
+
 function itemFromApplication(row: UsamApplicationRow): OperationsOnboardingItem {
   const workflow = workflowPayload(row);
   const missing = missingRequirements(row);
@@ -401,7 +443,7 @@ function itemFromApplication(row: UsamApplicationRow): OperationsOnboardingItem 
     completionLabel: completionLabel(missing),
     decisionLabel: cleanText(workflow.decisionState) ?? decisionLabel(row.status),
     documentsLabel: documentsLabel(row),
-    dosSetupLabel: row.workspace_id ? "Workspace linked" : "Not connected",
+    dosSetupLabel: dosSetupDefault(row) ?? "Not connected",
     email: cleanText(row.applicant_email),
     followUpLabel: cleanText(workflow.followUpState) ?? (row.reviewed_at ? "Review complete" : "Review needed"),
     fundraisingLabel: approvedGoalLabel
@@ -413,7 +455,7 @@ function itemFromApplication(row: UsamApplicationRow): OperationsOnboardingItem 
     id: row.id,
     isTestRecord: testApplication(row),
     missingRequirements: missing,
-    profileLabel: cleanText(workflow.publicProfileDraft) ?? (row.missionary_profile_id ? "Profile linked" : "Draft needed"),
+    profileLabel: cleanText(workflow.publicProfileDraft) ?? profileDefault(row),
     referencesLabel: referencesLabel(row),
     reviewLabel: row.reviewed_at ? "Reviewed" : "Needs review",
     status,
@@ -487,9 +529,42 @@ function householdMembers(row: UsamApplicationRow): OperationsOnboardingHousehol
     .filter((member) => member.name !== "Household member" || member.relationship || member.age || member.status);
 }
 
+/**
+ * /join writes the story step into story_testimony as labelled paragraphs
+ * ("Testimony: ...", "Walk with God: ..."), see storyText in
+ * src/lib/join/submit-application.ts. Split back into its questions so the
+ * record reads like the application did.
+ */
+const joinStoryLabels = ["Testimony", "Walk with God", "Shaping moments", "Marriage and family", "Formation for ministry"];
+
+function joinStoryParts(testimony: string | null) {
+  if (!testimony) {
+    return [];
+  }
+
+  const pattern = new RegExp(`^(${joinStoryLabels.join("|")}): `);
+  const paragraphs = testimony.split(/\n{2,}/);
+
+  if (!paragraphs.every((paragraph) => pattern.test(paragraph.trim()))) {
+    return [];
+  }
+
+  return paragraphs.map((paragraph) => {
+    const trimmed = paragraph.trim();
+    const label = (trimmed.match(pattern) as RegExpMatchArray)[1];
+
+    return { label, value: trimmed.slice(label.length + 2).trim() };
+  });
+}
+
 function storyAnswers(row: UsamApplicationRow) {
   const story = asRecord(asRecord(row.contact_payload).story_json);
   const answers = asRecord(story.answers);
+  const joinParts = joinStoryParts(cleanText(row.story_testimony));
+
+  if (Object.keys(answers).length === 0 && !cleanText(story.acceptedDraft) && joinParts.length > 0) {
+    return joinParts;
+  }
 
   return [
     compactDetail("How they came to know Jesus", answers.jesus),
@@ -599,17 +674,6 @@ function supportDetails(row: UsamApplicationRow) {
   const proposedNeed = moneyLabel(row.proposed_monthly_need) ?? moneyLabel(support.proposedMonthlyNeed) ?? moneyLabel(row.monthly_budget);
   const approvedGoal = moneyLabel(row.admin_approved_monthly_goal);
   const agreementAccepted = row.excess_support_agreement_accepted === true || support.excessSupportAgreementAccepted === true;
-  const budgetDetails = Object.entries(budgetCategories)
-    .map(([key, value]) => {
-      const label = key
-        .replace(/([a-z])([A-Z])/g, "$1 $2")
-        .replace(/[_-]+/g, " ")
-        .replace(/\b\w/g, (letter) => letter.toUpperCase());
-      const formatted = moneyLabel(value);
-
-      return formatted ? { label, value: formatted } : null;
-    })
-    .filter((item): item is OperationsOnboardingDetailItem => Boolean(item));
 
   return [
     compactDetail("Support Path", support.path ?? support.supportNeed),
@@ -646,8 +710,64 @@ function supportDetails(row: UsamApplicationRow) {
     { label: "Excess Support Agreement", value: agreementAccepted ? "Accepted" : "Not accepted" },
     compactDetail("Agreement Accepted At", row.excess_support_agreement_accepted_at ?? support.excessSupportAgreementAcceptedAt),
     compactDetail("Agreement Version", row.excess_support_agreement_version ?? support.excessSupportAgreementVersion),
-    ...budgetDetails,
   ].filter((item): item is OperationsOnboardingDetailItem => Boolean(item));
+}
+
+function humanizeBudgetKey(key: string) {
+  const spaced = key
+    .replace(/([a-z])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .toLowerCase();
+
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+/**
+ * The private worksheet in the order and wording the applicant filled it in:
+ * Household, then Ministry, each category with its application label. Keys an
+ * older onboarding payload used that the /join worksheet does not know are kept
+ * under "Other" with readable labels, so nothing an applicant entered is lost.
+ */
+function budgetGroups(row: UsamApplicationRow): OperationsOnboardingBudgetGroup[] {
+  const budget = asRecord(applicationSupport(row).budget);
+  const categories = Object.keys(asRecord(budget.categories)).length > 0 ? asRecord(budget.categories) : budget;
+  const totalsKeys = new Set(["householdTotal", "ministryTotal", "total", "categories"]);
+  const known = new Set<string>(supportBudgetCategories.map((category) => category.key));
+  const group = (title: string, keys: { key: string; label: string }[], subtotal: unknown) => {
+    const items = keys
+      .map(({ key, label }) => {
+        const value = moneyLabel(categories[key]);
+
+        return value ? { label, value } : null;
+      })
+      .filter((item): item is OperationsOnboardingDetailItem => Boolean(item));
+
+    return items.length > 0 ? { items, subtotal: moneyLabel(subtotal), title } : null;
+  };
+
+  return [
+    group(
+      "Household",
+      supportBudgetCategories.filter((category) => category.group === "household"),
+      budget.householdTotal,
+    ),
+    group(
+      "Ministry",
+      supportBudgetCategories.filter((category) => category.group === "ministry"),
+      budget.ministryTotal,
+    ),
+    group(
+      "Other",
+      Object.keys(categories)
+        .filter((key) => !known.has(key) && !totalsKeys.has(key))
+        .map((key) => ({ key, label: humanizeBudgetKey(key) })),
+      null,
+    ),
+  ].filter((item): item is OperationsOnboardingBudgetGroup => Boolean(item));
+}
+
+function joinPhotoViewHref(row: UsamApplicationRow, kind: unknown) {
+  return kind === "profile" || kind === "family" ? `/operations/missionaries/${row.id}/photos/${kind}` : null;
 }
 
 function documentItems(row: UsamApplicationRow): OperationsOnboardingDocumentItem[] {
@@ -660,6 +780,7 @@ function documentItems(row: UsamApplicationRow): OperationsOnboardingDocumentIte
     kind: asString(document.kind) || "Document",
     path: asString(document.path) || null,
     status: asString(document.status) || "Submitted",
+    viewHref: null,
   }));
   // /join keeps both photos in contact_payload.photos. profile_photo_url
   // repeats the profile one, so it is only listed when there is no such array.
@@ -668,11 +789,12 @@ function documentItems(row: UsamApplicationRow): OperationsOnboardingDocumentIte
     kind: photo.kind === "family" ? "Family" : "Profile",
     path: asString(photo.path),
     status: "Submitted",
+    viewHref: joinPhotoViewHref(row, photo.kind),
   }));
-  const uploads = [
+  const candidates: (OperationsOnboardingDocumentItem | null)[] = [
     ...submittedPhotos,
     asString(row.profile_photo_url) && submittedPhotos.length === 0
-      ? { fileName: "Profile photo", kind: "Profile", path: row.profile_photo_url as string, status: "Submitted" }
+      ? { fileName: "Profile photo", kind: "Profile", path: row.profile_photo_url as string, status: "Submitted", viewHref: null }
       : null,
     asString(photos.profilePhotoName) || asString(profileUpload.path)
       ? {
@@ -680,6 +802,7 @@ function documentItems(row: UsamApplicationRow): OperationsOnboardingDocumentIte
         kind: "Profile",
         path: asString(profileUpload.path) || null,
         status: "Submitted",
+        viewHref: null,
       }
       : null,
     asString(photos.familyPhotoName) || asString(familyUpload.path)
@@ -688,9 +811,11 @@ function documentItems(row: UsamApplicationRow): OperationsOnboardingDocumentIte
         kind: "Family",
         path: asString(familyUpload.path) || null,
         status: "Submitted",
+        viewHref: null,
       }
       : null,
-  ].filter((item): item is OperationsOnboardingDocumentItem => Boolean(item));
+  ];
+  const uploads = candidates.filter((item): item is OperationsOnboardingDocumentItem => Boolean(item));
 
   return [...uploads, ...documents];
 }
@@ -783,12 +908,13 @@ function detailFromApplication(
     adminApprovedMonthlyGoalLabel: moneyLabel(row.admin_approved_monthly_goal),
     applicantPhone: cleanText(row.applicant_phone),
     applicationAnswers: applicationAnswers(row),
+    budgetGroups: budgetGroups(row),
     canManage: canManageOperationsModule(authorization, "missionaries"),
     callingFocus: cleanText(row.calling_focus),
     createdAt: row.created_at ?? null,
     decisionState: workflowText(row, "decisionState"),
     documents: documentItems(row),
-    dosSetupState: workflowText(row, "dosSetupState") ?? (row.workspace_id ? "Workspace linked" : null),
+    dosSetupState: workflowText(row, "dosSetupState") ?? dosSetupDefault(row),
     excessSupportAgreementAccepted: row.excess_support_agreement_accepted === true || applicationSupport(row).excessSupportAgreementAccepted === true,
     excessSupportAgreementAcceptedAt: cleanText(row.excess_support_agreement_accepted_at) ?? cleanText(applicationSupport(row).excessSupportAgreementAcceptedAt),
     excessSupportAgreementVersion: cleanText(row.excess_support_agreement_version) ?? cleanText(applicationSupport(row).excessSupportAgreementVersion),
@@ -807,7 +933,9 @@ function detailFromApplication(
     references: references(row),
     reviewedAt: row.reviewed_at,
     storyAnswers: storyAnswers(row),
-    storyTestimony: cleanText(row.story_testimony),
+    // A /join testimony is shown split into its questions (storyAnswers), so
+    // the same text is not repeated underneath as one block.
+    storyTestimony: joinStoryParts(cleanText(row.story_testimony)).length > 0 ? null : cleanText(row.story_testimony),
     supportDetails: support,
     supportGoalLabel: moneyLabel(row.admin_approved_monthly_goal) ?? moneyLabel(row.support_goal),
     updatedAt: row.updated_at ?? null,
@@ -1450,4 +1578,61 @@ export async function deleteTestOperationsOnboardingApplication({
   }
 
   return { error: null };
+}
+
+/**
+ * A /join applicant photo for an Operations reviewer.
+ *
+ * The bucket stays private: nothing here mints a URL that could be shared. The
+ * caller streams the bytes back through an Operations route, behind the same
+ * missionaries-module check the record itself uses, and only paths /join's
+ * own upload route wrote (pending/...) are ever read.
+ */
+export async function loadOperationsApplicationPhoto({
+  authorization,
+  id,
+  kind,
+}: {
+  authorization: OperationsAuthorization;
+  id: string;
+  kind: string;
+}): Promise<{ body: Blob; contentType: string; fileName: string } | null> {
+  if (authorization.status !== "authorized" || !isSupabaseAdminConfigured()) {
+    return null;
+  }
+
+  if (kind !== "profile" && kind !== "family") {
+    return null;
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data, error } = await supabase
+    .from("usam_missionary_applications")
+    .select("id, contact_payload")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const photo = joinPhotos(data as unknown as UsamApplicationRow).find((candidate) => candidate.kind === kind);
+  const path = asString(photo?.path);
+  const bucket = asString(photo?.bucket) || JOIN_APPLICATION_PHOTO_BUCKET;
+
+  if (!photo || !path.startsWith("pending/") || path.includes("..") || bucket !== JOIN_APPLICATION_PHOTO_BUCKET) {
+    return null;
+  }
+
+  const download = await supabase.storage.from(bucket).download(path);
+
+  if (download.error || !download.data) {
+    return null;
+  }
+
+  return {
+    body: download.data,
+    contentType: asString(photo.contentType) || download.data.type || "application/octet-stream",
+    fileName: asString(photo.fileName) || `${kind}-photo`,
+  };
 }
