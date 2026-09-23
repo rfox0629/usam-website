@@ -155,6 +155,29 @@ import {
   type AccountabilityProgressKind,
 } from "@/src/lib/dos/accountability-presentation";
 import {
+  accountabilityCheckInCounts,
+  accountabilityCheckInPeople,
+  accountabilityCheckInRows,
+  accountabilityPeopleForFilter,
+  accountabilityPeopleSummaryLabel,
+  accountabilityPeopleCounts,
+  accountabilityPeopleDueToday,
+  accountabilityPeopleForStatus,
+  accountabilityPersonStatusLabels,
+  accountabilityPersonStatusOrder,
+  accountabilityUpcomingWindowDays,
+  isAccountabilityCheckInFilter,
+  type AccountabilityCheckInCounts,
+  type AccountabilityCheckInFilter,
+  type AccountabilityCheckInRow,
+  type AccountabilityPerson,
+} from "@/src/lib/dos/accountability-checkins";
+import {
+  homeTodayEmptyLabel,
+  homeTodayPossessive,
+  isHomeTodayDate,
+} from "@/src/lib/dos/home-today";
+import {
   dosAccountabilityFrequencies,
   dosCommitmentCategories,
   isDosCommitmentTargetKind,
@@ -191,7 +214,6 @@ import {
   dosResourceAssignmentFollowUpCadences,
   parseResourceAssignmentFollowUpScheduleTitle,
   resourceAssignmentFollowUpScheduleDisplayTitle,
-  resourceAssignmentFollowUpScheduleHeading,
   todayResourceAssignmentDateKey,
   type DosResourceAssignmentContext,
   type DosResourceAssignmentFollowUpCadence,
@@ -256,6 +278,11 @@ type ActiveTab = "home" | "meetings" | "more" | "people";
    and every field is re-validated on the way back in. */
 type PersistedAppView = {
   activeTab: ActiveTab;
+  /* USA-282: the Check-ins list is a People view, so "where was I" has to
+     carry whether it was open and which filter it was on -- otherwise a
+     save's router.refresh() dropped the reader back onto the People list and
+     lost the filter they were working. */
+  checkIns: { filter: AccountabilityCheckInFilter } | null;
   meetingsCalendarDate: string | null;
   meetingsView: MeetingsView;
   /* Which More app was open, so a reload inside Reports returns to Reports
@@ -300,6 +327,9 @@ function readPersistedAppView(workspaceId: string): Partial<PersistedAppView> {
 
     return {
       ...(parsed.myRecordOpen === true ? { myRecordOpen: true } : {}),
+      ...(typeof parsed.checkIns?.filter === "string" && isAccountabilityCheckInFilter(parsed.checkIns.filter)
+        ? { checkIns: { filter: parsed.checkIns.filter } }
+        : {}),
       ...(persistedAppViewTabs.has(parsed.activeTab as ActiveTab) ? { activeTab: parsed.activeTab } : {}),
       ...(persistedMeetingsViews.has(parsed.meetingsView as MeetingsView) ? { meetingsView: parsed.meetingsView } : {}),
       ...(savedMoreAppView ? { moreAppView: savedMoreAppView } : {}),
@@ -1992,6 +2022,16 @@ type GroupGatheringView = DosAppGroupGathering & {
   derived?: boolean;
   sourceGatheringId?: string | null;
 };
+
+/* A calendar date in the workspace's display timezone, whatever shape the
+   stored value has: a date key stays itself, an instant is read in the zone.
+   A meeting at 7pm Chicago is stored as tomorrow in UTC, and reading its
+   first ten characters put it on the wrong day. */
+function displayDayKeyForValue(value: string | null | undefined) {
+  const date = value ? parseDisplayDate(value) : null;
+
+  return date ? displayDateKey(date) : value?.slice(0, 10) ?? "";
+}
 
 function groupGatheringDateKey(value: string | null | undefined) {
   const date = value ? parseDisplayDate(value) : null;
@@ -12511,14 +12551,6 @@ type DashboardUpcomingRow = {
   title: string;
 };
 
-type DashboardNotificationItem = {
-  badge: string;
-  icon: ReactNode;
-  id: string;
-  onClick: () => void;
-  subtitle: string;
-  title: string;
-};
 
 /* `mentor_meeting:<id>` opens that saved discipleship meeting (USA-265: from
    the Person record or the report). */
@@ -12590,36 +12622,6 @@ function dashboardEngagementScoreLabel(person: DosAppPerson) {
 function dashboardTimeInvestmentRelationshipLine(person: DosAppPerson, showEngagement: boolean, relationship = dashboardDiscipleshipRelationshipLabel(person)) {
 
   return showEngagement ? `${relationship} · ${dashboardEngagementScoreLabel(person)}` : relationship;
-}
-
-function DashboardNotificationsPanel({ items }: { items: DashboardNotificationItem[] }) {
-  return (
-    <DesktopPanel className="min-w-0" compact eyebrow="Notifications">
-      <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF] bg-white">
-        {items.length ? items.map((item) => (
-          <button
-            className="grid min-h-[52px] w-full grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-2.5 border-b border-[#EAF2FF] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF] sm:grid-cols-[34px_minmax(0,1fr)_auto]"
-            key={item.id}
-            onClick={item.onClick}
-            type="button"
-          >
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[12px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
-              {item.icon}
-            </span>
-            <span className="min-w-0">
-              <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{item.title}</span>
-              <span className="mt-0.5 hidden truncate text-xs font-semibold leading-4 text-[#64748B] sm:block">{item.subtitle}</span>
-            </span>
-            <span className="max-w-[142px] shrink-0 truncate rounded-full border border-[#BFDBFE] bg-[#EBF2FF] px-2.5 py-1 text-right text-[10px] font-black uppercase leading-none tracking-[0.08em] text-[#1D4ED8] sm:max-w-[180px]" style={{ fontFamily: font.rajdhani }}>
-              {item.badge}
-            </span>
-          </button>
-        )) : (
-          <p className="px-3 py-2.5 text-sm font-semibold text-[#64748B]">No notifications today.</p>
-        )}
-      </div>
-    </DesktopPanel>
-  );
 }
 
 const commitmentStatusLabels: Record<DosCommitmentStatus, string> = {
@@ -13027,110 +13029,396 @@ function ResourceAssignmentCard({
   );
 }
 
-function accountabilityDueRows(schedules: DosAppAccountabilitySchedule[], people: DosAppPerson[], resourceAssignments: DosAppResourceAssignment[] = [], todayKey?: string) {
-  const personById = new Map(people.map((person) => [person.id, person]));
-  const today = todayKey ?? todayCommitmentDateKey();
-  const todayValue = dateSortValue(today);
-  const sevenDayValue = todayValue + 7 * 24 * 60 * 60 * 1000;
+/* USA-282 — the check-in list.
+ *
+ * One row shape, rendered on Home's preview and in the full list under
+ * People, because they are the same list at two lengths. The person leads:
+ * this is a list of people to follow up with, so the name is the thing to
+ * read first. Before this, Home led every Journey row with the generated
+ * heading "Growth follow-up due", which made two rows for one person
+ * indistinguishable and buried the only name on the row.
+ *
+ * Status is a chip rather than coloured text (spec §3) and stays inside the
+ * blue/white language Home requires (USA-257 §8), so "Overdue" is carried by
+ * the word, not by a red.
+ */
+/* USA-282: what a growth follow-up's own sheets say.
+ *
+ * Opened from the check-in list, the detail and check-in sheets read
+ * "Growth follow-up due -- One-time date · Next Sep 19", which is the
+ * generated schedule title and a sentence about a date that has already gone
+ * by. Worse, it is identical for the midpoint and the completion of the same
+ * assignment, so the two rows the list finally tells apart become
+ * indistinguishable the moment either is opened.
+ *
+ * The sheets therefore borrow the row's own words. Only for a growth
+ * follow-up: a leader's rhythm and a one-time goal keep the copy they have
+ * (spec §1 B12).
+ */
+function journeyFollowUpSheetCopy(
+  rows: ReadonlyArray<AccountabilityCheckInRow>,
+  schedule: DosAppAccountabilitySchedule | null | undefined,
+) {
+  if (!schedule || !parseResourceAssignmentFollowUpScheduleTitle(schedule.title)) {
+    return null;
+  }
 
-  return schedules
-    .filter((schedule) => schedule.status === "active")
-    .map((schedule) => {
-      const assignment = resourceAssignmentForFollowUpSchedule(schedule, resourceAssignments);
+  const row = rows.find((candidate) => candidate.kind === "growth_follow_up" && candidate.sourceId === schedule.id);
 
-      return {
-        assignment,
-        bucket: dateSortValue(schedule.nextCheckIn) < todayValue ? "Overdue" : schedule.nextCheckIn === today ? "Due Today" : "Next 7 Days",
-        person: personById.get(schedule.personId) ?? null,
-        schedule,
-      };
-    })
-    .filter((row) => row.bucket !== "Next 7 Days" || dateSortValue(row.schedule.nextCheckIn) <= sevenDayValue)
-    .sort((first, second) => dateSortValue(first.schedule.nextCheckIn) - dateSortValue(second.schedule.nextCheckIn));
+  return row
+    ? { meta: [row.context, row.statusLabel].filter(Boolean).join(" · "), title: row.topic }
+    : null;
 }
 
-function AccountabilityDashboardCard({
-  onOpenPerson,
-  people,
-  resourceAssignments,
-  schedules,
-  today,
+/* What a pending delete is: which record, so the request can go to the right
+   endpoint, and whose record it is, so the confirmation afterwards lands on
+   the person it belongs to. The title is only for the question itself. */
+type PendingAccountabilityDelete = {
+  id: string;
+  kind: "commitment" | "schedule";
+  personId: string | null;
+  title: string;
+};
+
+/* USA-282 follow-up: Home is discreet, and Home lists PEOPLE.
+ *
+ * A row says who, when, and how many -- never what. A leader's phone is read
+ * in public and the subject of someone's accountability is the most private
+ * thing DOS holds, so it is not in the row, not in a tooltip, and not in an
+ * accessibility label. It is one deliberate tap away, inside the person.
+ *
+ * One row per person, by canonical id: a weekly rhythm and two Journey
+ * milestones are three records and one person to sit down with. */
+function HomeAccountabilityPersonRow({
+  onOpen,
+  person,
 }: {
-  onOpenPerson: (personId: string) => void;
-  people: DosAppPerson[];
-  resourceAssignments: DosAppResourceAssignment[];
-  schedules: DosAppAccountabilitySchedule[];
-  /* The day Due Today, Overdue and Next 7 Days are counted against, fixed at
-     the server render so the counts hydrate identically (see reportNow). */
-  today: string;
+  onOpen: () => void;
+  person: AccountabilityPerson;
 }) {
-  const rows = accountabilityDueRows(schedules, people, resourceAssignments, today);
-  const dueToday = rows.filter((row) => row.bucket === "Due Today").length;
-  const overdue = rows.filter((row) => row.bucket === "Overdue").length;
-  const dueSoon = rows.filter((row) => row.bucket === "Next 7 Days").length;
-  /* USA-257: Home shows what needs attention and hands off. Logging a
-     check-in, marking a resource complete, and rescheduling all live on the
-     Person, so none of those controls are here. */
-  const attentionRows = rows.slice(0, 3);
+  const meta = [person.statusDateLabel, person.itemCountLabel].filter(Boolean).join(" · ");
 
   return (
-    <DesktopPanel className="min-w-0" compact eyebrow="Accountability">
-      <div className="grid grid-cols-3 gap-2">
-        {[
-          ["Due Today", dueToday],
-          ["Overdue", overdue],
-          ["7 Days", dueSoon],
-        ].map(([label, value]) => (
-          <div className="rounded-[18px] border border-[#DCEBFF] bg-[#F8FBFF] px-3 py-2" key={label}>
-            <p className="text-[10px] font-black uppercase tracking-[0.13em] text-[#64748B]" style={{ fontFamily: font.rajdhani }}>{label}</p>
-            <p className="mt-1 text-xl font-black text-[#0F172A]">{value}</p>
-          </div>
-        ))}
-      </div>
-      <div className="mt-3 overflow-hidden rounded-[18px] border border-[#EAF2FF]">
-        {attentionRows.length ? attentionRows.map((row) => {
-          const assignment = row.assignment;
-          const person = row.person;
-          const personName = person?.name ?? "Field person";
-          const isResourceFollowUp = Boolean(assignment);
-          const resourceTitle = assignment ? resourceAssignmentTitle(assignment) : null;
-          const content = (
-            <>
-              <span className="min-w-0">
-                <span className="block truncate text-sm font-black text-[#0F172A]">{isResourceFollowUp ? resourceAssignmentFollowUpScheduleHeading : personName}</span>
-                <span className="mt-0.5 block truncate text-xs font-semibold text-[#64748B]">
-                  {isResourceFollowUp && resourceTitle
-                    ? `Check in with ${personName} about "${resourceTitle}".`
-                    : accountabilityScheduleDisplayTitle(row.schedule)}
-                  {" "}&middot; {row.bucket} &middot; {formatDate(row.schedule.nextCheckIn)}
-                </span>
-              </span>
-              <ChevronRight className="h-4 w-4 shrink-0 text-[#2563EB]" aria-hidden="true" strokeWidth={2.2} />
-            </>
-          );
+    <div className="flex min-w-0 items-center border-t border-dos-line first:border-t-0">
+      <button
+        /* The name, the date and the number of check-ins -- the same three
+           things the row shows, and nothing the row does not. */
+        aria-label={[`Check in with ${person.personName}`, person.statusDateLabel, person.itemCountLabel].filter(Boolean).join(", ")}
+        className="flex min-h-[56px] min-w-0 flex-1 items-center gap-2.5 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
+        onClick={onOpen}
+        type="button"
+      >
+        <Avatar name={person.personName} size="sm" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-dos-body font-semibold text-dos-primary">{person.personName}</span>
+          {meta ? <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{meta}</span> : null}
+        </span>
+        {/* The action the row performs, named, inside the one tap target. */}
+        <span aria-hidden="true" className="ml-2 shrink-0 text-dos-label font-semibold text-dos-blueText">Check in</span>
+        <ChevronRight aria-hidden="true" className="ml-1 h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+      </button>
+    </div>
+  );
+}
 
-          return person ? (
-            <button
-              className="grid min-h-[52px] w-full grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF]"
-              key={row.schedule.id}
-              onClick={() => onOpenPerson(person.id)}
-              type="button"
-            >
-              {content}
-            </button>
-          ) : (
-            <div className="grid min-h-[52px] grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-[#EAF2FF] px-3 py-2 last:border-b-0" key={row.schedule.id}>
-              {content}
+/* A section heading and its count. The count is PEOPLE -- the heading is a
+   group of people -- while a row's own count says "check-ins" out loud. */
+function HomeAccountabilitySectionHeading({ count, label }: { count: number; label: string }) {
+  return (
+    <div className="flex items-baseline gap-2 pb-1 pt-2.5 first:pt-0">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{label}</p>
+      <span className="text-dos-meta font-semibold text-dos-secondary">{count}</span>
+    </div>
+  );
+}
+
+/* Home's Accountability: who needs a check-in, today first. It sits directly
+   under the Home action buttons, above Top Time Investments, and it is the
+   only backlog on Home -- Today above it carries only today, so the two never
+   list the same thing twice. */
+const homeAccountabilityVisiblePeople = 6;
+
+function HomeAccountabilityPanel({
+  onOpenAll,
+  onOpenPerson,
+  people,
+}: {
+  onOpenAll: () => void;
+  onOpenPerson: (person: AccountabilityPerson) => void;
+  people: AccountabilityPerson[];
+}) {
+  const visible = people.slice(0, homeAccountabilityVisiblePeople);
+  const sections = accountabilityPersonStatusOrder
+    .map((status) => ({
+      label: accountabilityPersonStatusLabels[status],
+      /* The count is of everyone in that group, not only of those shown, so
+         the heading never shrinks to fit the page. */
+      total: accountabilityPeopleForStatus(people, status).length,
+      visible: accountabilityPeopleForStatus(visible, status),
+    }))
+    .filter((section) => section.visible.length);
+
+  return (
+    <DesktopPanel
+      action={people.length > visible.length
+        ? <DashboardHeaderAction onClick={onOpenAll}>{`View all ${people.length}`}</DashboardHeaderAction>
+        : <DashboardHeaderAction onClick={onOpenAll}>View all</DashboardHeaderAction>}
+      className="min-w-0"
+      compact
+      eyebrow="Accountability"
+    >
+      {people.length ? (
+        sections.map((section) => (
+          <Fragment key={section.label}>
+            <HomeAccountabilitySectionHeading count={section.total} label={section.label} />
+            <div className="grid">
+              {section.visible.map((person) => (
+                <HomeAccountabilityPersonRow key={person.personId} onOpen={() => onOpenPerson(person)} person={person} />
+              ))}
             </div>
-          );
-        }) : (
-          <p className="px-3 py-2 text-sm font-semibold text-[#64748B]">No check-ins due.</p>
+          </Fragment>
+        ))
+      ) : (
+        /* One short line. An empty list needs no explanation of what it would
+           have contained. */
+        <p className="text-sm font-semibold text-[#64748B]">No one needs a check-in right now.</p>
+      )}
+    </DesktopPanel>
+  );
+}
+
+/* Home's Notifications: today, one line each.
+ *
+ * Every line states a fact about today -- a meeting at a time, whose birthday
+ * it is, a person to check in with -- and opens the thing it names. A
+ * birthday is not an unfinished task and is not written as one; no line here
+ * carries a count of work owed. What is late belongs to the Accountability
+ * section below, and repeating it here is what turned this panel into a
+ * second copy of that backlog.
+ *
+ * A check-in line names the person and nothing else: the topic stays private
+ * on Home. */
+type HomeNotificationItem = {
+  icon: ReactNode;
+  id: string;
+  meta: string;
+  onClick: () => void;
+  title: string;
+};
+
+function HomeNotificationsPanel({ items }: { items: HomeNotificationItem[] }) {
+  return (
+    <DesktopPanel className="min-w-0" compact eyebrow="Notifications">
+      <div className="overflow-hidden rounded-[18px] border border-[#EAF2FF] bg-white">
+        {items.length ? items.map((item) => (
+          <button
+            className="flex min-h-[52px] w-full items-center gap-2.5 border-b border-[#EAF2FF] px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-[#F8FBFF]"
+            key={item.id}
+            onClick={item.onClick}
+            type="button"
+          >
+            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[12px] bg-[#EBF2FF] text-[#2563EB] ring-1 ring-[#DCEBFF]">
+              {item.icon}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-black leading-5 text-[#0F172A]">{item.title}</span>
+              {item.meta ? <span className="mt-0.5 block truncate text-xs font-semibold leading-4 text-[#64748B]">{item.meta}</span> : null}
+            </span>
+            <ChevronRight aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+          </button>
+        )) : (
+          <p className="px-3 py-2.5 text-sm font-semibold text-[#64748B]">{homeTodayEmptyLabel}</p>
         )}
-        {rows.length > attentionRows.length ? (
-          <p className="border-t border-[#EAF2FF] px-3 py-2 text-xs font-semibold text-[#64748B]">{rows.length - attentionRows.length} more on the people themselves.</p>
-        ) : null}
       </div>
     </DesktopPanel>
+  );
+}
+
+const checkInFilterLabels: Record<AccountabilityCheckInFilter, string> = {
+  all: "All",
+  coming_up: "Coming up",
+  due_today: "Due today",
+  past_due: "Past due",
+};
+
+const checkInEmptyCopy: Record<AccountabilityCheckInFilter, string> = {
+  all: "No one has an open check-in. Completed ones stay on the person's record.",
+  coming_up: "Nothing scheduled ahead.",
+  due_today: "No one is due today.",
+  past_due: "Nobody is behind.",
+};
+
+/* A person in the full list. Same discretion rule as Home -- who, when, how
+   many -- because this list is read in the same places a phone is. The topics
+   are one tap further, inside the person. */
+function AccountabilityPersonListRow({
+  onOpen,
+  person,
+}: {
+  onOpen: () => void;
+  person: AccountabilityPerson;
+}) {
+  const meta = [person.statusLabel, person.statusDateLabel, person.itemCountLabel].filter(Boolean).join(" · ");
+
+  return (
+    <div className="flex min-w-0 items-center border-t border-dos-line first:border-t-0">
+      <button
+        aria-label={[`Check in with ${person.personName}`, person.statusLabel, person.statusDateLabel, person.itemCountLabel].filter(Boolean).join(", ")}
+        className="flex min-h-[60px] min-w-0 flex-1 items-center gap-2.5 py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
+        onClick={onOpen}
+        type="button"
+      >
+        <Avatar name={person.personName} size="sm" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-dos-body font-semibold text-dos-primary">{person.personName}</span>
+          <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">{meta}</span>
+        </span>
+        <ChevronRight aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+      </button>
+    </div>
+  );
+}
+
+/* The full list, inside People (USA-282). It opens over the People list the
+   same way My Record does (USA-272), so the list underneath keeps its
+   search, circle filter and scroll position and Back simply uncovers it.
+
+   It lists people, grouped exactly as Home groups them, so the two never
+   disagree about who is behind. Unlike Home it carries no upcoming window:
+   everything scheduled, however far out, is reachable under Coming up and
+   All -- which is what makes Home's window safe. */
+function CheckInsWorkspace({
+  counts,
+  filter,
+  onBack,
+  onFilterChange,
+  onOpenPerson,
+  people,
+  saveConfirmation,
+}: {
+  counts: ReturnType<typeof accountabilityPeopleCounts>;
+  filter: AccountabilityCheckInFilter;
+  onBack: () => void;
+  onFilterChange: (filter: AccountabilityCheckInFilter) => void;
+  onOpenPerson: (person: AccountabilityPerson) => void;
+  people: AccountabilityPerson[];
+  saveConfirmation: string;
+}) {
+  const grouped = filter === "all"
+    ? accountabilityPersonStatusOrder
+      .map((status) => ({
+        label: accountabilityPersonStatusLabels[status],
+        people: accountabilityPeopleForStatus(people, status),
+      }))
+      .concat([{ label: "No date", people: people.filter((person) => person.status === null) }])
+      .filter((section) => section.people.length)
+    : [{ label: "", people }];
+
+  return (
+    <div className={`absolute inset-0 space-y-3 overflow-y-auto px-4 pt-7 [scrollbar-width:none] md:left-[232px] md:pb-10 md:pt-6 xl:left-[260px] ${dosAppBackgroundClassName} pb-dos-fab-clearance md:px-10 md:pb-24 lg:px-14`}>
+      <PageHeader
+        backLabel="Back to people"
+        lede="People you need to follow up with."
+        onBack={onBack}
+        title="Accountability"
+      />
+      <PillRail
+        edgeInset={4}
+        label="Accountability filters"
+        onChange={onFilterChange}
+        options={[
+          { count: counts.due_today, label: checkInFilterLabels.due_today, value: "due_today" as const },
+          { count: counts.past_due, label: checkInFilterLabels.past_due, value: "past_due" as const },
+          { count: counts.coming_up, label: checkInFilterLabels.coming_up, value: "coming_up" as const },
+          { count: counts.total, label: checkInFilterLabels.all, value: "all" as const },
+        ]}
+        value={filter}
+      />
+      {saveConfirmation ? (
+        <p
+          aria-live="polite"
+          className="flex min-h-11 items-center gap-2 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary"
+          role="status"
+        >
+          <Check aria-hidden="true" className="h-4 w-4 shrink-0 text-dos-blue" strokeWidth={2.4} />
+          {saveConfirmation}
+        </p>
+      ) : null}
+      {people.length ? (
+        <>
+          {/* Both numbers, each saying what it counts: a leader plans the day
+              by people and works through check-ins. */}
+          <p className="text-dos-meta font-semibold text-dos-secondary">{accountabilityPeopleSummaryLabel(people)}</p>
+          {grouped.map((section) => (
+            <div key={section.label || "filtered"}>
+              {section.label ? (
+                <p className="pb-1 pt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>
+                  {section.label}
+                </p>
+              ) : null}
+              <div className="grid">
+                {section.people.map((person) => (
+                  <AccountabilityPersonListRow key={person.personId} onOpen={() => onOpenPerson(person)} person={person} />
+                ))}
+              </div>
+            </div>
+          ))}
+        </>
+      ) : (
+        <DosEmptyState>{checkInEmptyCopy[filter]}</DosEmptyState>
+      )}
+    </div>
+  );
+}
+
+/* The person, opened deliberately.
+ *
+ * Home and the list say who, when and how many. This is where what lives:
+ * every open item this person has, each with the action its own kind already
+ * carries, and each opening its own record. Checking one off leaves the rest
+ * exactly where they are -- there is no "complete the person" here, because a
+ * person is not a task. */
+function PersonAccountabilitySheet({
+  onClose,
+  onOpenItem,
+  person,
+}: {
+  onClose: () => void;
+  onOpenItem: (row: AccountabilityCheckInRow) => void;
+  person: AccountabilityPerson;
+}) {
+  return (
+    <DosDetailSheet
+      fit="content"
+      identity={person.personName}
+      onClose={onClose}
+      title="Accountability"
+    >
+      <div className="grid gap-1">
+        <p className="text-dos-meta font-semibold text-dos-secondary">
+          {person.itemCountLabel ?? "1 check-in"}
+        </p>
+        <div className="grid">
+          {person.items.map((row) => (
+            <div className="flex min-w-0 items-center border-t border-dos-line first:border-t-0" key={row.id}>
+              <button
+                className="flex min-h-[60px] min-w-0 flex-1 items-center gap-2.5 py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
+                onClick={() => onOpenItem(row)}
+                type="button"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-dos-body font-semibold text-dos-primary">{row.topic}</span>
+                  <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">
+                    {[row.statusLabel, row.context].filter(Boolean).join(" · ")}
+                  </span>
+                </span>
+                <ChevronRight aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    </DosDetailSheet>
   );
 }
 
@@ -13887,7 +14175,11 @@ function PersonAccountabilityDetailSheet({
   onAddProgress,
   onCheckIn,
   onClose,
+  onDelete,
   onEdit,
+  onPause,
+  onReschedule,
+  pauseLabel = "Pause",
   personName = null,
   progressKind,
   recentProgress,
@@ -13900,7 +14192,12 @@ function PersonAccountabilityDetailSheet({
   onAddProgress?: () => void;
   onCheckIn?: () => void;
   onClose: () => void;
+  onDelete?: () => void;
   onEdit?: () => void;
+  /* A rhythm only: a one-time goal has nothing to pause or move. */
+  onPause?: () => void;
+  onReschedule?: () => void;
+  pauseLabel?: string;
   /* The Person this belongs to, shown once in the header. */
   personName?: string | null;
   progressKind: AccountabilityProgressKind;
@@ -13910,13 +14207,40 @@ function PersonAccountabilityDetailSheet({
   return (
     <DosDetailSheet
       actions={(
-        <div className="grid grid-cols-2 gap-2">
-          {progressKind === "people" && onAddPerson ? <AppButton icon="people" onClick={onAddPerson} tone="black">Add person</AppButton> : null}
-          {progressKind === "count" && onAddProgress ? <AppButton icon="add" onClick={onAddProgress} tone="black">Add progress</AppButton> : null}
-          {progressKind === "check_in" && onCheckIn ? <AppButton icon="log" onClick={onCheckIn} tone="black">Check in</AppButton> : null}
-          {/* System-generated Journey follow-ups keep their own semantics and
-              are not editable as though someone had written them. */}
-          {onEdit && !isSystemGenerated ? <AppButton onClick={onEdit} tone="white">Edit</AppButton> : null}
+        <div className="grid gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            {progressKind === "people" && onAddPerson ? <AppButton icon="people" onClick={onAddPerson} tone="black">Add person</AppButton> : null}
+            {progressKind === "count" && onAddProgress ? <AppButton icon="add" onClick={onAddProgress} tone="black">Add progress</AppButton> : null}
+            {progressKind === "check_in" && onCheckIn ? <AppButton icon="log" onClick={onCheckIn} tone="black">Check in</AppButton> : null}
+            {/* System-generated Journey follow-ups keep their own semantics and
+                are not editable as though someone had written them. */}
+            {onEdit && !isSystemGenerated ? <AppButton onClick={onEdit} tone="white">Edit</AppButton> : null}
+          </div>
+          {/* When an old rhythm no longer fits: move the next one, or stop it
+              without losing what it has recorded. Both live here, on the
+              record itself, rather than on a list that must stay discreet.
+              A paused rhythm leaves the lists and keeps its history. */}
+          {(onReschedule || onPause) && !isSystemGenerated ? (
+            <div className="grid grid-cols-2 gap-2">
+              {onReschedule ? <AppButton icon="calendar" onClick={onReschedule} tone="white">Reschedule</AppButton> : null}
+              {onPause ? <AppButton icon="bell" onClick={onPause} tone="white">{pauseLabel}</AppButton> : null}
+            </div>
+          ) : null}
+          {/* The same delete the record's own menu offers, reachable from the
+              item a check-in row opens -- so the Check-ins list needs no menu
+              of its own on a row that is already one tap target. A Journey's
+              follow-up is not deletable here for the same reason it is not
+              editable: DOS writes it, and the Journey ends it. */}
+          {onDelete && !isSystemGenerated ? (
+            <button
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-[14px] font-semibold text-[#B42318] transition-colors hover:bg-[#FEF3F2]"
+              onClick={onDelete}
+              type="button"
+            >
+              <Trash2 aria-hidden="true" className="h-4 w-4" strokeWidth={1.9} />
+              Delete
+            </button>
+          ) : null}
         </div>
       )}
       /* USA-280 follow-up: sized by its content. Every read-only sheet in DOS
@@ -15413,12 +15737,15 @@ function AccountabilityScheduleSheet({
 }
 
 function DesktopHomeDashboard({
-  accountabilitySchedules,
+  accountabilityPeople,
   engagementLevelsEnabled,
   meetingActivity,
   onAddPerson,
   onCreateCommitment,
   onLogMeeting,
+  notificationItems,
+  onOpenAccountability,
+  onOpenAccountabilityPerson,
   onOpenGroupJoinRequests,
   onOpenMeeting,
   onOpenPerson,
@@ -15426,14 +15753,15 @@ function DesktopHomeDashboard({
   onOpenTable,
   onOpenTableCalendar,
   onScheduleMeeting,
-  pendingGroupJoinRequestItems = [],
   people,
-  resourceAssignments,
   timeInvestments,
-  today,
   upcomingItems,
 }: {
-  accountabilitySchedules: DosAppAccountabilitySchedule[];
+  /* One entry per person, already grouped and ordered by the one eligibility
+     function every accountability surface reads. Home shows the first few and
+     hands off to the full list under People; the workflow does not live here
+     (USA-257). */
+  accountabilityPeople: AccountabilityPerson[];
   /* The Engagement Levels Advanced Feature, resolved from the workspace's
      feature flags by the same helper every other surface uses. */
   engagementLevelsEnabled: boolean;
@@ -15444,6 +15772,11 @@ function DesktopHomeDashboard({
   onAddPerson: () => void;
   onCreateCommitment: () => void;
   onLogMeeting: () => void;
+  /* Today's notifications, already built and ordered; each opens the thing
+     it names. */
+  notificationItems: HomeNotificationItem[];
+  onOpenAccountability: () => void;
+  onOpenAccountabilityPerson: (person: AccountabilityPerson) => void;
   onOpenGroupJoinRequests: (groupId: string) => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenPerson: (personId: string) => void;
@@ -15451,15 +15784,11 @@ function DesktopHomeDashboard({
   onOpenTable: () => void;
   onOpenTableCalendar: () => void;
   onScheduleMeeting: () => void;
-  pendingGroupJoinRequestItems?: PendingGroupJoinRequestItem[];
   people: DosAppPerson[];
-  resourceAssignments: DosAppResourceAssignment[];
   /* The report's "Time I invested" rows, already ranked by logged duration.
      Time invested in the missionary (being discipled) is reported, never
      ranked here. */
   timeInvestments: DosMinistryReportRow[];
-  /* The server render's day key, for the same reason reportNow exists. */
-  today: string;
   upcomingItems: UpcomingTimelineItem[];
 }) {
   const personById = new Map(people.map((person) => [person.id, person]));
@@ -15492,10 +15821,6 @@ function DesktopHomeDashboard({
     };
   });
   const dashboardUpcomingRows = realUpcomingRows;
-  const todayDashboardRows = dashboardUpcomingRows
-    .filter((item) => item.label === "Now" || item.label.startsWith("Now ·") || item.label === "Today" || item.label.startsWith("Today ·"))
-    .slice(0, 3);
-
   function openDashboardUpcomingRow(item: DashboardUpcomingRow) {
     if (item.meeting) {
       onOpenMeeting(item.meeting.id);
@@ -15506,28 +15831,13 @@ function DesktopHomeDashboard({
     }
   }
 
-  const dashboardNotificationItems: DashboardNotificationItem[] = [
-    ...pendingGroupJoinRequestItems.map((item) => ({
-      badge: `${item.count} pending`,
-      icon: <Users className="h-4 w-4" aria-hidden="true" strokeWidth={2} />,
-      id: `group-${item.groupId}`,
-      onClick: () => onOpenGroupJoinRequests(item.groupId),
-      subtitle: "Group join request",
-      title: item.groupName,
-    })),
-    ...todayDashboardRows.map((item) => ({
-      badge: `${item.label} · ${item.badge}`,
-      icon: <TimelineIcon icon={item.icon} />,
-      id: `today-${item.id}`,
-      onClick: () => openDashboardUpcomingRow(item),
-      subtitle: item.badge,
-      title: item.title,
-    })),
-  ];
-
-  /* USA-257 Home order: notifications and primary actions, then Top Time
-     Investments as the doorway into the Master Ministry Report, Meeting
-     Activity, a compact Accountability summary, and Upcoming. Today's
+  /* USA-257 Home order, as amended by USA-282: notifications, the primary
+     actions, and the compact Check-ins preview directly beneath them, then
+     Top Time Investments as the doorway into the Master Ministry Report,
+     Meeting Activity, and Upcoming. The lower Accountability card -- three
+     large count boxes and "N more on the people themselves" -- is gone: its
+     counts are now the filters on the full list under People, and Home shows
+     the few rows that need attention with one way to the rest. Today's
      Alignment (My Record remains its own destination), Recent Fruit and
      Recent Reviews (now in Reports), and Assigned Resources (blocked on
      USA-262) are no longer on Home. */
@@ -15544,7 +15854,10 @@ function DesktopHomeDashboard({
       <div className="grid w-full gap-3">
         <div className="grid gap-3 lg:grid-cols-[minmax(300px,0.74fr)_minmax(0,1.26fr)] lg:items-start">
           <div className="grid min-w-0 gap-3">
-            <DashboardNotificationsPanel items={dashboardNotificationItems} />
+            {/* Today's notifications, one line each. Notifications that are
+                not today's -- a group's join requests -- keep their own home
+                on the Groups list and inside the group. */}
+            <HomeNotificationsPanel items={notificationItems} />
 
             <section className="grid gap-2 rounded-[22px] border border-[#EAF2FF] bg-white p-2.5 shadow-[0_14px_34px_rgba(37,99,235,0.045)] md:hidden" aria-label="Home quick actions">
               <button
@@ -15570,6 +15883,15 @@ function DesktopHomeDashboard({
                 ))}
               </div>
             </section>
+
+            {/* USA-282 follow-up: Accountability, directly below the Home
+                action buttons and above Top Time Investments. One row per
+                person, today first. */}
+            <HomeAccountabilityPanel
+              onOpenAll={onOpenAccountability}
+              onOpenPerson={onOpenAccountabilityPerson}
+              people={accountabilityPeople}
+            />
           </div>
 
           <DesktopPanel action={<DashboardHeaderAction onClick={onOpenReport}>View Report</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Top Time Investments">
@@ -15633,14 +15955,6 @@ function DesktopHomeDashboard({
             ))}
           </div>
         </DesktopPanel>
-
-        <AccountabilityDashboardCard
-          onOpenPerson={onOpenPerson}
-          people={people}
-          resourceAssignments={resourceAssignments}
-          schedules={accountabilitySchedules}
-          today={today}
-        />
 
         <DesktopPanel action={<DashboardHeaderAction onClick={onOpenTableCalendar}>View Calendar</DashboardHeaderAction>} className="min-w-0" compact eyebrow="Upcoming">
           <div className="grid">
@@ -31980,6 +32294,7 @@ function MyRecordOverviewPanel({
   onMarkResourceAssignmentInProgress,
   onOpenGuidedResource,
   onOpenMeeting,
+  onDeleteCommitment,
   onOpenPersonRecord,
   onOpenScheduledMeeting,
   onOpenSheet,
@@ -32008,6 +32323,7 @@ function MyRecordOverviewPanel({
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
   onOpenMeeting: (meeting: DosAppUserMentorMeeting) => void;
+  onDeleteCommitment: ((commitment: DosAppPersonCommitment) => void) | null;
   onOpenPersonRecord: ((personId: string) => void) | null;
   onOpenScheduledMeeting: (meetingId: string) => void;
   onOpenSheet: (sheet: MyRecordSheetState) => void;
@@ -32126,6 +32442,7 @@ function MyRecordOverviewPanel({
               {activeCommitments.map((commitment) => (
                 <MyRecordSectionRow
                   key={commitment.id}
+                  extraItems={onDeleteCommitment ? [{ danger: true, label: "Delete", onSelect: () => onDeleteCommitment(commitment) }] : []}
                   meta={[commitment.status === "paused" ? "Paused" : "Active", commitment.targetDate ? `Due ${formatShortDate(commitment.targetDate)}` : null].filter(Boolean).join(" · ")}
                   onOpen={() => onOpenPersonRecord?.(commitment.personId)}
                   primary={commitment.title}
@@ -32607,6 +32924,7 @@ function MyRecordWorkspace({
   onMarkResourceAssignmentComplete,
   onMarkResourceAssignmentInProgress,
   onOpenGuidedResource,
+  onDeleteCommitment,
   onOpenPersonRecord,
   onOpenScheduledMeeting,
   onPauseResourceAssignment,
@@ -32651,6 +32969,7 @@ function MyRecordWorkspace({
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
+  onDeleteCommitment: ((commitment: DosAppPersonCommitment) => void) | null;
   onOpenPersonRecord: ((personId: string) => void) | null;
   /* USA-272 follow-up: the Meetings record itself, opened the way Person's
      Next meeting card opens it. My Record does not keep a second copy. */
@@ -33041,6 +33360,7 @@ function MyRecordWorkspace({
                   onMarkResourceAssignmentInProgress={onMarkResourceAssignmentInProgress}
                   onOpenGuidedResource={onOpenGuidedResource}
                   onOpenMeeting={(meeting) => openMyRecordSheet({ kind: "mentor_meeting", meeting, mode: "view" })}
+                  onDeleteCommitment={onDeleteCommitment}
                   onOpenPersonRecord={onOpenPersonRecord}
                   onOpenScheduledMeeting={onOpenScheduledMeeting}
                   onOpenSheet={openMyRecordSheet}
@@ -36463,6 +36783,7 @@ function PersonDetailOverlay({
   onEditReminder,
   onEditCommitment,
   onEdit,
+  onDeleteAccountabilityRecord,
   onLogAccountabilityCheckIn,
   onLogResourceCheckIn,
   onMarkResourceAssignmentComplete,
@@ -36554,6 +36875,7 @@ function PersonDetailOverlay({
   onEditReminder: (reminderId: string) => void;
   onEditCommitment: (commitment: DosAppPersonCommitment) => void;
   onEdit: () => void;
+  onDeleteAccountabilityRecord: (target: PendingAccountabilityDelete) => void;
   onLogAccountabilityCheckIn: (schedule?: DosAppAccountabilitySchedule | null) => void;
   onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
@@ -36833,6 +37155,15 @@ function PersonDetailOverlay({
        fits it lives inside, named for what it records: a people target adds a
        person, a numeric target adds progress, everything else checks in. */
     actionLabel: row.progressKind === "people" ? "Add person" : row.progressKind === "count" ? "Add progress" : "Check in",
+    /* Every row here is leader-authored -- the unified rows already exclude
+       Journey follow-ups -- so Delete belongs on all of them. The dialog
+       asks before anything goes. */
+    onDelete: () => onDeleteAccountabilityRecord({
+      id: row.sourceId,
+      kind: row.kind === "recurring" ? "schedule" : "commitment",
+      personId: person.id,
+      title: row.title,
+    }),
     onOpen: () => {
       const schedule = row.kind === "recurring" ? scheduleById.get(row.sourceId) ?? null : null;
       const commitment = row.kind === "recurring" ? null : commitmentById.get(row.sourceId) ?? null;
@@ -37833,7 +38164,10 @@ function PersonDetailOverlay({
                       {cappedRows("accountability", accountabilityTopics).map((topic) => (
                         <PersonRecordItem
                           key={topic.id}
-                          menuItems={[{ label: "View commitment", onSelect: topic.onOpen }]}
+                          menuItems={[
+                            { label: "View commitment", onSelect: topic.onOpen },
+                            { danger: true, label: "Delete", onSelect: topic.onDelete },
+                          ]}
                           menuLabel={`Actions for ${topic.title}`}
                         >
                           {/* USA-280 follow-up: the row is the commitment's
@@ -39665,6 +39999,10 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   const reportsReturnRef = useRef<{ scrollTop: number } | null>(null);
   const pendingReportsScrollRef = useRef<number | null>(null);
   const returnToReportsRef = useRef<() => void>(() => undefined);
+  /* USA-282: mirrors the Check-ins list's state for the popstate listener,
+     which is registered once and must not capture a stale value. */
+  const checkInsOpenRef = useRef(false);
+  const closeCheckInsRef = useRef<() => void>(() => undefined);
   const [libraryResourceView, setLibraryResourceView] = useState<LibraryResourceViewState>(null);
   const activeMoreAppView = activeTab === "more" ? normalizeMoreAppView(moreAppView) : null;
   const [meetingCalendarViewMode, setMeetingCalendarViewMode] = useState<MeetingCalendarViewMode>("month");
@@ -39691,6 +40029,34 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
      way a Person is, so People stays the selected tab and the list underneath
      keeps its search, circle filter and scroll position for the way back. */
   const [isMyRecordOpen, setIsMyRecordOpen] = useState(false);
+  /* USA-282: Check-ins is the same kind of People view -- opened over the
+     list, so the list keeps its search, circle filter and scroll position,
+     and no bottom-nav tab is added for it. The filter is view state the way
+     the circle rail is, and it survives a save's router.refresh() for the
+     same reason: the check-in sheet opens over this list rather than
+     navigating away from it. */
+  const [isCheckInsOpen, setIsCheckInsOpen] = useState(false);
+  /* The list opens grouped, showing every group, because that is what "view
+     all" means; the filters narrow it from there. */
+  const [checkInsFilter, setCheckInsFilter] = useState<AccountabilityCheckInFilter>("all");
+  /* The person whose items are open over the list or over Home. Held by id
+     rather than by value so a save's refreshed data flows straight into it. */
+  const [accountabilityPersonId, setAccountabilityPersonId] = useState<string | null>(null);
+  const [rescheduleSchedule, setRescheduleSchedule] = useState<DosAppAccountabilitySchedule | null>(null);
+  /* A save inside the list has nothing else on screen to prove it worked, and
+     the "Saved" sheet's Open Person Profile would take the reader off the
+     list they are working. One short line instead (the USA-246 pattern). */
+  const [checkInSaveConfirmation, setCheckInSaveConfirmation] = useState("");
+
+  useEffect(() => {
+    if (!checkInSaveConfirmation) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setCheckInSaveConfirmation(""), 4000);
+
+    return () => window.clearTimeout(timeout);
+  }, [checkInSaveConfirmation]);
   const [myRecordTab, setMyRecordTab] = useState<MyRecordTab>("overview");
   const [myRecordLaunchAction, setMyRecordLaunchAction] = useState<MyRecordLaunchAction | null>(null);
   const [meetingsCalendarMonth, setMeetingsCalendarMonth] = useState(() => startOfCalendarMonth(new Date()));
@@ -39870,6 +40236,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   const [gatheringSheet, setGatheringSheet] = useState<{ gathering: GroupGatheringView; groupId: string } | null>(null);
   const [gatheringMessage, setGatheringMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [commitmentSheet, setCommitmentSheet] = useState<CommitmentSheetState>(null);
+  const [pendingAccountabilityDelete, setPendingAccountabilityDelete] = useState<PendingAccountabilityDelete | null>(null);
   const [prayerRequestPersonId, setPrayerRequestPersonId] = useState<string | null>(null);
   // "Add observed Fruit" opens the canonical fruit capture with its section
   // already expanded, rather than introducing a second manual fruit writer.
@@ -39956,6 +40323,16 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
       setIsMyRecordOpen(true);
     }
 
+    /* USA-282: the filter comes back whether or not the list was showing, so
+       re-opening Check-ins lands on the filter the reader last worked. */
+    if (restored.checkIns) {
+      setCheckInsFilter(restored.checkIns.filter);
+
+      if (restoredTab === "people") {
+        setIsCheckInsOpen(true);
+      }
+    }
+
     setIsViewRestored(true);
   }, [data.workspace.id]);
 
@@ -39975,6 +40352,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 
     writePersistedAppView(data.workspace.id, {
       activeTab,
+      checkIns: activeTab === "people" && isCheckInsOpen ? { filter: checkInsFilter } : null,
       meetingsCalendarDate: selectedMeetingsCalendarDate,
       meetingsView,
       moreAppView: activeTab === "more" ? moreAppView : null,
@@ -39982,7 +40360,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
       reportsReturn,
       selectedPersonId,
     });
-  }, [activeTab, data.workspace.id, isMyRecordOpen, isViewRestored, meetingsView, moreAppView, people, reportsReturn, selectedMeetingsCalendarDate, selectedPersonId]);
+  }, [activeTab, checkInsFilter, data.workspace.id, isCheckInsOpen, isMyRecordOpen, isViewRestored, meetingsView, moreAppView, people, reportsReturn, selectedMeetingsCalendarDate, selectedPersonId]);
 
   /* Desktop has no launcher screen (spec §5.7, v1.1): the sidebar is the
      launcher, and the More grid mounts only on the mobile tab. So landing on
@@ -40000,16 +40378,24 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 
   useEffect(() => {
     returnToReportsRef.current = returnToReportsNow;
+    checkInsOpenRef.current = isCheckInsOpen;
+    closeCheckInsRef.current = closeCheckInsNow;
   });
 
   /* USA-268: the browser's Back from a record opened in Reports returns to
-     Reports, exactly as Back to Reports does. */
+     Reports, exactly as Back to Reports does. USA-282: Back out of the
+     Check-ins list uncovers the People list the same way, so Back never
+     leaves the app from a view that was opened over another one. */
   useEffect(() => {
     const handlePopState = () => {
       const state = window.history.state as { dosReturnTo?: unknown } | null;
 
       if (reportsReturnRef.current && state?.dosReturnTo !== "reports") {
         returnToReportsRef.current();
+      }
+
+      if (checkInsOpenRef.current && state?.dosReturnTo !== "check-ins") {
+        closeCheckInsRef.current();
       }
     };
 
@@ -40424,7 +40810,106 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   /* The same instant as the YYYY-MM-DD key the accountability buckets compare
      against -- todayCommitmentDateKey() reads the wall clock, and so differed
      between the server render and hydration. */
-  const reportToday = useMemo(() => reportNow.toISOString().slice(0, 10), [reportNow]);
+  /* In the workspace's display timezone, not UTC. Read at 8pm in Chicago the
+     UTC key is already tomorrow, which moved "due today" a day early for the
+     last four hours of every day. Still derived from the render instant, so
+     the server render and hydration agree (USA-257 §9). */
+  const reportToday = useMemo(() => displayDateKey(reportNow) || reportNow.toISOString().slice(0, 10), [reportNow]);
+  /* USA-282: the one check-in list. Home's preview, the Home notification and
+     the full list under People all read these rows, so their counts cannot
+     disagree -- which is exactly what "3 due" beside "14 more on the people
+     themselves" used to do.
+
+     A growth follow-up keeps its own identity here rather than being
+     relabelled Accountability: the resource it belongs to, which phase of it
+     (Midpoint / Completion) and any group context ride along, because that is
+     what tells two "Growth follow-up" rows for one person apart. Two such
+     schedules per assignment is the designed shape, not a duplicate: see
+     resourceAssignmentFollowUpDates.
+
+     The day key is the server render's, for the same reason reportNow exists. */
+  const checkInRows = useMemo(() => {
+    if (!commitmentsEnabled) {
+      return [];
+    }
+
+    const groupNameById = new Map(groups.map((group) => [group.id, group.name]));
+    const linkedCommitmentIds = new Set(
+      data.resourceAssignments
+        .map((assignment) => assignment.linkedCommitmentId)
+        .filter((commitmentId): commitmentId is string => Boolean(commitmentId)),
+    );
+
+    return accountabilityCheckInRows({
+      commitments: data.commitments.map((commitment) => ({
+        ...commitment,
+        linkedToResourceAssignment: linkedCommitmentIds.has(commitment.id),
+      })),
+      dateValue: dateSortValue,
+      /* "Due Sep 6" reads as a date; "Due Sep 6, 2026" reads as paperwork.
+         The year only earns its place when the date is not in this one. */
+      formatDate: (value: string | null) => (
+        reportNow.getFullYear() === parseDisplayDate(value)?.getFullYear() ? formatShortDate(value) : formatDate(value)
+      ),
+      personNames: personNamesById,
+      schedules: data.accountabilitySchedules.map((schedule) => {
+        const marker = parseResourceAssignmentFollowUpScheduleTitle(schedule.title);
+        const assignment = marker ? resourceAssignmentForFollowUpSchedule(schedule, data.resourceAssignments) : null;
+
+        return {
+          ...schedule,
+          followUp: marker
+            ? {
+              groupName: assignment?.sourceGroupId ? groupNameById.get(assignment.sourceGroupId) ?? null : null,
+              kind: marker.kind,
+              resourceTitle: assignment ? resourceAssignmentTitle(assignment) : null,
+            }
+            : null,
+          title: resourceAssignmentFollowUpScheduleDisplayTitle(schedule.title),
+        };
+      }),
+      today: reportToday,
+    });
+  }, [commitmentsEnabled, data.accountabilitySchedules, data.commitments, data.resourceAssignments, groups, personNamesById, reportNow, reportToday]);
+  const checkInCounts = useMemo(() => accountabilityCheckInCounts(checkInRows), [checkInRows]);
+  /* The date a check-in row shows, formatted once so Home, the list and the
+     person's own sheet cannot disagree about how a date reads. */
+  const formatCheckInDate = useCallback(
+    (value: string | null) => (
+      reportNow.getFullYear() === parseDisplayDate(value)?.getFullYear() ? formatShortDate(value) : formatDate(value)
+    ),
+    [reportNow],
+  );
+  /* USA-282 follow-up: Home lists people, not items. Home keeps "coming up"
+     inside the product's existing seven-day window -- the one the retired
+     count card called "7 DAYS" -- while the full list passes no window, so
+     anything scheduled later is still reachable there. */
+  const checkInPeople = useMemo(() => accountabilityCheckInPeople({
+    dateValue: dateSortValue,
+    formatDate: formatCheckInDate,
+    rows: checkInRows,
+    today: reportToday,
+    upcomingWindowDays: accountabilityUpcomingWindowDays,
+  }), [checkInRows, formatCheckInDate, reportToday]);
+  const checkInPeopleAll = useMemo(() => accountabilityCheckInPeople({
+    dateValue: dateSortValue,
+    formatDate: formatCheckInDate,
+    rows: checkInRows,
+    today: reportToday,
+    upcomingWindowDays: Number.POSITIVE_INFINITY,
+  }), [checkInRows, formatCheckInDate, reportToday]);
+  const checkInPeopleCounts = useMemo(() => accountabilityPeopleCounts(checkInPeopleAll), [checkInPeopleAll]);
+  /* People who are past due or due today -- the number on the People control,
+     counted the same way the list's first two filters count. */
+  const accountabilityPeopleNeedingAttention = checkInPeopleCounts.due_today + checkInPeopleCounts.past_due;
+  const accountabilityPerson = useMemo(
+    () => checkInPeopleAll.find((person) => person.personId === accountabilityPersonId) ?? null,
+    [accountabilityPersonId, checkInPeopleAll],
+  );
+  /* Today's agenda asks who is due TODAY, which is not the same question as
+     Home's list: someone classified Past due by an older rhythm still belongs
+     in today when something of theirs is due today. */
+  const todayCheckInPeople = useMemo(() => accountabilityPeopleDueToday(checkInPeopleAll), [checkInPeopleAll]);
   const homeMinistryReport = useMemo(
     () => buildDosMinistryReport({ ...ministryReportInput, now: reportNow, range: "30d" }),
     [ministryReportInput, reportNow],
@@ -40548,6 +41033,52 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
       reminders: data.reminders,
     })
   ), [data.meetings, data.reminders, people]);
+  /* Today's meetings, birthdays and anniversaries, read in the workspace's
+     display timezone. Reminders and prayer items keep their place in
+     Upcoming rather than moving here. */
+  const todayTimelineItems = useMemo(() => upcomingTimelineItems.filter((item) => (
+    (item.icon === "anniversary" || item.icon === "birthday" || item.icon === "meeting")
+    && isHomeTodayDate(displayDayKeyForValue(item.date), reportToday)
+  )), [reportToday, upcomingTimelineItems]);
+  /* One line per notification, in the order the day runs: what is scheduled,
+     then the people to check in with. Each states a fact and opens what it
+     names -- a meeting says who and when, a birthday or anniversary says
+     whose day it is, a check-in says who, never what. */
+  const homeNotificationItems = useMemo<HomeNotificationItem[]>(() => [
+    ...todayTimelineItems.map((item) => {
+      const personName = item.personName ?? "";
+      const occasion = item.icon === "birthday" ? "birthday" : "anniversary";
+
+      return {
+        icon: <TimelineIcon icon={item.icon} />,
+        id: `today-${item.id}`,
+        meta: item.meeting?.scheduledStartAt ? formatTime(item.meeting.scheduledStartAt) : "",
+        onClick: () => {
+          if (item.meeting) {
+            openMeetingDetail(item.meeting.id);
+          } else if (item.personId) {
+            openPersonDetail(item.personId);
+          } else {
+            setActiveTab("meetings");
+          }
+        },
+        title: item.icon === "meeting"
+          ? (personName ? `Meeting with ${personName}` : upcomingDashboardTitle(item))
+          : personName
+            ? `${homeTodayPossessive(personName)} ${occasion}`
+            : upcomingDashboardTitle(item),
+      };
+    }),
+    ...todayCheckInPeople.map((person) => ({
+      icon: <ClipboardCheck aria-hidden="true" className="h-4 w-4" strokeWidth={2} />,
+      id: `check-in-${person.personId}`,
+      /* A count of check-ins, never of what they are about. */
+      meta: person.itemCountLabel ?? "",
+      onClick: () => openAccountabilityPerson(person),
+      title: `Check in with ${person.personName}`,
+    })),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [todayCheckInPeople, todayTimelineItems]);
   const nextStepItems = useMemo(() => (
     upcomingTimelineItems.slice(0, 5)
   ), [upcomingTimelineItems]);
@@ -41080,6 +41611,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 	    setMoreAppView(null);
     setLibraryResourceView(null);
     setIsMyRecordOpen(false);
+    setIsCheckInsOpen(false);
 	    setIsAppsSearchOpen(false);
 	    setIsPrayerSearchOpen(false);
 	    setIsActivitySheetOpen(false);
@@ -41130,6 +41662,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 	    setMoreAppView(nextView);
     setLibraryResourceView(null);
     setIsMyRecordOpen(false);
+    setIsCheckInsOpen(false);
 	    setIsAppsSearchOpen(false);
 	    setIsPrayerSearchOpen(false);
 	    setIsActivitySheetOpen(false);
@@ -41170,6 +41703,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     setMoreAppView(null);
     setLibraryResourceView(null);
     setIsMyRecordOpen(true);
+    setIsCheckInsOpen(false);
     setMyRecordTab(normalizeMyRecordTab(tab));
     clearReportsReturn();
     setErrorMessage("");
@@ -41191,6 +41725,75 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   function closeMyRecord() {
     setIsMyRecordOpen(false);
     setMyRecordLaunchAction(null);
+  }
+
+  /* USA-282: Home's preview, Home's notification and the People action row
+     all reach the one list through here, so there is only one way in and one
+     thing to go Back from.
+
+     It opens over the People list (the USA-272 pattern), and adds one history
+     entry so the browser's Back and Android's Back close the list instead of
+     leaving the app -- the same mechanism Back to Reports uses. */
+  function openCheckIns(filter?: AccountabilityCheckInFilter) {
+    if (activeTab !== "people" || !isCheckInsOpen) {
+      pulseTabTransition();
+    }
+
+    const alreadyOpen = activeTab === "people" && isCheckInsOpen;
+
+    setActiveTab("people");
+    setMoreAppView(null);
+    setLibraryResourceView(null);
+    setIsMyRecordOpen(false);
+    setMyRecordLaunchAction(null);
+    setIsCheckInsOpen(true);
+    setCheckInsFilter(filter ?? checkInsFilter);
+    clearReportsReturn();
+    setErrorMessage("");
+    setCircleSheetView(null);
+    setIsCirclesOpen(false);
+    setIsAppsSearchOpen(false);
+    setIsPrayerSearchOpen(false);
+    setIsActivitySheetOpen(false);
+    setIsUpcomingSheetOpen(false);
+    setSelectedMeetingId(null);
+    setSelectedMeetingReviewRecipientId(null);
+    setLoggingScheduledMeetingId(null);
+    setSelectedReminderId(null);
+    setSelectedPersonId(null);
+    setPostMeetingFollowUpId(null);
+    setIsUsamApplicationOpen(false);
+
+    if (alreadyOpen) {
+      /* Re-entering the list already showing must not stack a second history
+         entry, or Back would need two presses to leave it. */
+      return;
+    }
+
+    scrollAppToTop();
+
+    try {
+      window.history.pushState({ ...(window.history.state ?? {}), dosReturnTo: "check-ins" }, "");
+    } catch {
+      /* Without history, the in-app Back control still closes the list. */
+    }
+  }
+
+  function closeCheckInsNow() {
+    setIsCheckInsOpen(false);
+    setCheckInSaveConfirmation("");
+  }
+
+  /* The in-app Back control. When the history entry openCheckIns added is
+     still the current one, it is spent here so the browser's own Back does
+     not later have to be pressed twice. */
+  function closeCheckIns() {
+    if ((window.history.state as { dosReturnTo?: unknown } | null)?.dosReturnTo === "check-ins") {
+      window.history.back();
+      return;
+    }
+
+    closeCheckInsNow();
   }
 
   function launchMyRecordAction(action: MyRecordLaunchAction) {
@@ -42443,6 +43046,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     setActiveTab("people");
     setMoreAppView(null);
     setIsMyRecordOpen(false);
+    setIsCheckInsOpen(false);
     scrollAppToTop();
     setErrorMessage("");
     setCircleSheetView(null);
@@ -42766,6 +43370,44 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     }
   }
 
+  /* Deleting is asked for once, in the app's own dialog, and then done
+     outright. It is deliberately not the lifecycle's "cancelled": that is for
+     a commitment that was real and ended, and it stays on the record as
+     history. This is for a record that should not exist at all.
+
+     What survives is stated in the question, because the two records do not
+     lose the same things: a rhythm's recorded check-ins keep their rows and
+     stay on the person's record, while a goal's own progress updates are
+     part of the goal and go with it. */
+  function requestAccountabilityDelete(target: PendingAccountabilityDelete) {
+    setErrorMessage("");
+    setPendingAccountabilityDelete(target);
+  }
+
+  async function confirmAccountabilityDelete() {
+    if (!pendingAccountabilityDelete) {
+      return;
+    }
+
+    const target = pendingAccountabilityDelete;
+    const result = await submitJson(
+      target.kind === "schedule" ? "/api/dos/app/accountability/schedules" : "/api/dos/app/commitments",
+      { id: target.id },
+      "DELETE",
+      false,
+    );
+
+    /* The dialog stays open on a failure so the reason is read where the
+       action was taken, exactly as a failed save keeps its sheet. */
+    if (!result) {
+      return;
+    }
+
+    setPendingAccountabilityDelete(null);
+    setCommitmentSheet(null);
+    announceAccountabilitySaved(target.personId, "Accountability deleted.");
+  }
+
   function openPersonAccountabilityRecord(personId: string, schedule?: DosAppAccountabilitySchedule | null, commitment?: DosAppPersonCommitment | null) {
     setErrorMessage("");
     setCommitmentNotice(null);
@@ -42782,6 +43424,104 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     setErrorMessage("");
     setCommitmentNotice(null);
     setCommitmentSheet({ commitment, kind: "person_progress" });
+  }
+
+  /* USA-282: a check-in row opens the accountability item it names, for the
+     person it names -- not their generic profile. Both destinations are the
+     Person record's own sheets, so there is one detail surface and one
+     check-in form in the product, not a second set for this list. */
+  /* Opening a person from Home or from the list.
+     
+     One item and there is nothing to choose between, so it opens that item
+     directly; several and the person's own sheet lists them, each keeping its
+     own action. Either way the leader lands on a record, never on a summary
+     that pretends to be one. */
+  function openAccountabilityPerson(person: AccountabilityPerson) {
+    setErrorMessage("");
+
+    if (person.items.length === 1) {
+      openCheckInRow(person.items[0]);
+      return;
+    }
+
+    setAccountabilityPersonId(person.personId);
+  }
+
+  /* Moving the next check-in, and stopping a rhythm that no longer fits.
+     Both go through the existing schedule endpoint: a rescheduled rhythm
+     keeps its cadence and only its next date moves, and a paused one keeps
+     every check-in ever recorded under it -- it simply stops asking. */
+  async function submitAccountabilityReschedule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!rescheduleSchedule) {
+      return;
+    }
+
+    const nextCheckIn = String(new FormData(event.currentTarget).get("next_check_in") ?? "").trim();
+
+    if (!nextCheckIn) {
+      setErrorMessage("Choose the next check-in date.");
+      return;
+    }
+
+    const result = await submitJson(
+      "/api/dos/app/accountability/schedules",
+      { id: rescheduleSchedule.id, nextCheckIn },
+      "PATCH",
+      false,
+    );
+
+    if (result) {
+      setRescheduleSchedule(null);
+      announceAccountabilitySaved(rescheduleSchedule.personId, "Check-in rescheduled.");
+    }
+  }
+
+  async function toggleAccountabilitySchedulePause(schedule: DosAppAccountabilitySchedule) {
+    const paused = schedule.status === "paused";
+    const result = await submitJson(
+      "/api/dos/app/accountability/schedules",
+      { id: schedule.id, status: paused ? "active" : "paused" },
+      "PATCH",
+      false,
+    );
+
+    if (result) {
+      setCommitmentSheet(null);
+      announceAccountabilitySaved(schedule.personId, paused ? "Check-in resumed." : "Check-in paused.");
+    }
+  }
+
+  function openCheckInRow(row: AccountabilityCheckInRow) {
+    if (row.kind === "one_time_goal") {
+      const commitment = data.commitments.find((candidate) => candidate.id === row.sourceId);
+
+      if (commitment) {
+        openPersonAccountabilityRecord(row.personId, null, commitment);
+      }
+
+      return;
+    }
+
+    const schedule = data.accountabilitySchedules.find((candidate) => candidate.id === row.sourceId);
+
+    if (schedule) {
+      openPersonAccountabilityRecord(row.personId, schedule, null);
+    }
+  }
+
+  /* A save made from inside the Check-ins list stays in the list: one short
+     line, and the row leaves Needs attention on its own because the rows are
+     derived from the refreshed data. Everywhere else keeps the "Saved" sheet
+     it has always had. */
+  function announceAccountabilitySaved(personId: string | null, text: string) {
+    if (isCheckInsOpen) {
+      setCheckInSaveConfirmation(text);
+      return;
+    }
+
+    setCommitmentNotice({ personId, text, tone: "success" });
   }
 
   /* Progress on a goal is a fact about the goal, not a meeting. Nothing here
@@ -42819,7 +43559,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 
       if (result?.checkIn) {
         setCommitmentSheet(null);
-        setCommitmentNotice({ personId: result.checkIn.personId, text: "Check-in saved.", tone: "success" });
+        announceAccountabilitySaved(result.checkIn.personId, "Check-in saved.");
       }
 
       return;
@@ -42843,7 +43583,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 
     if (result?.update) {
       setCommitmentSheet(null);
-      setCommitmentNotice({ personId: commitmentSheet.commitment.personId, text: "Check-in saved.", tone: "success" });
+      announceAccountabilitySaved(commitmentSheet.commitment.personId, "Check-in saved.");
     }
   }
 
@@ -42877,7 +43617,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 
     if (result?.update) {
       setCommitmentSheet(null);
-      setCommitmentNotice({ personId: result.commitment?.personId ?? null, text: "Progress saved.", tone: "success" });
+      announceAccountabilitySaved(result.commitment?.personId ?? null, "Progress saved.");
     }
   }
 
@@ -43554,11 +44294,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 
     if (result?.update) {
       setCommitmentSheet(null);
-      setCommitmentNotice({
-        personId: result.commitment?.personId ?? null,
-        text: "Progress saved.",
-        tone: "success",
-      });
+      announceAccountabilitySaved(result.commitment?.personId ?? null, "Progress saved.");
     }
   }
 
@@ -46855,11 +47591,16 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
         ]
       : [];
   const suppressGlobalFabForMyRecord = activeTab === "people" && isMyRecordOpen;
+  /* USA-282: the Check-ins list is a worklist, not a place to add anyone.
+     People's floating plus adds a Person, which is not what this screen is
+     for, and it sat on top of the last rows. */
+  const suppressGlobalFabForCheckIns = activeTab === "people" && isCheckInsOpen;
   const suppressGlobalFabForLibrary = activeTab === "more" && activeMoreAppView === "library";
   /* USA-246: Links has its own single create action; no floating plus beside it. */
   const suppressGlobalFabForLinks = activeTab === "meetings" && meetingsView === "links";
   const showMobileFloatingActions = mobileFloatingActionItems.length > 0
     && !suppressGlobalFabForMyRecord
+    && !suppressGlobalFabForCheckIns
     && !suppressGlobalFabForLibrary
     && !suppressGlobalFabForLinks
     && !formMode
@@ -46894,6 +47635,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     && !selectedScripture;
   const showDesktopFloatingActions = desktopFloatingActionItems.length > 0
     && !suppressGlobalFabForMyRecord
+    && !suppressGlobalFabForCheckIns
     && !suppressGlobalFabForLibrary
     && !suppressGlobalFabForLinks
     && !formMode
@@ -46988,12 +47730,15 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                 />
               </div>
               <DesktopHomeDashboard
-                accountabilitySchedules={data.accountabilitySchedules}
+                accountabilityPeople={checkInPeople}
                 engagementLevelsEnabled={engagementLevelsEnabled}
                 meetingActivity={homeMinistryReport.totals}
                 onAddPerson={() => openForm("person")}
                 onCreateCommitment={() => openCommitmentCreate()}
                 onLogMeeting={() => openForm("meeting")}
+                notificationItems={homeNotificationItems}
+                onOpenAccountability={() => openCheckIns("all")}
+                onOpenAccountabilityPerson={openAccountabilityPerson}
                 onOpenGroupJoinRequests={openGroupJoinRequests}
                 onOpenMeeting={openMeetingDetail}
                 onOpenPerson={openPersonDetail}
@@ -47003,11 +47748,8 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                   setActiveTab("meetings");
                 }}
                 onScheduleMeeting={() => openScheduleMeeting()}
-                pendingGroupJoinRequestItems={pendingGroupJoinRequestItems}
                 people={people}
-                resourceAssignments={data.resourceAssignments}
                 timeInvestments={homeMinistryReport.investedRows}
-                today={reportToday}
                 upcomingItems={upcomingTimelineItems}
               />
               </>
@@ -47079,6 +47821,35 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                   >
                     <User aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.9} />
                     <span>My Record</span>
+                  </button>
+                  {/* USA-282: the one way into the complete check-in list,
+                      in the control row People already has -- deliberately
+                      NOT a fourth bottom-nav tab.
+
+                      It carries the number that needs attention, at the
+                      founder's call. USA-264's one-count rule is about the
+                      people list itself -- the visible results, with nothing
+                      competing beside the Household toggle -- and this badge
+                      counts check-ins, not people, so it says what the
+                      control opens rather than restating the list. It is the
+                      same figure as Home and the notification, from the same
+                      helper, so there is still only one number for one
+                      thing. */}
+                  <button
+                    aria-label={accountabilityPeopleNeedingAttention
+                      ? `Accountability, ${accountabilityPeopleNeedingAttention} ${accountabilityPeopleNeedingAttention === 1 ? "person needs" : "people need"} a check-in`
+                      : "Accountability"}
+                    className="flex h-11 shrink-0 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+                    onClick={() => openCheckIns()}
+                    type="button"
+                  >
+                    <ClipboardCheck aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.9} />
+                    <span>Accountability</span>
+                    {accountabilityPeopleNeedingAttention ? (
+                      <span aria-hidden="true" className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-dos-3 bg-dos-blue50 px-1.5 text-dos-pill font-semibold text-dos-blueText">
+                        {accountabilityPeopleNeedingAttention}
+                      </span>
+                    ) : null}
                   </button>
                   {secondaryFieldPeopleCount ? (
                     <button
@@ -48033,6 +48804,21 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
           />
         ) : null}
 
+        {/* USA-282: Check-ins is a People view too -- the one complete list
+            of accountability follow-ups across this workspace's people. It
+            overlays the People list for the same reason My Record does. */}
+        {activeTab === "people" && isCheckInsOpen && !isMyRecordOpen && !selectedPerson ? (
+          <CheckInsWorkspace
+            counts={checkInPeopleCounts}
+            filter={checkInsFilter}
+            onBack={closeCheckIns}
+            onFilterChange={setCheckInsFilter}
+            onOpenPerson={openAccountabilityPerson}
+            people={accountabilityPeopleForFilter(checkInPeopleAll, checkInsFilter)}
+            saveConfirmation={checkInSaveConfirmation}
+          />
+        ) : null}
+
         {/* USA-272: My Record is a People view. It overlays the list the
             same way a Person does, so People stays the selected tab and the
             list keeps its search, circle filter and scroll for the way back. */}
@@ -48055,6 +48841,12 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
             onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
             onOpenGuidedResource={openJourneyForPerson}
+            onDeleteCommitment={(commitment) => requestAccountabilityDelete({
+              id: commitment.id,
+              kind: "commitment",
+              personId: commitment.personId,
+              title: commitment.title,
+            })}
             onOpenPersonRecord={myRecordPerson ? openPersonDetail : null}
             onOpenScheduledMeeting={openMeetingDetail}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
@@ -48126,6 +48918,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onEditResourceAssignment={openResourceAssignmentEdit}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
             onLogMeetingWithFruit={() => { setOpenMeetingFruitSection(true); openMeetingForPerson(selectedPerson.id); }}
+            onDeleteAccountabilityRecord={requestAccountabilityDelete}
             onLogAccountabilityCheckIn={(schedule) => openPersonAccountabilityCheckIn(selectedPerson.id, schedule ?? null)}
             onCheckInCommitment={(commitment) => openPersonAccountabilityCheckIn(selectedPerson.id, null, commitment)}
             onOpenAccountabilityRecord={({ commitment, schedule }) => openPersonAccountabilityRecord(selectedPerson.id, schedule, commitment)}
@@ -48542,6 +49335,67 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             the same way, and so the question can name what is going and what
             happens to it. It portals above every sheet, which is why it sits
             here rather than inside either panel. */}
+        {/* The person's own items, opened deliberately from Home, from the
+            list, or from today's agenda. It stays mounted while one of its
+            items is open, so closing the item returns here rather than
+            dropping the reader back to where they started. */}
+        {accountabilityPerson ? (
+          <PersonAccountabilitySheet
+            onClose={() => setAccountabilityPersonId(null)}
+            onOpenItem={openCheckInRow}
+            person={accountabilityPerson}
+          />
+        ) : null}
+
+        {rescheduleSchedule ? (
+          <Sheet kind="editable" onClose={() => setRescheduleSchedule(null)} showEyebrow={false} title="Reschedule check-in">
+            <form className="grid gap-4" onSubmit={submitAccountabilityReschedule}>
+              <DosFormField label="Next check-in">
+                <input
+                  className={FieldInputClass(false)}
+                  defaultValue={rescheduleSchedule.nextCheckIn ?? todayCommitmentDateKey()}
+                  name="next_check_in"
+                  required
+                  type="date"
+                />
+              </DosFormField>
+              <p className="text-dos-meta text-dos-secondary">
+                The cadence stays as it is. Only the next date moves.
+              </p>
+              {errorMessage ? <p className="rounded-xl bg-[#FEF2F2] px-3 py-2 text-[13px] font-semibold text-[#B42318]">{errorMessage}</p> : null}
+              <div className="grid gap-2">
+                <AppButton disabled={isSubmitting} icon="calendar" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save"}</AppButton>
+                <AppButton disabled={isSubmitting} onClick={() => setRescheduleSchedule(null)} tone="white">Cancel</AppButton>
+              </div>
+            </form>
+          </Sheet>
+        ) : null}
+
+        {/* USA-282 follow-up: deleting an accountability record asks first, in
+            the same dialog a Journey removal uses, and names what goes with
+            it. It sits here, above every sheet, because the delete can be
+            asked for from a record row or from the item sheet a check-in row
+            opens. */}
+        {pendingAccountabilityDelete ? (
+          <DosConfirmDialog
+            cancelLabel="Keep it"
+            confirmLabel="Delete"
+            description={[
+              `${pendingAccountabilityDelete.title}.`,
+              pendingAccountabilityDelete.kind === "schedule"
+                ? "The check-ins already recorded stay on their record. This rhythm stops and cannot be restored."
+                : "The progress recorded against this goal goes with it. Check-ins written beside it stay on their record.",
+              errorMessage || null,
+            ].filter(Boolean).map((line) => <span key={line as string}>{line}</span>)}
+            onCancel={() => {
+              setErrorMessage("");
+              setPendingAccountabilityDelete(null);
+            }}
+            onConfirm={() => void confirmAccountabilityDelete()}
+            title="Delete this accountability?"
+          />
+        ) : null}
+
         {pendingRemoval ? (
           <DosConfirmDialog
             cancelLabel="Cancel"
@@ -48735,6 +49589,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
           const record = commitmentSheet;
           const commitment = record.commitment ?? null;
           const schedule = record.schedule ?? null;
+          const journeyCopy = journeyFollowUpSheetCopy(checkInRows, schedule);
           const progressKind: AccountabilityProgressKind = schedule
             ? "check_in"
             : commitment
@@ -48757,23 +49612,31 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
               confirmedSubjects={commitment ? accountabilityConfirmedSubjects(commitment.updates) : []}
               /* Journey follow-ups are written by DOS, not by a leader. */
               isSystemGenerated={Boolean(schedule && parseResourceAssignmentFollowUpScheduleTitle(schedule.title))}
-              meta={schedule
+              meta={journeyCopy?.meta ?? (schedule
                 ? `${accountabilityFrequencyLabels[schedule.frequency]} · Next ${formatDate(schedule.nextCheckIn)}`
                 : commitment
                   ? accountabilityProgressLabel(commitment) ?? (commitment.targetDate ? `Due ${formatDate(commitment.targetDate)}` : "")
-                  : ""}
+                  : "")}
               onAddPerson={commitment ? () => openCommitmentSubject(commitment) : undefined}
               onAddProgress={commitment ? () => openPersonAccountabilityProgress(commitment) : undefined}
               onCheckIn={() => openPersonAccountabilityCheckIn(record.personId, schedule, commitment)}
               onClose={() => setCommitmentSheet(null)}
+              onDelete={schedule
+                ? () => requestAccountabilityDelete({ id: schedule.id, kind: "schedule", personId: record.personId, title: schedule.title })
+                : commitment
+                  ? () => requestAccountabilityDelete({ id: commitment.id, kind: "commitment", personId: record.personId, title: commitment.title })
+                  : undefined}
               onEdit={schedule
                 ? () => openAccountabilitySchedule(record.personId, schedule)
                 : commitment
                   ? () => openPersonAccountabilityEdit(commitment)
                   : undefined}
+              onPause={schedule ? () => void toggleAccountabilitySchedulePause(schedule) : undefined}
+              onReschedule={schedule ? () => setRescheduleSchedule(schedule) : undefined}
+              pauseLabel={schedule?.status === "paused" ? "Resume" : "Pause"}
               progressKind={progressKind}
               recentProgress={recentProgress}
-              title={schedule ? resourceAssignmentFollowUpScheduleDisplayTitle(schedule.title) : commitment?.title ?? "Accountability"}
+              title={journeyCopy?.title ?? (schedule ? resourceAssignmentFollowUpScheduleDisplayTitle(schedule.title) : commitment?.title ?? "Accountability")}
             />
           );
         })() : null}
@@ -48788,24 +49651,28 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
           />
         ) : null}
 
-        {commitmentSheet?.kind === "person_check_in" ? (
-          <PersonAccountabilityCheckInSheet
-            commitment={commitmentSheet.commitment}
-            errorMessage={errorMessage}
-            isSubmitting={isSubmitting}
-            meta={commitmentSheet.schedule
-              ? `${accountabilityFrequencyLabels[commitmentSheet.schedule.frequency]} · Next ${formatDate(commitmentSheet.schedule.nextCheckIn)}`
-              : commitmentSheet.commitment?.targetDate
-                ? `Due ${formatDate(commitmentSheet.commitment.targetDate)}`
-                : ""}
-            onClose={() => setCommitmentSheet(null)}
-            onSubmit={handlePersonAccountabilityCheckInSubmit}
-            schedule={commitmentSheet.schedule}
-            title={commitmentSheet.schedule
-              ? resourceAssignmentFollowUpScheduleDisplayTitle(commitmentSheet.schedule.title)
-              : commitmentSheet.commitment?.title ?? "Accountability"}
-          />
-        ) : null}
+        {commitmentSheet?.kind === "person_check_in" ? (() => {
+          const journeyCopy = journeyFollowUpSheetCopy(checkInRows, commitmentSheet.schedule);
+
+          return (
+            <PersonAccountabilityCheckInSheet
+              commitment={commitmentSheet.commitment}
+              errorMessage={errorMessage}
+              isSubmitting={isSubmitting}
+              meta={journeyCopy?.meta ?? (commitmentSheet.schedule
+                ? `${accountabilityFrequencyLabels[commitmentSheet.schedule.frequency]} · Next ${formatDate(commitmentSheet.schedule.nextCheckIn)}`
+                : commitmentSheet.commitment?.targetDate
+                  ? `Due ${formatDate(commitmentSheet.commitment.targetDate)}`
+                  : "")}
+              onClose={() => setCommitmentSheet(null)}
+              onSubmit={handlePersonAccountabilityCheckInSubmit}
+              schedule={commitmentSheet.schedule}
+              title={journeyCopy?.title ?? (commitmentSheet.schedule
+                ? resourceAssignmentFollowUpScheduleDisplayTitle(commitmentSheet.schedule.title)
+                : commitmentSheet.commitment?.title ?? "Accountability")}
+            />
+          );
+        })() : null}
 
         {commitmentSheet?.kind === "person_progress" ? (
           <PersonAccountabilityProgressSheet

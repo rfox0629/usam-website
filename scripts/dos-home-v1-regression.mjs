@@ -24,7 +24,9 @@ const client = readFileSync("app/dos/app/DosMvpAppClient.tsx", "utf8");
 const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 const dashboard = stripComments(sliceBetween(client, "function DesktopHomeDashboard", "function desktopOrganizationCopy"));
 const reportUi = readFileSync("src/components/dos/reports/MinistryTimeInvestmentReport.tsx", "utf8");
-const accountabilityCard = sliceBetween(client, "function AccountabilityDashboardCard", "function CommitmentSuccessSheet");
+const accountabilityPanel = sliceBetween(client, "function HomeAccountabilityPanel", "function HomeNotificationsPanel");
+const notificationsPanel = sliceBetween(client, "function HomeNotificationsPanel", "const checkInFilterLabels");
+const homeAccountabilityRow = sliceBetween(client, "function HomeAccountabilityPersonRow", "function HomeAccountabilitySectionHeading");
 const reportsView = sliceBetween(client, 'activeMoreAppView === "reports" ? (', 'activeMoreAppView === "organizations" ? (');
 const homeCallSite = sliceBetween(client, "<DesktopHomeDashboard\n", "upcomingItems={upcomingTimelineItems}");
 
@@ -34,8 +36,12 @@ for (const gone of ["Today's Alignment", "Weekly Report Card", "Next Discipleshi
 }
 assert(!client.includes("function ResourceAssignmentsDashboardCard"), "The Assigned Resources card is retired from Home until USA-258 proves the status source.");
 
-// 2. Order: notifications and primary actions, then Top Time Investments, Meeting Activity, Accountability, Upcoming.
-const order = ["<DashboardNotificationsPanel", 'aria-label="Home quick actions"', 'eyebrow="Top Time Investments"', 'eyebrow="Meeting Activity"', "<AccountabilityDashboardCard", 'eyebrow="Upcoming"'];
+/* 2. Order: notifications, the primary actions, the compact Check-ins
+   preview directly beneath them, then Top Time Investments, Meeting Activity
+   and Upcoming. USA-282 moved the check-in list up under the action buttons
+   and retired the lower Accountability card, so the order below is that
+   issue's, superseding USA-257's placement of it. */
+const order = ["<HomeNotificationsPanel", 'aria-label="Home quick actions"', "<HomeAccountabilityPanel", 'eyebrow="Top Time Investments"', 'eyebrow="Meeting Activity"', 'eyebrow="Upcoming"'];
 order.reduce((previous, needle) => {
   const index = dashboard.indexOf(needle);
   assert(index > previous, `Home order: ${needle} must follow the previous element.`);
@@ -66,16 +72,47 @@ assert(!/Recorded time/.test(dashboard), "Home says logged duration, never recor
 assert(!dashboard.includes("Total meetings") && !dashboard.includes("Total hours logged") && !dashboard.includes("Total reviews"), "The old combined totals are gone.");
 assert(dashboard.includes("each meeting counted once"), "Meeting Activity states that logged duration counts each meeting once.");
 
-// 5. Accountability is a compact attention summary; the workflow lives on the Person.
-assert(accountabilityCard.includes('eyebrow="Accountability"'), "Accountability keeps its heading.");
-for (const label of ['"Due Today"', '"Overdue"', '"7 Days"']) {
-  assert(accountabilityCard.includes(label), `Accountability must include ${label}.`);
-}
-assert(accountabilityCard.includes("rows.slice(0, 3)"), "Accountability shows the few most important items.");
-for (const control of ["Log Check-In", "Mark Complete", "Reschedule", "onLogCheckIn", "onLogResourceCheckIn", "onMarkResourceAssignmentComplete"]) {
-  assert(!accountabilityCard.includes(control), `Home's Accountability must not run the ${control} workflow.`);
-}
-assert(accountabilityCard.includes("onOpenPerson(person.id)"), "Each attention item opens the Person.");
+/* 5. USA-282 and its follow-ups: Today sits above the action buttons and
+   carries only today; Accountability sits below them, above Top Time
+   Investments, and lists PEOPLE -- one row each, today first.
+
+   USA-257's Due Today / Overdue / 7 Days boxes and its "N more on the people
+   themselves" line are superseded, and so is the Notifications panel that
+   carried a badge for the very backlog listed below it. */
+assert(notificationsPanel.includes('eyebrow="Notifications"'), "Home's first section is Notifications.");
+assert(notificationsPanel.includes("items.length ? items.map"), "It lists today's notifications one line each.");
+assert(notificationsPanel.includes("homeTodayEmptyLabel"), "And says so plainly when there are none.");
+assert(!notificationsPanel.includes("badge"), "No line carries a count of work owed: a birthday is not a task.");
+assert(!client.includes("function TodayAgendaSheet("), "There is no combined agenda: each line opens its own destination.");
+assert(dashboard.includes("<HomeNotificationsPanel items={notificationItems} />"), "The dashboard renders the rows it is handed.");
+assert(dashboard.indexOf("<HomeNotificationsPanel") < dashboard.indexOf('aria-label="Home quick actions"'), "Notifications sits above the action buttons.");
+
+assert(accountabilityPanel.includes('eyebrow="Accountability"'), "The section below the buttons is Accountability.");
+assert(accountabilityPanel.includes("View all"), "Home offers one clear way to the full list.");
+assert(accountabilityPanel.includes("onClick={onOpenAll}"), "View all opens it.");
+assert(accountabilityPanel.includes("accountabilityPersonStatusOrder"), "The groups come from the shared module, in its order.");
+assert(accountabilityPanel.includes("accountabilityPeopleForStatus(people, status)") && accountabilityPanel.includes("accountabilityPeopleForStatus(visible, status)"), "Each heading counts everyone in the group, not only those shown.");
+assert(/const homeAccountabilityVisiblePeople = 6;/.test(client), "Home shows six people before handing off.");
+assert(accountabilityPanel.includes("people.slice(0, homeAccountabilityVisiblePeople)"), "And exactly those six.");
+assert(accountabilityPanel.includes("No one needs a check-in right now."), "The empty state is one short line.");
+assert(!/Due Today|7 Days|more on the people themselves/.test(dashboard + accountabilityPanel), "The three large count boxes and the \"N more on the people themselves\" line are gone.");
+assert(dashboard.indexOf("<HomeAccountabilityPanel") < dashboard.indexOf('eyebrow="Top Time Investments"'), "Accountability sits above Top Time Investments.");
+assert(dashboard.indexOf('aria-label="Home quick actions"') < dashboard.indexOf("<HomeAccountabilityPanel"), "And below the action buttons.");
+
+/* Home says who, when and how many -- never what. */
+assert(homeAccountabilityRow.includes("person.personName") && homeAccountabilityRow.includes("person.statusDateLabel") && homeAccountabilityRow.includes("person.itemCountLabel"), "A row shows the person, the date and the count.");
+assert(!/\.topic|\.context|CheckInStatusChip|checkInSecondaryLine/.test(homeAccountabilityRow), "No subject reaches Home.");
+assert(!/title=\{/.test(homeAccountabilityRow), "No tooltip carries it either.");
+assert(homeAccountabilityRow.includes(">Check in</span>"), "The row offers the check-in by name.");
+
+/* 5b. One grouping, read by every surface: Home, the full list, today's
+   agenda and the People control cannot disagree about who is behind. */
+assert(client.includes("accountabilityPeople={checkInPeople}"), "Home is handed the grouped people.");
+assert(client.includes("counts={checkInPeopleCounts}"), "The full list's filter counts come from the same grouping.");
+assert(client.includes("notificationItems={homeNotificationItems}"), "Today's notifications come from the same rows.");
+assert(client.includes("accountabilityPeopleDueToday(checkInPeopleAll)"), "Today includes anyone due today, whatever group they are classified into.");
+assert(client.includes("const reportToday = useMemo(() => displayDateKey(reportNow)"), "Today's day key is the workspace's display timezone, from the render instant (USA-257 §9).");
+assert(!dashboard.includes("new Date()"), "Nothing the dashboard renders reads the wall clock.");
 
 // 6. Fruit lives in Reports as the Ministry Fruit table (2026-09-10); the card panels are gone from both Home and Reports.
 assert(!client.includes("function ReportsFruitAndReviews") && !reportsView.includes("<ReportsFruitAndReviews"), "The Recent Fruit / Recent Reviews cards are retired.");
@@ -94,7 +131,7 @@ for (const label of ['label: "Schedule"', 'label: "Add Person"', 'label: "Accoun
 
 // 8. Colour language (founder, 2026-09-09): no yellow, amber, orange, or red on Home or in the Reports view; green only for confirmed status.
 const warningColour = /amber|orange|yellow|text-red|bg-red|border-red|ring-red|#F59|#FEF3|#FDE68|#B45309|#D97706|#DC2626|#EF4444|#FCA5A5|#FEE2E2|#B91C1C|#F97316|#FBBF24|#FFF7ED|#EA580C|#FDF0D5|#FDE8E8|#FECACA|#F87171/i;
-for (const [label, region] of [["Home", dashboard], ["Accountability", accountabilityCard], ["Reports view", reportsView]]) {
+for (const [label, region] of [["Home", dashboard], ["Accountability", accountabilityPanel + notificationsPanel + homeAccountabilityRow], ["Reports view", reportsView]]) {
   assert(!warningColour.test(region), `${label} must not use yellow, amber, orange, or red.`);
 }
 
@@ -106,10 +143,13 @@ for (const [label, region] of [["Home", dashboard], ["Accountability", accountab
 assert(client.includes("renderedAt }: { data: DosAppData; renderedAt: string }"), "The app takes the server render's instant as a prop.");
 assert(!client.includes("const reportNow = useMemo(() => new Date(), []);"), "The report window must not read the wall clock during render.");
 assert(client.includes("const rendered = new Date(renderedAt);"), "reportNow is derived from the server render's instant.");
-assert(client.includes("const reportToday = useMemo(() => reportNow.toISOString().slice(0, 10), [reportNow]);"), "The accountability day key comes from the same instant.");
-assert(dashboard.includes("today={today}"), "Home hands the day key to the accountability card.");
-assert(client.includes("today={reportToday}"), "The app hands the server render's day key to Home.");
-assert(!accountabilityCard.includes("todayCommitmentDateKey()"), "The accountability card is told which day it is, rather than reading the clock mid-render.");
+assert(client.includes("const reportToday = useMemo(() => displayDateKey(reportNow) || reportNow.toISOString().slice(0, 10), [reportNow]);"), "The accountability day key comes from the same instant, read in the workspace's display timezone.");
+/* USA-282: the check-in rows are derived once in the app, from that same day
+   key, and Home is handed the result -- so Home computes no bucket from the
+   wall clock and the full list compares against the identical day. */
+assert(client.includes("today: reportToday,"), "The check-in buckets compare against the server render's day key.");
+assert(!accountabilityPanel.includes("todayCommitmentDateKey()") && !notificationsPanel.includes("todayCommitmentDateKey()"), "The accountability surfaces are told which day it is, rather than reading the clock mid-render.");
+assert(!dashboard.includes("new Date()"), "Home reads no wall clock during render.");
 
 // 10. No mentor language on Home or Reports.
 assert(!/mentor/i.test(dashboard.replace(/dashboardMentor|MentorMeeting|mentorRelationships/g, "")), "Home copy uses discipleship language.");

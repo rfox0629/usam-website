@@ -19,6 +19,7 @@ import {
   resolveAuthorizedCommitmentsWorkspace,
 } from "@/src/lib/dos/commitments-accountability-api";
 import { firstScheduleDateOnOrAfter, type DosAccountabilityFrequency } from "@/src/lib/dos/commitments-accountability";
+import { parseResourceAssignmentFollowUpScheduleTitle } from "@/src/lib/dos/resource-assignments";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
 const scheduleSelect = "id, workspace_id, person_id, title, frequency, day_of_week, scheduled_time, start_date, next_check_in, status, created_by_user_id, created_at, updated_at";
@@ -253,4 +254,97 @@ export async function PATCH(request: Request) {
   }
 
   return NextResponse.json({ ok: true, schedule: mapAccountabilityScheduleRow(data as Record<string, unknown>) });
+}
+
+/* USA-282 follow-up: a leader can delete an accountability record outright.
+ *
+ * Deliberately a hard delete of the SCHEDULE only. The check-ins already
+ * recorded against it keep their rows -- the column is `on delete set null`,
+ * not `cascade` -- so the history a leader wrote stays on the person's record
+ * after the rhythm they were written under is gone. Cancelling instead of
+ * deleting is still available through PATCH and is what the lifecycle uses;
+ * this is for a record that should never have existed.
+ *
+ * A growth follow-up DOS generated for a Journey is refused: it is derived
+ * from the assignment, so `syncResourceAssignmentFollowUpSchedules` would
+ * write it again on the next sync, and the delete would look like it failed
+ * silently. The Journey itself is the place to end it.
+ */
+export async function DELETE(request: Request) {
+  const authResult = await authorizeDosCommitmentsWrite();
+
+  if ("response" in authResult) {
+    return authResult.response;
+  }
+
+  const payload = await readCommitmentsPayload(request);
+
+  if (!payload) {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  const workspaceResult = await resolveAuthorizedCommitmentsWorkspace(
+    authResult.authorization,
+    firstDefined(payload.workspaceId, payload.workspace_id),
+  );
+
+  if ("response" in workspaceResult) {
+    return workspaceResult.response;
+  }
+
+  const scheduleId = asString(firstDefined(payload.id, payload.scheduleId, payload.schedule_id));
+
+  if (!isUuid(scheduleId)) {
+    return NextResponse.json({ error: "Schedule not found." }, { status: 404 });
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const feature = await requireCommitmentsFeature(supabase, workspaceResult.workspaceId);
+
+  if ("response" in feature) {
+    return feature.response;
+  }
+
+  const existingResult = await supabase
+    .from("dos_accountability_schedules")
+    .select(scheduleSelect)
+    .eq("id", scheduleId)
+    .eq("workspace_id", workspaceResult.workspaceId)
+    .maybeSingle();
+
+  if (existingResult.error) {
+    if (isMissingCommitmentsSchema(existingResult.error)) {
+      return commitmentsSetupResponse();
+    }
+
+    return NextResponse.json({ error: existingResult.error.message }, { status: 500 });
+  }
+
+  if (!existingResult.data) {
+    return NextResponse.json({ error: "Schedule not found in this workspace." }, { status: 404 });
+  }
+
+  const existing = existingResult.data as Record<string, unknown>;
+
+  if (parseResourceAssignmentFollowUpScheduleTitle(asString(existing.title))) {
+    return NextResponse.json({
+      error: "This follow-up belongs to a Journey. End or remove the Journey to stop it.",
+    }, { status: 409 });
+  }
+
+  const { error } = await supabase
+    .from("dos_accountability_schedules")
+    .delete()
+    .eq("id", scheduleId)
+    .eq("workspace_id", workspaceResult.workspaceId);
+
+  if (error) {
+    if (isMissingCommitmentsSchema(error)) {
+      return commitmentsSetupResponse();
+    }
+
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ deletedScheduleId: scheduleId, ok: true });
 }

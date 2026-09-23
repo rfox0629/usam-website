@@ -3,7 +3,12 @@ export const dosResourceAssignmentFollowUpCadences = ["none", "midpoint_and_comp
 export const dosResourceAssignmentFollowUpKinds = ["midpoint", "completion"] as const;
 export const dosResourceAssignmentContexts = ["self", "person", "group", "library"] as const;
 export const dosResourceAssignmentSharingLevels = ["leader_progress", "shared_responses"] as const;
-export const resourceAssignmentFollowUpScheduleHeading = "Growth follow-up due";
+/* USA-282: the topic on its own, because the check-in list shows the due
+   date as its own status ("Growth follow-up · Overdue · Sep 14") and a topic
+   that already says "due" would say it twice. The heading below keeps the
+   exact words it has always had. */
+export const resourceAssignmentFollowUpTopic = "Growth follow-up";
+export const resourceAssignmentFollowUpScheduleHeading = `${resourceAssignmentFollowUpTopic} due`;
 
 export type DosResourceAssignmentStatus = typeof dosResourceAssignmentStatuses[number];
 export type DosResourceAssignmentFollowUpCadence = typeof dosResourceAssignmentFollowUpCadences[number];

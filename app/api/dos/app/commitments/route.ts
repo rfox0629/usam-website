@@ -19,6 +19,7 @@ import {
 } from "@/src/lib/dos/commitments-accountability-api";
 import { accountabilityCountProgress, commitmentConfirmedSubjectCount } from "@/src/lib/dos/accountability-presentation";
 import { isDosCommitmentTargetKind } from "@/src/lib/dos/commitments-accountability";
+import { isMissingResourceAssignmentsSchema } from "@/src/lib/dos/resource-assignments-api";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
 const commitmentSelect = "id, workspace_id, person_id, title, description, category, assigned_date, target_date, target_count, target_kind, status, completed_date, created_by_user_id, created_at, updated_at";
@@ -301,4 +302,105 @@ export async function PATCH(request: Request) {
   }
 
   return NextResponse.json({ commitment: mapCommitmentRow(data as Record<string, unknown>), ok: true });
+}
+
+/* USA-282 follow-up: the same outright delete as a schedule, for a one-time
+ * goal.
+ *
+ * What goes with it is not the same, and the confirmation says so: the goal's
+ * own progress updates are `on delete cascade`, so they go too, while the
+ * check-ins written beside it keep their rows and stay on the person's
+ * record. A goal a Journey assignment created to stand behind it is refused
+ * -- it is the participant's own work, updated from its existing source, and
+ * the Journey is where it ends.
+ */
+export async function DELETE(request: Request) {
+  const authResult = await authorizeDosCommitmentsWrite();
+
+  if ("response" in authResult) {
+    return authResult.response;
+  }
+
+  const payload = await readCommitmentsPayload(request);
+
+  if (!payload) {
+    return NextResponse.json({ error: "Invalid request." }, { status: 400 });
+  }
+
+  const workspaceResult = await resolveAuthorizedCommitmentsWorkspace(
+    authResult.authorization,
+    firstDefined(payload.workspaceId, payload.workspace_id),
+  );
+
+  if ("response" in workspaceResult) {
+    return workspaceResult.response;
+  }
+
+  const commitmentId = asString(firstDefined(payload.id, payload.commitmentId, payload.commitment_id));
+
+  if (!isUuid(commitmentId)) {
+    return NextResponse.json({ error: "Commitment not found." }, { status: 404 });
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const feature = await requireCommitmentsFeature(supabase, workspaceResult.workspaceId);
+
+  if ("response" in feature) {
+    return feature.response;
+  }
+
+  const existingResult = await supabase
+    .from("dos_person_commitments")
+    .select("id")
+    .eq("id", commitmentId)
+    .eq("workspace_id", workspaceResult.workspaceId)
+    .maybeSingle();
+
+  if (existingResult.error) {
+    if (isMissingCommitmentsSchema(existingResult.error)) {
+      return commitmentsSetupResponse();
+    }
+
+    return NextResponse.json({ error: existingResult.error.message }, { status: 500 });
+  }
+
+  if (!existingResult.data) {
+    return NextResponse.json({ error: "Commitment not found in this workspace." }, { status: 404 });
+  }
+
+  /* A workspace that has never used Journeys has no assignments table; that
+     is not a reason to refuse the delete, so a missing schema reads as "no
+     assignment links to this". */
+  const linkedResult = await supabase
+    .from("dos_resource_assignments")
+    .select("id")
+    .eq("workspace_id", workspaceResult.workspaceId)
+    .eq("linked_commitment_id", commitmentId)
+    .limit(1);
+
+  if (linkedResult.error && !isMissingResourceAssignmentsSchema(linkedResult.error)) {
+    return NextResponse.json({ error: linkedResult.error.message }, { status: 500 });
+  }
+
+  if (linkedResult.data?.length) {
+    return NextResponse.json({
+      error: "This belongs to a Journey. End or remove the Journey to stop it.",
+    }, { status: 409 });
+  }
+
+  const { error } = await supabase
+    .from("dos_person_commitments")
+    .delete()
+    .eq("id", commitmentId)
+    .eq("workspace_id", workspaceResult.workspaceId);
+
+  if (error) {
+    if (isMissingCommitmentsSchema(error)) {
+      return commitmentsSetupResponse();
+    }
+
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ deletedCommitmentId: commitmentId, ok: true });
 }

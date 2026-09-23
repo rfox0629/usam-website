@@ -317,11 +317,31 @@ export async function POST(request: Request) {
   let nextSchedule: Record<string, unknown> | null = schedule;
 
   if (schedule) {
-    const nextCheckIn = nextAccountabilityCheckInDate(
-      checkInDate,
-      String(schedule.frequency) as DosAccountabilityFrequency,
-      typeof schedule.day_of_week === "number" ? schedule.day_of_week : null,
-    );
+    const frequency = String(schedule.frequency) as DosAccountabilityFrequency;
+    const scheduleDayOfWeek = typeof schedule.day_of_week === "number" ? schedule.day_of_week : null;
+    let nextCheckIn = nextAccountabilityCheckInDate(checkInDate, frequency, scheduleDayOfWeek);
+
+    /* USA-282 follow-up: a rhythm must never be left cycling through dates
+       that have already gone by.
+   
+       The next date is computed from the date the check-in actually happened,
+       which is right for the ordinary case. But the date is the leader's to
+       set, and a back-dated check-in -- "we met three weeks ago" -- would
+       otherwise roll the rhythm forward to another date in the past, so it
+       would still read as overdue the moment it was answered. Stepping the
+       cadence until the date is genuinely ahead keeps both the cadence and
+       the weekday, and touches nothing about an on-time check-in. */
+    const todayKey = todayDateKey();
+
+    for (let step = 0; step < 520 && nextCheckIn && nextCheckIn < todayKey; step += 1) {
+      const advanced = nextAccountabilityCheckInDate(nextCheckIn, frequency, scheduleDayOfWeek);
+
+      if (!advanced || advanced === nextCheckIn) {
+        break;
+      }
+
+      nextCheckIn = advanced;
+    }
     const schedulePatch = nextCheckIn
       ? { next_check_in: nextCheckIn }
       : { next_check_in: checkInDate, status: "paused" };

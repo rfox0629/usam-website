@@ -16,6 +16,7 @@ import {
   type DosAppRelationshipReminder,
 } from "@/src/lib/dos/missionary-app";
 import { normalizeRelationshipType, relationshipModelCounts } from "@/src/lib/dos/relationship-model";
+import { resourceAssignmentFollowUpScheduleTitle } from "@/src/lib/dos/resource-assignments";
 import type { DosTableInvitationBooking } from "@/src/lib/dos/table-invitation-data";
 import { createDefaultDosTableInvitation, type DosTableInvitation } from "@/src/lib/dos/table-invitations";
 import { DosMobileMessageScreen } from "../DosMobileMessageScreen";
@@ -38,6 +39,10 @@ export const metadata: Metadata = {
 // changes in the shared DosMvpAppClient.
 const demoTimestamp = "2026-05-27T10:30:00-05:00";
 const demoWorkspaceId = "00000000-0000-4000-8000-000000000070";
+/* USA-282: the one demo Journey assignment whose growth follow-ups are
+   exercised by the check-in list. Uuid-shaped because the schedule title
+   marker only parses that form. */
+const demoCheckInAssignmentId = "00000000-0000-4000-8000-000000000282";
 const demoAccessToken = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";
 const isDemoPreviewRouteEnabled = process.env.DOS_DISABLE_DEMO_PREVIEW !== "true";
 // Most of this fixture is pinned to a fixed demo date so recorded history reads naturally.
@@ -669,6 +674,28 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       status: "active",
       updatedAt: daysAgoIso(5),
     },
+    /* USA-282 follow-up: a second, different Sam Lucas. Grouping is by
+       canonical id, so these two must never collapse into one row. */
+    {
+      church: null,
+      createdAt: daysAgoIso(45),
+      email: null,
+      discipleshipRelationship: null,
+      discipleshipStage: "not_started",
+      engagementLevel: "Medium",
+      fieldVisibility: "primary",
+      id: "demo-person-sam-lucas-second",
+      lastActivityAt: daysAgoIso(9),
+      name: "Sam Lucas",
+      notes: "",
+      phone: "",
+      relationshipContext: "friend",
+      relationshipType: "Walking With · Friend",
+      relationshipTypeValue: "walking_with",
+      roleInMyLife: "walking_with_them",
+      status: "active",
+      updatedAt: daysAgoIso(9),
+    },
     {
       church: null,
       createdAt: daysAgoIso(60),
@@ -857,6 +884,46 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
   ];
 
   const meetingInputs = [
+    /* USA-282 follow-up: two meetings scheduled for today, so Home's Today
+       summary counts meetings as well as people to check in with. */
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(0, 15),
+      fieldPersonIds: ["demo-person-naomi-lee"],
+      growthReflection: emptyGrowthReflection,
+      id: "demo-meeting-today-naomi",
+      meetingStatus: "scheduled",
+      notes: "",
+      participantNames: ["Naomi Lee"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      scheduledEndAt: daysAgoIso(0, 16),
+      scheduledStartAt: daysAgoIso(0, 15),
+      source: "table",
+      title: "Coffee with Naomi",
+      type: "kitchen_table",
+      updatedAt: demoTimestamp,
+    },
+    {
+      conversationFlowKey: "none",
+      conversationResponses: {},
+      date: daysAgoIso(0, 18),
+      fieldPersonIds: ["demo-person-dirk-bond"],
+      growthReflection: emptyGrowthReflection,
+      id: "demo-meeting-today-dirk",
+      meetingStatus: "scheduled",
+      notes: "",
+      participantNames: ["Dirk Bond"],
+      recommendedResources: [],
+      review: buildDemoReview(),
+      scheduledEndAt: daysAgoIso(0, 19),
+      scheduledStartAt: daysAgoIso(0, 18),
+      source: "table",
+      title: "Evening walk with Dirk",
+      type: "kitchen_table",
+      updatedAt: demoTimestamp,
+    },
     {
       conversationFlowKey: "none",
       conversationResponses: {},
@@ -2340,6 +2407,32 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       title: "Ask how conversations with the men are going",
       updatedAt: demoTimestamp,
     },
+    /* USA-282 follow-up: a birthday and an anniversary falling today, so
+       Home's Today summary shows every unit it can count. */
+    {
+      googleSyncEnabled: false,
+      googleSyncStatus: null,
+      id: "demo-reminder-caleb-birthday",
+      notes: null,
+      personId: "demo-person-caleb-rivera",
+      recurrence: "yearly",
+      reminderDate: daysAgoIso(0, 9),
+      reminderType: "birthday",
+      title: null,
+      updatedAt: demoTimestamp,
+    },
+    {
+      googleSyncEnabled: false,
+      googleSyncStatus: null,
+      id: "demo-reminder-brooke-anniversary",
+      notes: null,
+      personId: "demo-person-brooke-fox",
+      recurrence: "yearly",
+      reminderDate: daysAgoIso(0, 10),
+      reminderType: "anniversary",
+      title: null,
+      updatedAt: demoTimestamp,
+    },
     {
       googleSyncEnabled: true,
       googleSyncStatus: "pending",
@@ -2443,6 +2536,58 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
       },
     ],
     accountabilitySchedules: [
+      /* USA-282: the two growth follow-ups for demoCheckInAssignmentId. They
+         are distinct occurrences of one assignment -- midpoint already
+         missed, completion still ahead -- so the list must distinguish them
+         by resource, phase and group rather than read as one duplicated row.
+         The titles are built by the real helper, marker included. */
+      {
+        createdAt: daysAgoIso(12),
+        createdByUserId: null,
+        dayOfWeek: null,
+        frequency: "one_time",
+        id: "demo-accountability-journey-midpoint",
+        nextCheckIn: daysAgoIso(3).slice(0, 10),
+        personId: "demo-person-tim-tran",
+        scheduledTime: null,
+        startDate: daysAgoIso(3).slice(0, 10),
+        status: "active",
+        title: resourceAssignmentFollowUpScheduleTitle(demoCheckInAssignmentId, "midpoint"),
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      {
+        createdAt: daysAgoIso(12),
+        createdByUserId: null,
+        dayOfWeek: null,
+        frequency: "one_time",
+        id: "demo-accountability-journey-completion",
+        nextCheckIn: daysAgoIso(-6).slice(0, 10),
+        personId: "demo-person-tim-tran",
+        scheduledTime: null,
+        startDate: daysAgoIso(-6).slice(0, 10),
+        status: "active",
+        title: resourceAssignmentFollowUpScheduleTitle(demoCheckInAssignmentId, "completion"),
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      /* USA-282: a leader rhythm due today, so the Needs attention filter
+         covers both of its halves. */
+      {
+        createdAt: daysAgoIso(21),
+        createdByUserId: null,
+        dayOfWeek: null,
+        frequency: "every_two_weeks",
+        id: "demo-accountability-schedule-caleb-prayer",
+        nextCheckIn: daysAgoIso(0).slice(0, 10),
+        personId: "demo-person-caleb-rivera",
+        scheduledTime: null,
+        startDate: daysAgoIso(21).slice(0, 10),
+        status: "active",
+        title: "Praying with his wife",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
       {
         createdAt: daysAgoIso(6),
         createdByUserId: null,
@@ -2500,6 +2645,119 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
         startDate: "2026-06-01",
         status: "active",
         title: "Purity",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      /* USA-282 follow-up: Tim Tran already carries an overdue Journey
+         milestone; this rhythm is due TODAY. He is therefore classified Past
+         due on Home and still belongs in today's agenda. */
+      {
+        createdAt: daysAgoIso(35),
+        createdByUserId: null,
+        dayOfWeek: null,
+        frequency: "weekly",
+        id: "demo-accountability-schedule-tim-today",
+        nextCheckIn: daysAgoIso(0).slice(0, 10),
+        personId: "demo-person-tim-tran",
+        scheduledTime: null,
+        startDate: daysAgoIso(35).slice(0, 10),
+        status: "active",
+        title: "Morning prayer",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      /* The second Sam Lucas, with an item of his own. */
+      {
+        createdAt: daysAgoIso(20),
+        createdByUserId: null,
+        dayOfWeek: 3,
+        frequency: "weekly",
+        id: "demo-accountability-schedule-sam-second",
+        nextCheckIn: daysAgoIso(4).slice(0, 10),
+        personId: "demo-person-sam-lucas-second",
+        scheduledTime: null,
+        startDate: daysAgoIso(20).slice(0, 10),
+        status: "active",
+        title: "Reading together",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      /* USA-282 follow-up: enough overdue rows for Home's section to be
+         taller than the rest and for the expander to have something to open,
+         and a second one due today so both headings carry a real count.
+         Fixture data only -- no production record is involved. */
+      {
+        createdAt: daysAgoIso(30),
+        createdByUserId: null,
+        dayOfWeek: 2,
+        frequency: "weekly",
+        id: "demo-accountability-schedule-dirk-generosity",
+        nextCheckIn: daysAgoIso(9).slice(0, 10),
+        personId: "demo-person-dirk-bond",
+        scheduledTime: null,
+        startDate: daysAgoIso(30).slice(0, 10),
+        status: "active",
+        title: "Generosity",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      {
+        createdAt: daysAgoIso(28),
+        createdByUserId: null,
+        dayOfWeek: 3,
+        frequency: "monthly",
+        id: "demo-accountability-schedule-sam-marriage",
+        nextCheckIn: daysAgoIso(16).slice(0, 10),
+        personId: "demo-person-sam-lucas",
+        scheduledTime: null,
+        startDate: daysAgoIso(28).slice(0, 10),
+        status: "active",
+        title: "Leading his marriage",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      {
+        createdAt: daysAgoIso(26),
+        createdByUserId: null,
+        dayOfWeek: 5,
+        frequency: "weekly",
+        id: "demo-accountability-schedule-austin-evangelism",
+        nextCheckIn: daysAgoIso(5).slice(0, 10),
+        personId: "demo-person-austin-clifford",
+        scheduledTime: null,
+        startDate: daysAgoIso(26).slice(0, 10),
+        status: "active",
+        title: "Sharing his faith weekly",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      {
+        createdAt: daysAgoIso(40),
+        createdByUserId: null,
+        dayOfWeek: 1,
+        frequency: "every_two_weeks",
+        id: "demo-accountability-schedule-marty-recovery",
+        nextCheckIn: daysAgoIso(12).slice(0, 10),
+        personId: "demo-person-marty-vanderzanden",
+        scheduledTime: null,
+        startDate: daysAgoIso(40).slice(0, 10),
+        status: "active",
+        title: "Staying sober",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      {
+        createdAt: daysAgoIso(19),
+        createdByUserId: null,
+        dayOfWeek: null,
+        frequency: "weekly",
+        id: "demo-accountability-schedule-tanner-prayer",
+        nextCheckIn: daysAgoIso(0).slice(0, 10),
+        personId: "demo-person-tanner-kent",
+        scheduledTime: null,
+        startDate: daysAgoIso(19).slice(0, 10),
+        status: "active",
+        title: "Praying with his kids",
         updatedAt: null,
         workspaceId: demoWorkspaceId,
       },
@@ -2581,6 +2839,46 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
             workspaceId: demoWorkspaceId,
           },
         ],
+        workspaceId: demoWorkspaceId,
+      },
+      /* USA-282: a goal with no due date -- it appears under All, never
+         under a due filter, because it makes no claim on any day. */
+      {
+        assignedDate: daysAgoIso(9).slice(0, 10),
+        category: null,
+        completedDate: null,
+        createdAt: daysAgoIso(9),
+        createdByUserId: null,
+        description: null,
+        id: "demo-commitment-naomi-memorize",
+        personId: "demo-person-naomi-lee",
+        status: "active",
+        targetCount: null,
+        targetKind: null,
+        targetDate: null,
+        title: "Memorize Romans 8",
+        updatedAt: null,
+        updates: [],
+        workspaceId: demoWorkspaceId,
+      },
+      /* USA-282: a finished goal. It stays on the Person record as history
+         and must never appear in the check-in list, not even under All. */
+      {
+        assignedDate: daysAgoIso(40).slice(0, 10),
+        category: null,
+        completedDate: daysAgoIso(11).slice(0, 10),
+        createdAt: daysAgoIso(40),
+        createdByUserId: null,
+        description: null,
+        id: "demo-commitment-george-testimony",
+        personId: "demo-person-george-jenko",
+        status: "completed",
+        targetCount: null,
+        targetKind: null,
+        targetDate: daysAgoIso(12).slice(0, 10),
+        title: "Write out his testimony",
+        updatedAt: daysAgoIso(11),
+        updates: [],
         workspaceId: demoWorkspaceId,
       },
       {
@@ -2973,6 +3271,31 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
     },
     reminders,
     resourceAssignments: [
+      /* USA-282 fixture: one Journey assignment whose follow-up cadence
+         generates BOTH a midpoint and a completion schedule -- the founder's
+         two almost identical "Growth follow-up due" rows for one person. The
+         id is uuid-shaped because that is what the schedule title marker
+         carries and parses. Nothing here touches the other demo records. */
+      {
+        assignmentContext: "group",
+        assignedByUserId: "demo-user-ryan",
+        completedAt: null,
+        createdAt: daysAgoIso(12),
+        dueDate: daysAgoIso(-6).slice(0, 10),
+        followUpCadence: "midpoint_and_completion",
+        id: demoCheckInAssignmentId,
+        linkedCommitmentId: null,
+        pausedAt: null,
+        personId: "demo-person-tim-tran",
+        personalMessage: "Working through this together alongside the 2Three2 table.",
+        resourceSlug: "marks-of-discipleship",
+        sharingLevel: "leader_progress",
+        sourceGroupId: "demo-group-2three2",
+        startDate: daysAgoIso(12).slice(0, 10),
+        status: "in_progress",
+        updatedAt: daysAgoIso(3),
+        workspaceId: demoWorkspaceId,
+      },
       {
         assignmentContext: "group",
         assignedByUserId: "demo-user-ryan",

@@ -200,7 +200,11 @@ assertIncludes(assignmentTypes, "dosResourceAssignmentFollowUpCadences", "assign
 assertIncludes(assignmentTypes, "dosResourceAssignmentContexts", "assignment context helpers exist");
 assertIncludes(assignmentTypes, "dosResourceAssignmentSharingLevels", "assignment sharing-level helpers exist");
 assertIncludes(assignmentTypes, "resourceAssignmentCommitmentTitle", "linked commitment title helper exists");
-assertIncludes(assignmentTypes, "resourceAssignmentFollowUpScheduleHeading = \"Growth follow-up due\"", "follow-up schedule display heading exists");
+/* USA-282 split the topic out of the heading so the check-in list can show
+   "Growth follow-up · Overdue · Sep 14" without saying "due" twice. The
+   heading itself still reads exactly as it always has. */
+assertIncludes(assignmentTypes, "resourceAssignmentFollowUpTopic = \"Growth follow-up\"", "follow-up topic exists on its own");
+assertIncludes(assignmentTypes, "resourceAssignmentFollowUpScheduleHeading = `${resourceAssignmentFollowUpTopic} due`", "follow-up schedule display heading still reads Growth follow-up due");
 assertIncludes(assignmentTypes, "resourceAssignmentFollowUpScheduleMarker", "follow-up schedules carry assignment marker");
 assertIncludes(assignmentTypes, "resourceAssignmentFollowUpScheduleDisplayTitle", "follow-up schedule marker is hidden from users");
 assertIncludes(assignmentTypes, "resourceAssignmentMidpointDate", "midpoint date helper exists");
@@ -290,17 +294,28 @@ assertIncludes(client, "Assigned Resources", "person Growth/My Record show assig
 assertIncludes(client, "completedResourceAssignments", "completed journeys remain derived for the Person");
 assertIncludes(client, "`Completed ${resourceAssignmentTitle(assignment)}`", "completed journeys appear in the Person timeline");
 /* USA-257: the Assigned Resources card left Home until USA-258 proves the
-   status source; resource follow-ups still surface through the compact
-   Accountability summary (accountabilityDueRows takes resourceAssignments). */
-assertIncludes(client, "accountabilityDueRows(schedules, people, resourceAssignments, today)", "dashboard has resource follow-up presentation");
-assertIncludes(client, "AccountabilityDashboardCard", "dashboard keeps accountability due presentation");
-assertIncludes(client, "resourceAssignmentForFollowUpSchedule", "dashboard connects follow-up schedules to assignments");
-assertIncludes(client, "resourceAssignmentFollowUpScheduleHeading", "dashboard uses growth follow-up heading");
-assertIncludes(client, "Check in with ${personName} about", "dashboard displays resource follow-up item text");
-/* USA-257: Home is a compact attention summary. Each due follow-up opens the
-   Person; check-in, completion, and rescheduling run from the Person and
-   Library surfaces, which still wire the same handlers. */
-assertIncludes(client, "onClick={() => onOpenPerson(person.id)}", "dashboard opens the person for a due follow-up");
+   status source; resource follow-ups still surface through the check-in
+   list, which USA-282 made the one place they are counted and shown.
+   accountabilityDueRows / AccountabilityDashboardCard are retired; the
+   capability is asserted by what the check-in list renders. */
+assertIncludes(client, "accountabilityCheckInRows({", "the check-in list is built from the shared eligibility rules");
+assertIncludes(client, "<HomeAccountabilityPanel", "Home renders the accountability section");
+assertIncludes(client, "<CheckInsWorkspace", "People carries the full check-in list");
+assertIncludes(client, "resourceAssignmentForFollowUpSchedule(schedule, data.resourceAssignments)", "the check-in list connects follow-up schedules to assignments");
+/* USA-282: two growth follow-ups can exist for one assignment (midpoint and
+   completion) and several assignments for one person, so a growth follow-up
+   row names its resource, its phase and any group context. Without that, two
+   distinct occurrences read as one duplicated row (founder screenshot). */
+assertIncludes(client, "resourceTitle: assignment ? resourceAssignmentTitle(assignment) : null", "a growth follow-up row names its resource");
+assertIncludes(client, "kind: marker.kind", "a growth follow-up row carries its midpoint/completion phase");
+assertIncludes(client, "groupName: assignment?.sourceGroupId ? groupNameById.get(assignment.sourceGroupId) ?? null : null", "a growth follow-up row carries its group context");
+/* Home previews and hands off; check-in, completion, and rescheduling run
+   from the Person and Library surfaces, which still wire the same handlers. */
+/* USA-282 follow-up: Home lists people, so a Home row opens the person and
+   the person's own sheet opens the item. A growth follow-up therefore still
+   reaches its record in two taps, and never names itself on Home. */
+assertIncludes(client, "onOpenAccountabilityPerson={openAccountabilityPerson}", "a Home accountability row opens that person");
+assertIncludes(client, "onOpenItem={openCheckInRow}", "and the person's own sheet opens the accountability item itself");
 assertIncludes(client, "onLogResourceCheckIn={openResourceAssignmentCheckIn}", "resource check-in flow stays reachable");
 assertIncludes(client, 'onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}', "completion action stays reachable");
 assertIncludes(client, "onEditResourceAssignment={openResourceAssignmentEdit}", "reschedule/edit action stays reachable");
