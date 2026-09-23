@@ -38,7 +38,10 @@ export function serializeListValue(rows: string[][]): string {
         cells.pop();
       }
 
-      return cells.map((cell) => cell.trim()).join(CELL);
+      // A pipe typed inside a cell would read back as a cell boundary and
+      // shift everything after it into the wrong column, so it is stored as a
+      // slash.
+      return cells.map((cell) => cell.trim().replace(/\|/g, "/")).join(CELL);
     })
     .filter(Boolean)
     .join("\n");
