@@ -257,18 +257,24 @@ function BudgetGroups({ groups }: { groups: OperationsOnboardingBudgetGroup[] })
 
 function SelectField({
   defaultValue,
+  keepSavedValue = false,
   label,
   name,
   options,
 }: {
   defaultValue: string | null;
+  /**
+   * Shows a saved value that is no longer an option (the retired Profile linked
+   * and Workspace linked), so saving the form does not silently rewrite it. Off
+   * by default: some defaults passed in are display summaries, such as
+   * "Proposed $6,500/mo" for Fundraising, and must not become a stored value.
+   */
+  keepSavedValue?: boolean;
   label: string;
   name: string;
   options: string[];
 }) {
-  // A value saved before the option list changed is still shown, so saving the
-  // form never silently rewrites it.
-  const shown = defaultValue && !options.includes(defaultValue) ? [...options, defaultValue] : options;
+  const shown = keepSavedValue && defaultValue && !options.includes(defaultValue) ? [...options, defaultValue] : options;
 
   return (
     <label className="block">
@@ -532,8 +538,8 @@ export default async function OperationsMissionaryDetailPage({
                       <SelectField defaultValue={item.decisionState ?? item.decisionLabel} label="Decision" name="decisionState" options={decisionOptions} />
                       <SelectField defaultValue={item.onboardingStatus} label="Onboarding" name="onboardingStatus" options={onboardingOptions} />
                       <SelectField defaultValue={item.fundraisingLabel} label="Fundraising" name="supportReadiness" options={readinessOptions} />
-                      <SelectField defaultValue={item.profileReadiness ?? item.profileLabel} label="Profile" name="profileReadiness" options={profileOptions} />
-                      <SelectField defaultValue={item.dosSetupState ?? item.dosSetupLabel} label="DOS Setup" name="dosSetupState" options={dosOptions} />
+                      <SelectField defaultValue={item.profileReadiness ?? item.profileLabel} keepSavedValue={Boolean(item.profileReadiness)} label="Profile" name="profileReadiness" options={profileOptions} />
+                      <SelectField defaultValue={item.dosSetupState ?? item.dosSetupLabel} keepSavedValue={Boolean(item.dosSetupState)} label="DOS Setup" name="dosSetupState" options={dosOptions} />
                       <label className="block">
                         <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">Internal Notes</span>
                         <textarea
