@@ -7,6 +7,7 @@ import { getConfiguredSiteUrl } from "@/src/lib/site-url";
 import {
   emptyJoinApplicationDraft,
   isJoinApplicationStepId,
+  normalizeJoinDraftPosition,
   type JoinApplicationDraft,
   type JoinApplicationStepId,
 } from "@/src/lib/join/application-steps";
@@ -83,6 +84,7 @@ function parseDraft(value: unknown): JoinApplicationDraft {
         ? record.disclosures as Record<string, boolean>
         : empty.disclosures,
     photos: Array.isArray(record.photos) ? record.photos : empty.photos,
+    position: normalizeJoinDraftPosition(record.position),
     spouse: { ...empty.spouse, ...(record.spouse ?? {}) },
   };
 }

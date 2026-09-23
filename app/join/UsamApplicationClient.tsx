@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 
 import "./join-experience.css";
-import { parseListValue, serializeListValue } from "./field-list";
+import { incompleteReferences, listCellId, parseListValue, referenceRowGaps, serializeListValue } from "./field-list";
 import {
   CURRENT_ORGANIZATIONAL_SUPPORT_RATE,
   planningFundraisingTarget,
@@ -71,6 +71,18 @@ const wholeDollarFormatter = new Intl.NumberFormat("en-US", {
 type SupportPath = "no" | "unsure" | "yes";
 
 type ContentStepId = Exclude<JoinApplicationStepId, "review" | "start">;
+
+/** One thing Review says is still to do, and where to go to do it. */
+type MissingItem = {
+  /** The page holding this question, when one section has several pages. */
+  fieldId?: string;
+  /** The control to put the cursor in on arrival. */
+  focusId?: string;
+  label: string;
+  sectionId?: string;
+  stepId: JoinApplicationStepId;
+};
+
 
 /**
  * One screen of the application.
@@ -249,6 +261,40 @@ function buildPages(draft: JoinApplicationDraft): Page[] {
   return pages;
 }
 
+/**
+ * A stable name for one screen, saved with the draft so a resume reopens the
+ * exact question. Built from the step, the section and the first question on
+ * it, never from the page's position: pages come and go as the couple and
+ * support answers change, so an index saved today can point somewhere else
+ * tomorrow.
+ */
+function pageKey(page: Page) {
+  const leaf = page.kind === "fields" ? page.fields[0]?.id ?? "fields" : page.kind;
+
+  return `${page.stepId}/${page.sectionId}/${leaf}`;
+}
+
+/**
+ * Where a restored draft opens.
+ *
+ * Exact when the saved page key still exists. A draft saved before page keys
+ * existed, or whose page has since gone (the support branch changed, say),
+ * opens at the start of the step it was on, and the notice says so rather than
+ * claiming it is exactly where the applicant left off.
+ */
+function initialPosition(draft: JoinApplicationDraft, step: JoinApplicationStepId) {
+  const built = buildPages(draft);
+  const exact = draft.position ? built.findIndex((candidate) => pageKey(candidate) === draft.position) : -1;
+
+  if (exact >= 0) {
+    return { exact: true, index: exact };
+  }
+
+  const found = built.findIndex((candidate) => candidate.stepId === step);
+
+  return { exact: false, index: found >= 0 ? found : 0 };
+}
+
 function sectionTitle(page: Page) {
   if (page.kind === "support") {
     return { intro: page.section.intro, title: page.section.title };
@@ -264,12 +310,14 @@ function sectionTitle(page: Page) {
   return { intro: section?.intro ?? "", title: section?.title ?? "" };
 }
 
-function resumeNotice(state: ResumeState) {
+function resumeNotice(state: ResumeState, exact: boolean) {
   switch (state) {
     case "expired":
       return "That link has expired. Your answers are safe, so contact us and we will send a fresh one.";
     case "restored":
-      return "Welcome back. Your application is exactly where you left it.";
+      return exact
+        ? "Welcome back. Your answers are saved, and this is the question you stopped on."
+        : "Welcome back. Your answers are saved. We have opened the part of the application you were working on.";
     case "revoked":
       return "That link is no longer active. Contact us if you need a new one.";
     case "submitted":
@@ -336,12 +384,25 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
 
   const pages = useMemo(() => buildPages(draft), [draft]);
 
-  const [pageIndex, setPageIndex] = useState(() => {
-    const built = buildPages(initialDraft);
-    const found = built.findIndex((page) => page.stepId === initialStep);
+  // Read once: where the restored draft opens, and whether that is the exact
+  // question, which decides what the welcome-back notice may claim.
+  const [initial] = useState(() => initialPosition(initialDraft, initialStep));
+  const [pageIndex, setPageIndex] = useState(initial.index);
 
-    return found >= 0 ? found : 0;
-  });
+  /*
+   * The welcome-back notice belongs to the moment of return. It used to sit
+   * above every page for the rest of the session. It now shows on the page the
+   * applicant lands on, can be dismissed, and goes once they move on.
+   */
+  const [noticeVisible, setNoticeVisible] = useState(true);
+
+  /*
+   * Set when the applicant jumps from Review to a question, so the footer can
+   * offer the way straight back and a reference Review flagged can be marked
+   * on the page. Cleared when they return.
+   */
+  const [fromReview, setFromReview] = useState(false);
+  const [focusTarget, setFocusTarget] = useState<string | null>(null);
 
   // One intentional click owns one stable request ID. It survives an
   // ambiguous network failure so a retry cannot create a second email, while
@@ -351,6 +412,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   // The draft object the last successful save sent, so leaving the page only
   // re-sends when something has changed since.
   const lastSavedDraftRef = useRef<JoinApplicationDraft | null>(null);
+  const lastSavedPositionRef = useRef<string | null>(null);
 
   // Skips the autosave that would otherwise fire immediately on mount and
   // create an empty draft row for anyone who merely opened the page.
@@ -364,6 +426,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   const stepIndex = joinApplicationStepIndex(stepId);
   const step = joinApplicationSteps[stepIndex];
   const heading = sectionTitle(page);
+  const currentPageKey = pageKey(page);
   const supportPathForGate = supportPathFromDraft(draft);
   /**
    * USA-191: the overflow acknowledgement is a condition of applying, not a
@@ -398,7 +461,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
         const response = await fetch("/api/join/draft", {
           body: JSON.stringify({
             currentStep: stepId,
-            draft,
+            draft: { ...draft, position: currentPageKey },
             emailRequestId,
             resumeToken: token,
             sendResumeEmail: shouldSendResumeEmail,
@@ -419,6 +482,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
         }
 
         lastSavedDraftRef.current = draft;
+        lastSavedPositionRef.current = currentPageKey;
         setSaveState("saved");
 
         if (shouldSendResumeEmail) {
@@ -441,7 +505,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
         return { resumeToken: null, saved: false };
       }
     },
-    [draft, stepId, token],
+    [currentPageKey, draft, stepId, token],
   );
 
   /*
@@ -475,21 +539,31 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
    * page. Only once a token exists: without one, the save would create a
    * second draft that nothing could ever reopen.
    */
-  const latestSaveRef = useRef({ currentStep: stepId, draft, token });
-  latestSaveRef.current = { currentStep: stepId, draft, token };
+  const latestSaveRef = useRef({ currentStep: stepId, draft, position: currentPageKey, token });
+  latestSaveRef.current = { currentStep: stepId, draft, position: currentPageKey, token };
 
   useEffect(() => {
     const flush = () => {
       const latest = latestSaveRef.current;
 
-      if (!latest.token || !dirtyRef.current || lastSavedDraftRef.current === latest.draft || submitState === "submitted") {
+      if (
+        !latest.token ||
+        !dirtyRef.current ||
+        (lastSavedDraftRef.current === latest.draft && lastSavedPositionRef.current === latest.position) ||
+        submitState === "submitted"
+      ) {
         return;
       }
 
       lastSavedDraftRef.current = latest.draft;
+      lastSavedPositionRef.current = latest.position;
 
       void fetch("/api/join/draft", {
-        body: JSON.stringify({ currentStep: latest.currentStep, draft: latest.draft, resumeToken: latest.token }),
+        body: JSON.stringify({
+          currentStep: latest.currentStep,
+          draft: { ...latest.draft, position: latest.position },
+          resumeToken: latest.token,
+        }),
         headers: { "Content-Type": "application/json" },
         keepalive: true,
         method: "POST",
@@ -611,16 +685,20 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   }
 
   const requiredMissing = useMemo(() => {
-    const missing: { label: string; sectionId?: string; stepId: JoinApplicationStepId }[] = [];
+    const missing: MissingItem[] = [];
     const supportPath = supportPathFromDraft(draft);
     const expectsFundraising = supportPath === "yes" || supportPath === "unsure";
 
     if (!draft.applicant.firstName.trim() || !draft.applicant.lastName.trim() || !draft.applicant.email.trim()) {
-      missing.push({ label: "Your name and email", sectionId: "identity", stepId: "about" });
+      const first = !draft.applicant.firstName.trim() ? "firstName" : !draft.applicant.lastName.trim() ? "lastName" : "email";
+
+      missing.push({ focusId: `applicant-${first}`, label: "Your name and email", sectionId: "identity", stepId: "about" });
     }
 
     if (draft.applyingAsCouple && (!draft.spouse.firstName.trim() || !draft.spouse.lastName.trim())) {
-      missing.push({ label: "Your spouse's name", sectionId: "identity", stepId: "about" });
+      const first = !draft.spouse.firstName.trim() ? "firstName" : "lastName";
+
+      missing.push({ focusId: `spouse-${first}`, label: "Your spouse's name", sectionId: "identity", stepId: "about" });
     }
 
     for (const candidate of joinApplicationSteps) {
@@ -638,18 +716,20 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
         }
 
         if (field.required && !(draft.answers[field.id] ?? "").trim()) {
-          missing.push({ label: field.label, sectionId: field.section, stepId: candidate.id });
+          missing.push({ fieldId: field.id, focusId: field.id, label: field.label, sectionId: field.section, stepId: candidate.id });
         }
       }
     }
 
-    // A reference Operations cannot reach is not a reference. A row with a
-    // relationship but no name, or a name with no way to contact them, is
-    // named here rather than counted as answered.
-    const references = (draft.answers.references ?? "").trim();
-
-    if (references && parseListValue(references, 3).some(([name, , contact]) => !name.trim() || !contact.trim())) {
-      missing.push({ label: "A name and a way to reach each reference", sectionId: "references", stepId: "experience" });
+    // A reference Operations cannot reach is not a reference. Each incomplete
+    // row is named with what it lacks, and its jump lands in the empty cell.
+    for (const reference of incompleteReferences(draft.answers.references)) {
+      missing.push({
+        focusId: listCellId("references", reference.rowIndex, reference.cellIndex),
+        label: reference.label,
+        sectionId: "references",
+        stepId: "experience",
+      });
     }
 
     if (!supportPath) {
@@ -670,24 +750,70 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
   const moveTo = (index: number, how: "back" | "forward") => {
     const clamped = Math.max(0, Math.min(pages.length - 1, index));
 
+    if (clamped !== safeIndex) {
+      setNoticeVisible(false);
+      setEmailNotice("");
+    }
+
+    if (pages[clamped]?.kind === "review") {
+      setFromReview(false);
+    }
+
     setDirection(how);
     setPageIndex(clamped);
     dirtyRef.current = true;
     window.scrollTo({ behavior: "smooth", top: 0 });
   };
 
-  const goTo = (nextStep: JoinApplicationStepId, sectionId?: string) => {
-    const target = pages.findIndex(
-      (candidate) =>
-        candidate.stepId === nextStep && (!sectionId || candidate.sectionId === sectionId),
-    );
-    const fallback = pages.findIndex((candidate) => candidate.stepId === nextStep);
-    const index = target >= 0 ? target : fallback;
+  /**
+   * Jumps to a step, optionally a section, optionally the page holding one
+   * question, and optionally puts the cursor in one control on it.
+   */
+  const goTo = (
+    nextStep: JoinApplicationStepId,
+    sectionId?: string,
+    options: { fieldId?: string; focusId?: string; fromReview?: boolean } = {},
+  ) => {
+    const inStep = (candidate: Page) => candidate.stepId === nextStep;
+    const inSection = (candidate: Page) => inStep(candidate) && (!sectionId || candidate.sectionId === sectionId);
+    const holdsField = (candidate: Page) =>
+      inSection(candidate) &&
+      Boolean(options.fieldId) &&
+      candidate.kind === "fields" &&
+      candidate.fields.some((field) => field.id === options.fieldId);
+    const index = [holdsField, inSection, inStep]
+      .map((match) => pages.findIndex(match))
+      .find((found) => found >= 0);
 
-    if (index >= 0) {
-      moveTo(index, index < safeIndex ? "back" : "forward");
+    if (index === undefined) {
+      return;
     }
+
+    moveTo(index, index < safeIndex ? "back" : "forward");
+    setFromReview(options.fromReview === true);
+    setFocusTarget(options.focusId ?? null);
   };
+
+  const reviewIndex = pages.findIndex((candidate) => candidate.kind === "review");
+
+  // Puts the cursor in the control a Review jump was about, once its page has
+  // rendered. preventScroll, then a scroll that leaves it clear of the footer.
+  useEffect(() => {
+    if (!focusTarget) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const element = document.getElementById(focusTarget);
+
+      if (element instanceof HTMLElement) {
+        element.focus({ preventScroll: true });
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }, 120);
+
+    return () => window.clearTimeout(timer);
+  }, [focusTarget, safeIndex]);
 
   const goRelative = (offset: number) => moveTo(safeIndex + offset, offset < 0 ? "back" : "forward");
 
@@ -752,7 +878,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
-  const notice = resumeNotice(resumeState);
+  const notice = noticeVisible ? resumeNotice(resumeState, initial.exact) : "";
 
   if (submitState === "submitted") {
     return (
@@ -857,8 +983,32 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
       </header>
 
       <div className="join-stage">
-        {notice ? <p className="join-notice">{notice}</p> : null}
-        {emailNotice ? <p className="join-notice">{emailNotice}</p> : null}
+        {notice ? (
+          <div className="join-notice" role="status">
+            <p>{notice}</p>
+            <button
+              aria-label="Dismiss this message"
+              className="join-notice-close"
+              onClick={() => setNoticeVisible(false)}
+              type="button"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
+        ) : null}
+        {emailNotice ? (
+          <div className="join-notice" role="status">
+            <p>{emailNotice}</p>
+            <button
+              aria-label="Dismiss this message"
+              className="join-notice-close"
+              onClick={() => setEmailNotice("")}
+              type="button"
+            >
+              <span aria-hidden="true">×</span>
+            </button>
+          </div>
+        ) : null}
 
         <div className="join-transition" data-direction={direction} key={safeIndex}>
           <PageView
@@ -880,6 +1030,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
             pageTotal={pages.length}
             questionSteps={questionSteps}
             removePhoto={removePhoto}
+            revealIssues={fromReview}
             step={step}
             stepIndex={stepIndex}
             submitError={submitError}
@@ -898,6 +1049,17 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
           >
             Back
           </button>
+
+          {fromReview && page.kind !== "review" && reviewIndex >= 0 ? (
+            <button
+              className="join-button join-button-secondary join-button-return"
+              onClick={() => moveTo(reviewIndex, "forward")}
+              type="button"
+            >
+              <span className="join-return-long">Back to review</span>
+              <span className="join-return-short">Review</span>
+            </button>
+          ) : null}
 
           {page.kind === "review" ? (
             <p className="join-footer-hint">
@@ -985,6 +1147,7 @@ function PageView({
   pageTotal,
   questionSteps,
   removePhoto,
+  revealIssues,
   step,
   stepIndex,
   submitError,
@@ -993,11 +1156,11 @@ function PageView({
   addPhoto: (photo: JoinApplicationPhoto) => void;
   draft: JoinApplicationDraft;
   heading: { intro: string; title: string };
-  missing: { label: string; sectionId?: string; stepId: JoinApplicationStepId }[];
+  missing: MissingItem[];
   onAnswer: (id: string, value: string) => void;
   onDisclosure: (id: string, value: boolean) => void;
   onIdentityChange: (person: "applicant" | "spouse", key: keyof JoinApplicantIdentity, value: string) => void;
-  onJump: (id: JoinApplicationStepId, sectionId?: string) => void;
+  onJump: (id: JoinApplicationStepId, sectionId?: string, options?: { fieldId?: string; focusId?: string; fromReview?: boolean }) => void;
   onSubmit: () => void;
   onToggleCouple: (value: boolean) => void;
   page: Page;
@@ -1005,6 +1168,7 @@ function PageView({
   pageTotal: number;
   questionSteps: number;
   removePhoto: (path: string) => void;
+  revealIssues: boolean;
   step: { title: string };
   stepIndex: number;
   submitError: string;
@@ -1055,14 +1219,18 @@ function PageView({
   }
 
   if (page.kind === "fields") {
+    // A page with a repeating answer gets the wider measure, so a row of
+    // name, relationship and contact is not squeezed into the reading column.
+    const hasList = page.fields.some((field) => field.kind === "list");
+
     return (
-      <div className="join-q">
+      <div className={`join-q${hasList ? " join-q-wide" : ""}`}>
         {index}
         <h1 className="join-q-title">{heading.title}</h1>
         {heading.intro ? <p className="join-q-help">{heading.intro}</p> : null}
 
         <div className="join-answer">
-          <FieldGroup fields={page.fields} onAnswer={onAnswer} values={draft.answers} />
+          <FieldGroup fields={page.fields} onAnswer={onAnswer} revealIssues={revealIssues} values={draft.answers} />
         </div>
       </div>
     );
@@ -1149,10 +1317,12 @@ function PageView({
 function FieldGroup({
   fields,
   onAnswer,
+  revealIssues = false,
   values,
 }: {
   fields: JoinField[];
   onAnswer: (id: string, value: string) => void;
+  revealIssues?: boolean;
   values: Record<string, string>;
 }) {
   const rows: JoinField[][] = [];
@@ -1181,6 +1351,7 @@ function FieldGroup({
               field={field}
               key={field.id}
               onChange={(value) => onAnswer(field.id, value)}
+              revealIssues={revealIssues}
               value={values[field.id] ?? ""}
             />
           ))}
@@ -1553,17 +1724,33 @@ function SupportSection({
  * now gets their own row. The value is still stored as text (see field-list.ts)
  * so nothing behind the form had to change.
  */
+/**
+ * Column widths for a repeating answer. A name or an email needs far more room
+ * than an age; equal thirds cut names off mid word at desktop width.
+ */
+function listColumnTemplate(columns: JoinListColumn[]) {
+  return columns
+    .map((column) => (column.narrow ? "88px" : `minmax(0, ${column.weight ?? 1}fr)`))
+    .join(" ");
+}
+
 function ListField({
   addLabel,
   columns,
   id,
   onChange,
+  revealIssues = false,
+  validate,
   value,
 }: {
   addLabel?: string;
   columns: JoinListColumn[];
-  id?: string;
+  id: string;
   onChange: (value: string) => void;
+  /** Marks rows that fail `validate`. Only after Review has pointed here. */
+  revealIssues?: boolean;
+  /** For references: which cells of a row are missing. */
+  validate?: (row: string[]) => number[];
   value: string;
 }) {
   /*
@@ -1592,11 +1779,14 @@ function ListField({
   };
 
   return (
-    <div className="join-list">
-      {rows.map((row, rowIndex) => (
+    <div className="join-list" style={{ "--join-list-columns": listColumnTemplate(columns) } as CSSProperties}>
+      {rows.map((row, rowIndex) => {
+        const missingCells = revealIssues && validate ? validate(row) : [];
+
+        return (
         // Rows have no identity of their own, and reordering is not offered,
         // so the index is a stable enough key here.
-        <div className="join-list-row" key={rowIndex}>
+        <div className="join-list-row" data-incomplete={missingCells.length > 0 ? "true" : undefined} key={rowIndex}>
           <div className="join-list-cells">
             {columns.map((column, cellIndex) => (
               <label
@@ -1605,16 +1795,19 @@ function ListField({
               >
                 <span className="join-list-cell-label">{column.label}</span>
                 <input
+                  aria-invalid={missingCells.includes(cellIndex) ? true : undefined}
                   className="join-input"
-                  // The question's own label points at the first cell, so it is
-                  // not a label for nothing.
-                  id={rowIndex === 0 && cellIndex === 0 ? id : undefined}
+                  // The first cell carries the question's own id, so the
+                  // question label points at it; every other cell has its own
+                  // id so Review can send the cursor to the one that is empty.
+                  id={listCellId(id, rowIndex, cellIndex)}
                   onChange={(event) => {
                     const next = rows.map((existing) => [...existing]);
 
                     next[rowIndex][cellIndex] = event.target.value;
                     write(next);
                   }}
+                  title={row[cellIndex] || undefined}
                   type="text"
                   value={row[cellIndex] ?? ""}
                 />
@@ -1632,8 +1825,15 @@ function ListField({
               Remove
             </button>
           ) : null}
+
+          {missingCells.length > 0 ? (
+            <p className="join-list-issue">
+              Add {missingCells.map((cell) => (cell === 0 ? "a name" : "a phone or email")).join(" and ")}.
+            </p>
+          ) : null}
         </div>
-      ))}
+        );
+      })}
 
       <button
         className="join-list-add"
@@ -1649,10 +1849,12 @@ function ListField({
 function FieldInput({
   field,
   onChange,
+  revealIssues = false,
   value,
 }: {
   field: JoinField;
   onChange: (value: string) => void;
+  revealIssues?: boolean;
   value: string;
 }) {
   const isNarrative = /story|testimony|journey|narrative|vision|describe|why/i.test(field.id);
@@ -1667,7 +1869,15 @@ function FieldInput({
       {field.help ? <p className="join-field-help">{field.help}</p> : null}
 
       {field.kind === "list" && field.columns ? (
-        <ListField addLabel={field.addLabel} columns={field.columns} id={field.id} onChange={onChange} value={value} />
+        <ListField
+          addLabel={field.addLabel}
+          columns={field.columns}
+          id={field.id}
+          onChange={onChange}
+          revealIssues={revealIssues}
+          validate={field.id === "references" ? referenceRowGaps : undefined}
+          value={value}
+        />
       ) : field.kind === "long" ? (
         <textarea
           className={`join-textarea${isNarrative ? " join-textarea-tall" : ""}`}
@@ -1780,6 +1990,194 @@ function IdentitySection({
   );
 }
 
+type SummaryRow = {
+  fieldId?: string;
+  focusId?: string;
+  label: string;
+  sectionId: string;
+  value: string;
+};
+
+const supportPathLabels: Record<SupportPath, string> = {
+  no: "No, the household and ministry are already funded",
+  unsure: "Not sure yet",
+  yes: "Yes, monthly partners",
+};
+
+/** One line per person in a repeating answer, cells joined the way they read. */
+function listSummary(field: JoinField, value: string) {
+  const columns = field.columns ?? [];
+
+  return parseListValue(value, columns.length)
+    .map((row) => {
+      if (field.id === "familyMembers") {
+        const [name, age, relationship] = row;
+
+        return [name, relationship, age ? `age ${age}` : ""].filter(Boolean).join(", ");
+      }
+
+      if (field.id === "prayerPartners") {
+        return row.filter(Boolean).join(" ");
+      }
+
+      return row.filter(Boolean).join(" · ");
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+function identitySummary(identity: JoinApplicantIdentity) {
+  return [[identity.firstName, identity.lastName].filter(Boolean).join(" "), identity.email, identity.phone]
+    .filter(Boolean)
+    .join("\n");
+}
+
+/**
+ * Everything the applicant has answered, grouped by step in the order it was
+ * asked, for the Review screen. Read from the same field list as the form, so
+ * a question cannot appear on one and not the other. Unanswered optional
+ * questions are left out; unanswered required ones are already listed above
+ * the summary with a way to fix them.
+ */
+function reviewSummary(draft: JoinApplicationDraft) {
+  const groups: { rows: SummaryRow[]; stepId: ContentStepId; title: string }[] = [];
+  const path = supportPathFromDraft(draft);
+  const expectsFundraising = path === "yes" || path === "unsure";
+  const summary = supportBudgetSummary(draft);
+
+  for (const step of joinApplicationSteps) {
+    const stepId = step.id;
+
+    if (!isApplicationContentStep(stepId)) {
+      continue;
+    }
+
+    const rows: SummaryRow[] = [];
+
+    if (stepId === "about") {
+      rows.push({ focusId: "applicant-firstName", label: draft.applyingAsCouple ? "Applicant" : "You", sectionId: "identity", value: identitySummary(draft.applicant) });
+
+      if (draft.applyingAsCouple) {
+        rows.push({ focusId: "spouse-firstName", label: "Spouse", sectionId: "identity", value: identitySummary(draft.spouse) });
+      }
+    }
+
+    if (stepId === "support") {
+      const money = (value: number) => formatMoney(value);
+      const answer = (id: string) => (draft.answers[id] ?? "").trim();
+
+      rows.push({ label: "Expect to raise monthly support", sectionId: "path", value: path ? supportPathLabels[path] : "" });
+      rows.push({ focusId: "supportEmploymentContext", label: "Current work and income", sectionId: "path", value: answer("supportEmploymentContext") });
+
+      if (expectsFundraising) {
+        rows.push({
+          label: "Monthly budget",
+          sectionId: "budget",
+          value: summary.budgetTotal > 0
+            ? `Household ${money(summary.household)}\nMinistry ${money(summary.ministry)}\nTotal ${money(summary.budgetTotal)}`
+            : "",
+        });
+        rows.push({ focusId: "supportBudget", label: "Budget context", sectionId: "budget", value: answer("supportBudget") });
+        rows.push({ focusId: "supportMonthlyNeed", label: "Proposed monthly need", sectionId: "picture", value: summary.proposedNeed > 0 ? money(summary.proposedNeed) : "" });
+
+        if (summary.proposedNeed > 0) {
+          rows.push({
+            label: "Funding plan",
+            sectionId: "picture",
+            value: `Organizational support ${money(summary.organizationalSupport)}\nFundraising target ${money(summary.target)}\nStill to raise ${money(summary.gap)}`,
+          });
+        }
+
+        rows.push({ focusId: "supportRequestedGoal", label: "Requested fundraising goal", sectionId: "picture", value: summary.requestedGoal > 0 ? money(summary.requestedGoal) : "" });
+        rows.push({ focusId: "supportCommittedAmount", label: "Committed monthly support", sectionId: "picture", value: summary.committed > 0 ? money(summary.committed) : "" });
+        rows.push({ focusId: "supportOtherMonthlyIncome", label: "Other monthly household income", sectionId: "picture", value: summary.otherIncome > 0 ? money(summary.otherIncome) : "" });
+        rows.push({ focusId: "fundraisingApproachPlan", label: "Who you expect to approach", sectionId: "readiness", value: answer("fundraisingApproachPlan") });
+        rows.push({ focusId: "fundraisingReadiness", label: "Readiness to raise support", sectionId: "readiness", value: answer("fundraisingReadiness") });
+      }
+
+      rows.push({ focusId: "supportImmediateNeeds", label: "Immediate needs", sectionId: "readiness", value: answer("supportImmediateNeeds") });
+
+      if (expectsFundraising) {
+        rows.push({
+          label: "Support overflow acknowledgement",
+          sectionId: "readiness",
+          value: draft.disclosures.excessSupportAgreement === true ? "Confirmed" : "",
+        });
+      }
+    } else {
+      for (const field of visibleFieldsForStep(stepId, draft.applyingAsCouple)) {
+        const raw = (draft.answers[field.id] ?? "").trim();
+        const value = field.kind === "list" ? listSummary(field, raw) : raw;
+
+        rows.push({ fieldId: field.id, focusId: field.id, label: field.label, sectionId: field.section, value });
+      }
+    }
+
+    if (stepId === "profile" && draft.photos.length > 0) {
+      rows.push({
+        label: "Photos",
+        sectionId: "photos",
+        value: draft.photos
+          .map((photo) => `${photo.kind === "profile" ? "Your photo" : "Family photo"}: ${photo.fileName}`)
+          .join("\n"),
+      });
+    }
+
+    const answered = rows.filter((row) => row.value.trim());
+
+    if (answered.length > 0) {
+      groups.push({ rows: answered, stepId, title: step.title });
+    }
+  }
+
+  return groups;
+}
+
+function ReviewSummary({
+  draft,
+  onJump,
+}: {
+  draft: JoinApplicationDraft;
+  onJump: (id: JoinApplicationStepId, sectionId?: string, options?: { fieldId?: string; focusId?: string; fromReview?: boolean }) => void;
+}) {
+  const groups = reviewSummary(draft);
+
+  if (groups.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="join-summary">
+      <p className="join-eyebrow join-eyebrow-quiet">Your answers</p>
+
+      {groups.map((group) => (
+        <section aria-label={group.title} className="join-summary-group" key={group.stepId}>
+          <h2 className="join-summary-title">{group.title}</h2>
+
+          <dl className="join-summary-rows">
+            {group.rows.map((row) => (
+              <div className="join-summary-row" key={`${row.sectionId}-${row.label}`}>
+                <dt>{row.label}</dt>
+                <dd>{row.value}</dd>
+                <button
+                  aria-label={`Edit ${row.label}`}
+                  className="join-summary-edit"
+                  onClick={() =>
+                    onJump(group.stepId, row.sectionId, { fieldId: row.fieldId, focusId: row.focusId, fromReview: true })
+                  }
+                  type="button"
+                >
+                  Edit
+                </button>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 function ReviewSection({
   draft,
   missing,
@@ -1790,8 +2188,8 @@ function ReviewSection({
   submitState,
 }: {
   draft: JoinApplicationDraft;
-  missing: { label: string; sectionId?: string; stepId: JoinApplicationStepId }[];
-  onJump: (id: JoinApplicationStepId, sectionId?: string) => void;
+  missing: MissingItem[];
+  onJump: (id: JoinApplicationStepId, sectionId?: string, options?: { fieldId?: string; focusId?: string; fromReview?: boolean }) => void;
   onSubmit: () => void;
   onToggleDisclosure: (id: string, value: boolean) => void;
   submitError: string;
@@ -1815,11 +2213,13 @@ function ReviewSection({
               <li key={`${item.stepId}-${item.label}`}>
                 <button
                   className="join-review-jump"
-                  onClick={() => onJump(item.stepId, item.sectionId)}
+                  onClick={() =>
+                    onJump(item.stepId, item.sectionId, { fieldId: item.fieldId, focusId: item.focusId, fromReview: true })
+                  }
                   type="button"
                 >
                   <span>{item.label}</span>
-                  <span>Go</span>
+                  <span>Fix</span>
                 </button>
               </li>
             ))}
@@ -1830,6 +2230,8 @@ function ReviewSection({
           <p className="join-panel-title">Every required question is answered.</p>
         </section>
       )}
+
+      <ReviewSummary draft={draft} onJump={onJump} />
 
       <section>
         <p className="join-eyebrow join-eyebrow-quiet">Before you submit</p>

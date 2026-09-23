@@ -2,9 +2,13 @@ import { notFound } from "next/navigation";
 import { canAccessOperationsModule, getOperationsAuthorization } from "@/src/lib/operations/auth";
 import { loadMissionaryGivingSummary } from "@/src/lib/operations/finance";
 import {
+  DOS_LOGIN_ACTIVE,
+  DOS_NO_LOGIN,
   loadOperationsOnboardingDetail,
   onboardingStatusLabel,
   operationsOnboardingStatuses,
+  PROFILE_PRIVATE_DRAFT,
+  type OperationsOnboardingBudgetGroup,
   type OperationsOnboardingContactItem,
   type OperationsOnboardingDetailItem,
   type OperationsOnboardingDocumentItem,
@@ -42,8 +46,12 @@ const interviewOptions = ["", "Not scheduled", "Scheduling", "Scheduled", "Compl
 const decisionOptions = ["", "Pending", "Accepted", "Declined", "Hold"];
 const onboardingOptions = ["", "Not started", "Plan needed", "In progress", "Ready after acceptance"];
 const readinessOptions = ["", "Pending", "Goal captured", "Ready for plan", "Pending activation"];
-const profileOptions = ["", "Draft needed", "Profile linked", "Ready for build", "Pending activation", "Published"];
-const dosOptions = ["", "Workspace linked", "Needs setup", "Ready after acceptance"];
+// "Profile linked" and "Workspace linked" are no longer offered: on a /join
+// record they described a private household row as if a public profile and a
+// login existed. A record that already saved one of them still shows it, see
+// SelectField.
+const profileOptions = ["", "Draft needed", PROFILE_PRIVATE_DRAFT, "Ready for build", "Pending activation", "Published"];
+const dosOptions = ["", DOS_NO_LOGIN, "Needs setup", "Ready after acceptance", DOS_LOGIN_ACTIVE];
 
 function toneForStatus(status: string): OperationsTone {
   if (status === "Pending Review" || status === "Application Submitted" || status === "Application Started") {
@@ -155,10 +163,16 @@ function HouseholdMemberList({ items }: { items: OperationsOnboardingHouseholdMe
   return (
     <div className="divide-y divide-slate-100">
       {items.map((item) => (
-        <div className="grid gap-2 py-3 first:pt-0 last:pb-0 md:grid-cols-[minmax(0,1fr)_140px_120px]" key={`${item.name}-${item.relationship ?? item.age ?? item.status}`}>
+        <div className="grid gap-2 py-3 first:pt-0 last:pb-0 md:grid-cols-[minmax(0,1fr)_140px_80px]" key={`${item.name}-${item.relationship ?? item.age ?? item.status}`}>
           <FieldBlock label="Name" value={item.name} />
           <FieldBlock label="Relationship" value={item.relationship} />
-          <FieldBlock label="Status" value={item.status ?? item.age} />
+          <FieldBlock label="Age" value={item.age} />
+          {/* Only older onboarding records carry a dependent status. */}
+          {item.status ? (
+            <div className="md:col-span-3">
+              <FieldBlock label="Dependent Status" value={item.status} />
+            </div>
+          ) : null}
         </div>
       ))}
     </div>
@@ -173,11 +187,69 @@ function DocumentList({ items }: { items: OperationsOnboardingDocumentItem[] }) 
   return (
     <div className="divide-y divide-slate-100">
       {items.map((item) => (
-        <div className="grid gap-2 py-3 first:pt-0 last:pb-0 md:grid-cols-[minmax(0,1fr)_140px_120px]" key={`${item.kind}-${item.fileName}-${item.path ?? "pending"}`}>
+        <div
+          className="grid items-center gap-3 py-3 first:pt-0 last:pb-0 md:grid-cols-[72px_minmax(0,1fr)_110px_110px]"
+          key={`${item.kind}-${item.fileName}-${item.path ?? "pending"}`}
+        >
+          {item.viewHref ? (
+            <a
+              aria-label={`Open ${item.kind.toLowerCase()} photo`}
+              className="block h-[72px] w-[72px] overflow-hidden rounded-md border border-slate-200 bg-slate-50"
+              href={item.viewHref}
+              rel="noopener"
+              target="_blank"
+            >
+              {/* Streamed from the private bucket through an Operations-only
+                  route, so a plain img is right: next/image would try to
+                  optimize and cache a private file. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img alt={`${item.kind} photo submitted with the application`} className="h-full w-full object-cover" src={item.viewHref} />
+            </a>
+          ) : (
+            <span aria-hidden="true" className="hidden md:block" />
+          )}
           <FieldBlock label="File" value={item.fileName} />
           <FieldBlock label="Type" value={item.kind} />
-          <FieldBlock label="Status" value={item.status} />
+          {item.viewHref ? (
+            <a
+              className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-[11px] uppercase tracking-[0.12em] text-slate-800 transition hover:border-[#D8A932] hover:text-[#7A5200]"
+              href={item.viewHref}
+              rel="noopener"
+              target="_blank"
+            >
+              Open
+            </a>
+          ) : (
+            <FieldBlock label="Status" value={item.status} />
+          )}
         </div>
+      ))}
+    </div>
+  );
+}
+
+function BudgetGroups({ groups }: { groups: OperationsOnboardingBudgetGroup[] }) {
+  if (groups.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-5 md:grid-cols-2">
+      {groups.map((group) => (
+        <section className="min-w-0" key={group.title}>
+          <div className="mb-2 flex items-baseline justify-between gap-3 border-b border-slate-200 pb-2">
+            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-600">{group.title}</p>
+            {group.subtotal ? <p className="text-sm font-semibold text-slate-900">{group.subtotal}</p> : null}
+          </div>
+          <dl className="divide-y divide-slate-100">
+            {group.items.map((item) => (
+              <div className="flex items-baseline justify-between gap-3 py-1.5" key={item.label}>
+                <dt className="min-w-0 text-sm text-slate-700">{item.label}</dt>
+                <dd className="text-sm tabular-nums text-slate-900">{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       ))}
     </div>
   );
@@ -194,6 +266,10 @@ function SelectField({
   name: string;
   options: string[];
 }) {
+  // A value saved before the option list changed is still shown, so saving the
+  // form never silently rewrites it.
+  const shown = defaultValue && !options.includes(defaultValue) ? [...options, defaultValue] : options;
+
   return (
     <label className="block">
       <span className="text-[10px] uppercase tracking-[0.14em] text-slate-500">{label}</span>
@@ -202,7 +278,7 @@ function SelectField({
         defaultValue={defaultValue ?? ""}
         name={name}
       >
-        {options.map((option) => (
+        {shown.map((option) => (
           <option key={option || `${name}-empty`} value={option}>
             {option || "Unset"}
           </option>
@@ -346,10 +422,14 @@ export default async function OperationsMissionaryDetailPage({
             <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px]">
               <div className="space-y-4">
                 <OperationsPanel title="Story / Calling">
-                  <div className="grid gap-4">
-                    <FieldBlock label="Testimony" value={item.storyTestimony} />
-                    <DetailGrid empty="No structured story answers are captured yet." items={item.storyAnswers} />
-                  </div>
+                  {item.storyTestimony || item.storyAnswers.length > 0 ? (
+                    <div className="grid gap-4">
+                      {item.storyTestimony ? <FieldBlock label="Testimony" value={item.storyTestimony} /> : null}
+                      {item.storyAnswers.length > 0 ? <DetailGrid empty="" items={item.storyAnswers} /> : null}
+                    </div>
+                  ) : (
+                    <OperationsEmptyState>No story answers are captured yet.</OperationsEmptyState>
+                  )}
                 </OperationsPanel>
 
                 {item.applicationAnswers.length > 0 ? (
@@ -396,7 +476,16 @@ export default async function OperationsMissionaryDetailPage({
                 <OperationsPanel title="Support / Documents">
                   <div className="space-y-5">
                     <DetailGrid empty="No support details are captured yet." items={item.supportDetails} />
-                    <DocumentList items={item.documents} />
+                    {item.budgetGroups.length > 0 ? (
+                      <div>
+                        <p className="mb-3 text-[11px] uppercase tracking-[0.14em] text-slate-500">Monthly Budget</p>
+                        <BudgetGroups groups={item.budgetGroups} />
+                      </div>
+                    ) : null}
+                    <div>
+                      <p className="mb-3 text-[11px] uppercase tracking-[0.14em] text-slate-500">Photos and Documents</p>
+                      <DocumentList items={item.documents} />
+                    </div>
                   </div>
                 </OperationsPanel>
               </div>

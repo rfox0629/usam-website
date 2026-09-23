@@ -10,6 +10,7 @@ import {
   applicantDisplayName,
   emptyJoinApplicationDraft,
   isJoinApplicationStepId,
+  normalizeJoinDraftPosition,
   type JoinApplicationDraft,
   type JoinApplicationPhoto,
 } from "@/src/lib/join/application-steps";
@@ -104,6 +105,7 @@ function normalizeDraft(value: unknown): JoinApplicationDraft {
     applyingAsCouple: Boolean(record.applyingAsCouple),
     disclosures,
     photos,
+    position: normalizeJoinDraftPosition(record.position),
     spouse: normalizeIdentity(record.spouse),
   };
 }
