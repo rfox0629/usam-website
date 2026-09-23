@@ -1667,8 +1667,16 @@ await check("A target cannot be edited below the progress already recorded", asy
     "Recorded progress cannot be reinterpreted as the other kind of measurement.",
   );
   assert(route.includes("nextCount === null && recordedProgress > 0"), "A goal with progress cannot stop being measurable.");
-  /* Raising the target is always allowed: 3 -> 4 leaves every update alone. */
-  assert(!/delete\(\)/.test(route), "Editing never deletes progress.");
+  /* Raising the target is always allowed: 3 -> 4 leaves every update alone.
+
+     Scoped to the edit handler. The route also carries an explicit DELETE
+     (USA-282 follow-up) which removes the whole goal, progress included, on
+     a leader's confirmed request -- what must never happen is an EDIT
+     quietly doing it. */
+  const patchHandler = route.slice(route.indexOf("export async function PATCH("), route.indexOf("export async function DELETE("));
+
+  assert(patchHandler.length > 0, "The edit handler is still there to check.");
+  assert(!/delete\(\)/.test(patchHandler), "Editing never deletes progress.");
 });
 
 

@@ -153,13 +153,81 @@ PASS  The scroll position is preserved
 PASS  An untouched check-in form closes without a Discard warning
 ```
 
+## The follow-up pass (founder review, 2026-09-23)
+
+Three changes on top of the above, each asked for directly.
+
+### Home is discreet
+
+A Home row now says **the person's name, the due date, and Check in** —
+nothing about what the accountability is. Not in the row, not in a tooltip,
+and not in the accessibility label either: the label reads
+`Check in with George Jenko, due Aug 18`. A leader's phone is read in public
+and the subject of someone's accountability is the most private thing DOS
+holds, so it is one tap away, on the item, where the leader has chosen to
+look at it. The full list under People is unchanged and still names the topic
+and what distinguishes it — that list is opened deliberately.
+
+**The cost, stated plainly:** two records for one person on the same date now
+read identically on Home — two "George Jenko · Aug 18" rows. That is the
+shape of the founder's original screenshot complaint, re-created here on
+purpose: with the subject hidden there is nothing left to tell them apart.
+They are distinct records, they open different items, and the full list still
+distinguishes them. If that turns out to read as a duplicate again, the fix
+is a discreet ordinal ("1 of 2") rather than the topic.
+
+### Today and Overdue, with counts, and the rest in place
+
+The three count bubbles are gone from Home for good. In their place: a
+**Today** section and an **Overdue** section, each with its own count on its
+own heading, so no number is a figure with nowhere to go. Today leads — it is
+the smaller list and it is the day's own work, so a long overdue backlog
+cannot bury it. The section shows **six** check-ins rather than three, and
+**Show N more** opens the remainder in place; **Show fewer** collapses it.
+Upcoming is one quiet line under the list, with its count, opening the full
+list already on that filter — reachable without taking a row from today.
+
+Accountability sits directly below the Home action buttons, above Top Time
+Investments. On desktop that is the first card of the primary column, beside
+Top Time Investments rather than above it, which is the same order the mobile
+stream reads top to bottom.
+
+### Delete
+
+An accountability record can be deleted outright, from the three-dot menu
+beside it on the Person record, from the item a check-in row opens, and from
+the reader's own records in My Record.
+
+It asks first, in the app's own dialog, and the question says what goes with
+it, because the two kinds do not lose the same things:
+
+- a **rhythm**: the check-ins already recorded keep their rows and stay on the
+  person's record (`schedule_id` is `on delete set null`, not `cascade`);
+- a **one-time goal**: its own progress updates are part of the goal and go
+  with it (`on delete cascade`), while check-ins written beside it stay.
+
+This is deliberately not the lifecycle's "cancelled", which is for a
+commitment that was real and ended and stays on the record as history. This is
+for a record that should not exist at all. A Journey's generated follow-up and
+the shadow commitment an assignment carries are both refused by the API: they
+are derived from the assignment, so a delete would be written back on the next
+sync. The Journey is where those end.
+
+A failed delete keeps the dialog open with its reason, the same way a failed
+save keeps its sheet.
+
+### The People control carries the count
+
+Settled, at the founder's call: **Check-ins 9**. USA-264's one-count rule is
+about the people list itself — the visible results, with nothing competing
+beside the Household toggle — and this badge counts check-ins, not people. It
+is the same figure as Home and the notification, from the same helper.
+
 ## Open, for Ryan
 
-1. **The People control carries no count.** USA-264 settled that People shows
-   one count — the visible results — so the Household toggle has no competing
-   number beside it. A second tally in the same row would reopen that, so the
-   due count lives on Home and on this list's own filters. Say the word and it
-   goes on the control.
+1. **Two Home rows for one person on one date read identically.** The
+   discretion rule leaves name and date only. A discreet "1 of 2" would tell
+   them apart without naming either; say the word.
 2. **"Needs attention" is used twice.** It is the first filter here (the
    issue names it) and it is also the check-in form's own progress state,
    alongside "Going well". They are on different surfaces but the sheet opens

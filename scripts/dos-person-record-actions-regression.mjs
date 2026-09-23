@@ -257,9 +257,23 @@ assert.ok(rowMenu.includes("const startsDangerGroup = Boolean(item.danger) && !i
 assert.ok(/startsDangerGroup && index > 0 \?/.test(rowMenu), "and separated from what precedes it");
 assert.ok(rowMenu.includes("close();"), "the menu closes before it runs an action");
 
+/* A removal that KEEPS what it takes away is worded "Remove"; only an action
+   that really deletes the row may say "Delete". USA-282's follow-up added a
+   real one -- an accountability record a leader deletes outright -- so the
+   rule is checked by what each label is wired to rather than by the absence
+   of the word. */
 for (const source of [personDetail, myRecordOverview]) {
-  assert.ok(!/label: "Delete"/.test(source), "a soft removal is never worded as a delete");
+  for (const [, onSelect] of source.matchAll(/label: "Delete", onSelect: ([^\n]+)/g)) {
+    assert.ok(
+      /onDelete|requestAccountabilityDelete|onDeleteCommitment/.test(onSelect),
+      `a soft removal is never worded as a delete (${onSelect.trim()})`,
+    );
+  }
 }
+assert.ok(
+  personDetail.includes('{ danger: true, label: "Remove", onSelect: () => onRemoveResourceAssignment(journey.assignment) }'),
+  "a Journey is removed, not deleted: the assignment and its record survive it",
+);
 
 /* My Record's item delete asked the browser's own OK box, which named nothing
    and could not say what happened to the data. It is the app's dialog now.

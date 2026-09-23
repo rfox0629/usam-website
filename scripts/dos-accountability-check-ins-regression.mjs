@@ -9,10 +9,9 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
-  accountabilityCheckInAttentionLabel,
   accountabilityCheckInCounts,
   accountabilityCheckInNeedsAttention,
-  accountabilityCheckInPreviewRows,
+  accountabilityCheckInHomeSections,
   accountabilityCheckInRows,
   accountabilityCheckInRowsForFilter,
   isAccountabilityCheckInFilter,
@@ -112,19 +111,21 @@ const build = ({ commitments = [], schedules = [] }) => accountabilityCheckInRow
   assert.equal(accountabilityCheckInRowsForFilter(rows, "attention").length, counts.attention);
   assert.equal(accountabilityCheckInRowsForFilter(rows, "upcoming").length, counts.upcoming);
   assert.equal(accountabilityCheckInRowsForFilter(rows, "all").length, counts.all);
-  // Home's preview is drawn from the same rows as the attention filter.
+  // Home's two sections are drawn from the same rows as the attention filter.
+  const sections = accountabilityCheckInHomeSections(rows);
+
+  assert.equal(sections.today.length + sections.overdue.length, counts.attention);
   assert.deepEqual(
-    accountabilityCheckInPreviewRows(rows).map((row) => row.id),
-    accountabilityCheckInRowsForFilter(rows, "attention").slice(0, 3).map((row) => row.id),
+    [...sections.today, ...sections.overdue].map((row) => row.id).sort(),
+    accountabilityCheckInRowsForFilter(rows, "attention").map((row) => row.id).sort(),
   );
   // Nothing the leader owns can hide from every filter.
   assert.equal(counts.attention + counts.upcoming + rows.filter((row) => row.bucket === "no_due_date").length, counts.all);
-  assert.equal(accountabilityCheckInAttentionLabel(1), "1 needs attention");
-  assert.equal(accountabilityCheckInAttentionLabel(2), "2 need attention");
 }
 
 // ---------------------------------------------------------------------------
-// 3. Home shows at most three, overdue first.
+// 3. Home's sections: Today and Overdue, each in the list's own order, and
+//    nothing that is not due.
 {
   const rows = build({
     schedules: [
@@ -135,9 +136,15 @@ const build = ({ commitments = [], schedules = [] }) => accountabilityCheckInRow
       schedule({ id: "s5", nextCheckIn: "2026-10-01" }),
     ],
   });
+  const sections = accountabilityCheckInHomeSections(rows);
 
-  assert.deepEqual(accountabilityCheckInPreviewRows(rows).map((row) => row.id), ["schedule-s1", "schedule-s2", "schedule-s3"]);
-  assert.equal(accountabilityCheckInPreviewRows(rows).every((row) => row.bucket === "overdue"), true);
+  assert.deepEqual(sections.overdue.map((row) => row.id), ["schedule-s1", "schedule-s2", "schedule-s3"]);
+  assert.deepEqual(sections.today.map((row) => row.id), ["schedule-s4"]);
+  // Upcoming and undated are not "due", so neither section can show them.
+  assert.equal([...sections.today, ...sections.overdue].every((row) => row.bucket === "overdue" || row.bucket === "due_today"), true);
+  // Home shows the date on its own; the status word is the section heading.
+  assert.equal(sections.overdue[0].dueDateLabel, "2026-09-10");
+  assert.equal(rows.find((row) => row.bucket === "no_due_date") ?? null, null);
 }
 
 // ---------------------------------------------------------------------------
@@ -270,7 +277,7 @@ const build = ({ commitments = [], schedules = [] }) => accountabilityCheckInRow
 
   assert.deepEqual(rows, []);
   assert.deepEqual(accountabilityCheckInCounts(rows), { all: 0, attention: 0, upcoming: 0 });
-  assert.deepEqual(accountabilityCheckInPreviewRows(rows), []);
+  assert.deepEqual(accountabilityCheckInHomeSections(rows), { overdue: [], today: [] });
   assert.equal(isAccountabilityCheckInFilter("attention"), true);
   assert.equal(isAccountabilityCheckInFilter("everything"), false);
 }
@@ -317,7 +324,7 @@ assert.equal((client.match(/journeyFollowUpSheetCopy\(checkInRows,/g) ?? []).len
 assert.match(client, /if \(!schedule \|\| !parseResourceAssignmentFollowUpScheduleTitle\(schedule\.title\)\) \{\s*return null;/, "A leader's own rhythm keeps the copy it has (spec §1 B12).");
 assert.match(client, /onCheckIn=\{\(\) => openPersonAccountabilityCheckIn\(record\.personId, schedule, commitment\)\}/, "The item's Check in opens the existing form for that person and item.");
 {
-  const row = client.slice(client.indexOf("function CheckInListRow("), client.indexOf("function HomeCheckInsPanel("));
+  const row = client.slice(client.indexOf("function CheckInListRow("), client.indexOf("function HomeCheckInRow("));
 
   assert.equal((row.match(/<button/g) ?? []).length, 1, "The whole row is one tap target (spec §3).");
   assert.match(row, /min-h-\[60px\]/, "The row keeps a comfortable tap target.");
@@ -350,6 +357,55 @@ assert.match(client, /counts=\{checkInCounts\}/);
 assert.equal(client.includes("function accountabilityDueRows"), false, "The old Home-only bucketing is retired.");
 assert.equal(client.includes("AccountabilityDashboardCard"), false, "The three-count-box Accountability card is retired.");
 assert.equal(client.includes("more on the people themselves"), false, "The dead-end line is gone.");
+
+/* 11. USA-282 follow-up: Home is discreet, and a record can be deleted.
+
+   The subject of someone's accountability is the most private thing DOS
+   holds and a phone is read in public, so Home says who and when only --
+   in the row, and in the accessible name it exposes. */
+{
+  const homeRow = client.slice(client.indexOf("function HomeCheckInRow("), client.indexOf("function HomeCheckInSectionHeading("));
+
+  assert.equal((homeRow.match(/<button/g) ?? []).length, 1, "Home's row is one tap target too.");
+  assert.match(homeRow, /row\.personName/);
+  assert.match(homeRow, /row\.dueDateLabel/);
+  assert.equal(/row\.topic|row\.context|checkInSecondaryLine|CheckInStatusChip/.test(homeRow), false, "No topic, resource title or description reaches Home.");
+  assert.equal(/title=\{/.test(homeRow), false, "No tooltip carries the subject either.");
+  assert.match(homeRow, /aria-label=\{row\.dueDateLabel \? `Check in with \$\{row\.personName\}, due/, "The accessible name is the name and the date only.");
+}
+
+/* The delete is one operation, asked for once, and offered wherever an
+   accountability record is managed: the record's own menu, the item a
+   check-in row opens, and the reader's own record. */
+assert.match(client, /function requestAccountabilityDelete\(target: PendingAccountabilityDelete\)/);
+assert.match(client, /async function confirmAccountabilityDelete\(\)/);
+assert.match(client, /target\.kind === "schedule" \? "\/api\/dos\/app\/accountability\/schedules" : "\/api\/dos\/app\/commitments",/, "Each record kind goes to its own endpoint.");
+assert.match(client, /\{ id: target\.id \},\s*"DELETE",/);
+assert.match(client, /\{ danger: true, label: "Delete", onSelect: topic\.onDelete \}/, "The Person record's three-dot menu offers it.");
+assert.match(client, /onDelete=\{schedule\s*\? \(\) => requestAccountabilityDelete\(\{ id: schedule\.id, kind: "schedule"/, "The item a check-in row opens offers it.");
+assert.match(client, /onDeleteCommitment\(commitment\)/, "My Record offers it on the reader's own commitments.");
+assert.match(client, /title="Delete this accountability\?"/, "It asks before anything goes.");
+assert.match(client, /The check-ins already recorded stay on their record\./, "The question says a rhythm's recorded check-ins survive it.");
+assert.match(client, /The progress recorded against this goal goes with it\./, "And that a goal's own progress does not.");
+assert.equal(client.includes("if (!result) {"), true, "A failed delete keeps the dialog open with its reason.");
+{
+  const schedules = read("app/api/dos/app/accountability/schedules/route.ts");
+  const commitments = read("app/api/dos/app/commitments/route.ts");
+
+  assert.match(schedules, /export async function DELETE\(request: Request\)/);
+  assert.match(commitments, /export async function DELETE\(request: Request\)/);
+  for (const route of [schedules, commitments]) {
+    assert.match(route, /authorizeDosCommitmentsWrite\(\)/, "A delete is authorized like every other write.");
+    assert.match(route, /\.eq\("workspace_id", workspaceResult\.workspaceId\)/, "And scoped to the caller's workspace.");
+  }
+  assert.match(schedules, /if \(parseResourceAssignmentFollowUpScheduleTitle\(asString\(existing\.title\)\)\) \{/, "A Journey's own follow-up cannot be deleted here: sync would write it again.");
+  assert.match(commitments, /\.eq\("linked_commitment_id", commitmentId\)/, "Nor the shadow commitment a Journey assignment carries.");
+}
+
+/* The count on the People control is the same figure as Home and the
+   notification, from the same helper. */
+assert.match(client, /\{checkInCounts\.attention \? \(/, "The People control carries the count.");
+assert.match(client, /`Check-ins, \$\{checkInCounts\.attention\} need attention`/, "It reads as a count of check-ins, not of people.");
 
 // The module stays pure: no clock, no locale, no React.
 assert.equal(/new Date\(|Date\.now\(|toLocale|from "react"/.test(lib), false, "The eligibility module takes its day key and formatter from the caller.");

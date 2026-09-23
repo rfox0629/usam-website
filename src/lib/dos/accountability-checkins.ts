@@ -88,6 +88,11 @@ export type AccountabilityCheckInRow = {
      an empty line is worse than none. */
   context: string | null;
   dueDate: string | null;
+  /* The due date on its own, formatted by the caller's formatter. Home shows
+     the date without the word: under a "Today" or "Overdue" heading the
+     status is already said once, and saying it again in every row is the
+     repeated copy the section is meant to lose. */
+  dueDateLabel: string | null;
   /* Unique across both storage models, which can share ids. */
   id: string;
   kind: AccountabilityCheckInKind;
@@ -217,6 +222,7 @@ export function accountabilityCheckInRows({
             ? null
             : accountabilityFrequencyLabels[schedule.frequency] ?? null,
         dueDate: schedule.nextCheckIn,
+        dueDateLabel: schedule.nextCheckIn ? formatDate(schedule.nextCheckIn) : null,
         id: `schedule-${schedule.id}`,
         kind: followUp ? ("growth_follow_up" as const) : ("rhythm" as const),
         personId: schedule.personId,
@@ -243,6 +249,7 @@ export function accountabilityCheckInRows({
         bucket,
         context: accountabilityProgressLabel(commitment),
         dueDate: commitment.targetDate,
+        dueDateLabel: commitment.targetDate ? formatDate(commitment.targetDate) : null,
         id: `commitment-${commitment.id}`,
         kind: "one_time_goal" as const,
         personId: commitment.personId,
@@ -273,6 +280,17 @@ export function accountabilityCheckInRows({
   });
 }
 
+/* Home's sections. Today leads: it is the day's own work and there is
+   little of it, so putting a long overdue backlog above it would bury the
+   one thing that has to happen today. Overdue follows, in the same order the
+   full list uses. Neither section invents an order of its own. */
+export function accountabilityCheckInHomeSections(rows: ReadonlyArray<AccountabilityCheckInRow>) {
+  return {
+    overdue: rows.filter((row) => row.bucket === "overdue"),
+    today: rows.filter((row) => row.bucket === "due_today"),
+  };
+}
+
 export function accountabilityCheckInCounts(rows: ReadonlyArray<AccountabilityCheckInRow>): AccountabilityCheckInCounts {
   return {
     all: rows.length,
@@ -298,17 +316,3 @@ export function accountabilityCheckInRowsForFilter(
 
   return [...rows];
 }
-
-/* Home shows the few that need attention and hands off. Overdue leads
-   because the ordering above already puts it there; this only decides how
-   many fit. */
-export function accountabilityCheckInPreviewRows(rows: ReadonlyArray<AccountabilityCheckInRow>, limit = 3) {
-  return rows.filter(accountabilityCheckInNeedsAttention).slice(0, limit);
-}
-
-/* "3 need attention" / "1 needs attention". Shown once, on Home, so the
-   notification badge and the preview heading read the same. */
-export function accountabilityCheckInAttentionLabel(count: number) {
-  return `${count} ${count === 1 ? "needs" : "need"} attention`;
-}
-

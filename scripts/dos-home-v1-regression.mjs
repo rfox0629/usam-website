@@ -25,7 +25,8 @@ const stripComments = (text) => text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^
 const dashboard = stripComments(sliceBetween(client, "function DesktopHomeDashboard", "function desktopOrganizationCopy"));
 const reportUi = readFileSync("src/components/dos/reports/MinistryTimeInvestmentReport.tsx", "utf8");
 const checkInsPanel = sliceBetween(client, "function HomeCheckInsPanel", "const checkInFilterLabels");
-const checkInList = sliceBetween(client, "function CheckInListRow", "function HomeCheckInsPanel");
+const checkInList = sliceBetween(client, "function CheckInListRow", "function HomeCheckInRow");
+const homeCheckInRow = sliceBetween(client, "function HomeCheckInRow", "function HomeCheckInSectionHeading");
 const reportsView = sliceBetween(client, 'activeMoreAppView === "reports" ? (', 'activeMoreAppView === "organizations" ? (');
 const homeCallSite = sliceBetween(client, "<DesktopHomeDashboard\n", "upcomingItems={upcomingTimelineItems}");
 
@@ -71,27 +72,52 @@ assert(!/Recorded time/.test(dashboard), "Home says logged duration, never recor
 assert(!dashboard.includes("Total meetings") && !dashboard.includes("Total hours logged") && !dashboard.includes("Total reviews"), "The old combined totals are gone.");
 assert(dashboard.includes("each meeting counted once"), "Meeting Activity states that logged duration counts each meeting once.");
 
-/* 5. USA-282: Check-ins is a compact preview with one destination, not three
-   large count boxes and a dead end. The workflow still lives on the Person.
+/* 5. USA-282 and its follow-up: Check-ins sits above Top Time Investments,
+   says only who and when, groups Today and Overdue with simple counts, and
+   opens the rest in place. The workflow still lives on the Person.
 
    USA-257's Due Today / Overdue / 7 Days boxes and its "N more on the people
-   themselves" line are superseded: the counts are now the filters on the
-   full list under People, reached from here. */
+   themselves" line are superseded: the counts are now section headings here
+   and filters on the full list under People. */
 assert(checkInsPanel.includes('eyebrow="Check-ins"'), "Home's check-in section is headed Check-ins.");
 assert(checkInsPanel.includes("View all check-ins"), "Home offers one clear way to the full list.");
 assert(checkInsPanel.includes("onClick={onOpenAll}"), "View all check-ins opens the full list.");
-assert(checkInsPanel.includes("accountabilityCheckInAttentionLabel(attentionCount)"), "Home states how many need attention, from the shared helper.");
+assert(checkInsPanel.includes('label="Today"') && checkInsPanel.includes('label="Overdue"'), "Home groups the work into Today and Overdue sections.");
+assert(checkInsPanel.includes("count={sections.today.length}") && checkInsPanel.includes("count={sections.overdue.length}"), "Each section carries its own simple count.");
+assert(checkInsPanel.indexOf('label="Today"') < checkInsPanel.indexOf('label="Overdue"'), "Today leads, so an overdue backlog never buries the day's own work.");
+assert(checkInsPanel.includes("accountabilityCheckInHomeSections(rows)"), "The sections come from the shared eligibility module, not from a second rule here.");
 assert(checkInsPanel.includes("No check-ins need attention."), "The empty state is one short line.");
 assert(!/Due Today|7 Days|more on the people themselves/.test(dashboard + checkInsPanel), "The three large count boxes and the \"N more on the people themselves\" line are gone.");
-assert(dashboard.includes("checkInRows"), "Home renders the preview rows it is handed.");
-assert(client.includes("accountabilityCheckInPreviewRows(checkInRows)"), "The preview is the first few that need attention, overdue first, from the shared helper.");
+assert(dashboard.includes("checkInRows"), "Home renders the rows it is handed.");
+assert(client.includes('accountabilityCheckInRowsForFilter(checkInRows, "attention")'), "Home is handed exactly the rows that need attention, from the shared helper.");
+assert(dashboard.indexOf("<HomeCheckInsPanel") < dashboard.indexOf('eyebrow="Top Time Investments"'), "Check-ins sits above Top Time Investments.");
+
+/* The section is taller than the three rows it replaced, and the remainder
+   opens in place rather than sending the reader away to find them. */
+assert(/const homeCheckInVisibleRows = ([6-9]|1\d);/.test(client), "Home shows at least six check-ins before the expander.");
+assert(checkInsPanel.includes("Show ${hiddenCount} more") && checkInsPanel.includes('"Show fewer"'), "The remaining check-ins expand and collapse in place.");
+assert(checkInsPanel.includes("setIsExpanded((current) => !current)"), "The expander is wired, not decorative.");
+assert(checkInsPanel.includes("sections.today.slice(0, homeCheckInVisibleRows)") && checkInsPanel.includes("homeCheckInVisibleRows - visibleToday.length"), "Today is shown in full first; the overdue backlog takes what is left.");
+
+/* Upcoming stays reachable without taking a row from today. */
+assert(checkInsPanel.includes("upcomingCount ?") && checkInsPanel.includes("onClick={onOpenUpcoming}"), "Upcoming is one quiet line under the list.");
+assert(client.includes('onOpenCheckInsUpcoming={() => openCheckIns("upcoming")}'), "It opens the full list already on the Upcoming filter.");
+assert(client.includes("checkInUpcomingCount={checkInCounts.upcoming}"), "Its count comes from the same eligibility function as every other count.");
+
+/* Home is discreet: who and when, and the action -- never what the
+   accountability is about, in the row, a tooltip or an accessibility label. */
+for (const leak of ["row.topic", "row.context", "checkInSecondaryLine", "<CheckInStatusChip", "title={"]) {
+  assert(!homeCheckInRow.includes(leak), `Home's check-in row must not carry ${leak}: the subject stays off the home screen.`);
+}
+assert(homeCheckInRow.includes("row.personName") && homeCheckInRow.includes("row.dueDateLabel"), "A Home row shows the person's name and the due date.");
+assert(homeCheckInRow.includes("`Check in with ${row.personName}, due ${row.dueDateLabel}`"), "The accessible name is the name and the date, and nothing else.");
+assert(homeCheckInRow.includes(">Check in</span>"), "Each row offers the check-in by name.");
 for (const control of ["Log Check-In", "Mark Complete", "Reschedule", "onLogCheckIn", "onLogResourceCheckIn", "onMarkResourceAssignmentComplete"]) {
   assert(!checkInsPanel.includes(control), `Home's Check-ins must not run the ${control} workflow.`);
 }
-assert(!checkInsPanel.includes("onCheckIn"), "Home previews and hands off: the named check-in action belongs to the full list.");
-assert(checkInList.includes("row.personName"), "Each check-in row leads with the person's name.");
-assert(checkInList.includes("checkInSecondaryLine(row)") && client.includes("row.context ? `${row.topic} · ${row.context}`"), "Each row then states the topic and what distinguishes it.");
-assert(checkInList.includes("<CheckInStatusChip row={row} />"), "Each row states its due date or status.");
+assert(checkInList.includes("row.personName"), "Each row of the full list leads with the person's name.");
+assert(checkInList.includes("checkInSecondaryLine(row)") && client.includes("row.context ? `${row.topic} · ${row.context}`"), "The full list, not Home, states the topic and what distinguishes it.");
+assert(checkInList.includes("<CheckInStatusChip row={row} />"), "Each row of the full list states its due date or status.");
 assert(checkInsPanel.includes("onOpenRow(row)"), "A Home check-in row opens the accountability item itself.");
 
 /* 5b. The top notification is preserved and opens that same full list, with

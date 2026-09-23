@@ -152,10 +152,9 @@ import {
   type AccountabilityProgressKind,
 } from "@/src/lib/dos/accountability-presentation";
 import {
-  accountabilityCheckInAttentionLabel,
   accountabilityCheckInCounts,
+  accountabilityCheckInHomeSections,
   accountabilityCheckInNeedsAttention,
-  accountabilityCheckInPreviewRows,
   accountabilityCheckInRows,
   accountabilityCheckInRowsForFilter,
   isAccountabilityCheckInFilter,
@@ -13196,6 +13195,16 @@ function journeyFollowUpSheetCopy(
     : null;
 }
 
+/* What a pending delete is: which record, so the request can go to the right
+   endpoint, and whose record it is, so the confirmation afterwards lands on
+   the person it belongs to. The title is only for the question itself. */
+type PendingAccountabilityDelete = {
+  id: string;
+  kind: "commitment" | "schedule";
+  personId: string | null;
+  title: string;
+};
+
 function CheckInStatusChip({ row }: { row: AccountabilityCheckInRow }) {
   const needsAttention = accountabilityCheckInNeedsAttention(row);
 
@@ -13259,22 +13268,89 @@ function CheckInListRow({
   );
 }
 
-/* Home's Check-ins: the due count, the few that need attention, and the way
-   to the whole list. It sits directly under the Home action buttons and is
-   the only accountability list on Home -- the lower card with three large
-   count boxes and "N more on the people themselves" is gone, because a
-   number with no destination is not a list. */
+/* USA-282 follow-up: Home is discreet.
+
+   A row here says who and when, and offers the check-in -- nothing about
+   what the accountability is. A leader's phone is read in public, and the
+   topic of someone's accountability is the most private thing DOS holds, so
+   it is not on the home screen, not in a tooltip, and not in an
+   accessibility label either. The subject is one tap away, on the item
+   itself, where the leader has chosen to look at it. */
+function HomeCheckInRow({
+  onOpen,
+  row,
+}: {
+  onOpen: () => void;
+  row: AccountabilityCheckInRow;
+}) {
+  return (
+    <div className="flex min-w-0 items-center border-t border-dos-line first:border-t-0">
+      <button
+        /* The name and the date, and nothing else: the accessible name says
+           exactly what the row shows. */
+        aria-label={row.dueDateLabel ? `Check in with ${row.personName}, due ${row.dueDateLabel}` : `Check in with ${row.personName}`}
+        className="flex min-h-[56px] min-w-0 flex-1 items-center gap-2.5 py-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
+        onClick={onOpen}
+        type="button"
+      >
+        <Avatar name={row.personName} size="sm" />
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-dos-body font-semibold text-dos-primary">{row.personName}</span>
+          {row.dueDateLabel ? <span className="mt-0.5 block text-dos-meta text-dos-secondary">{row.dueDateLabel}</span> : null}
+        </span>
+        {/* The action the row performs, named. It is inside the one tap
+            target rather than beside it: a second button cost about 90px of a
+            390px screen, and there is no second thing to do to a row. */}
+        <span aria-hidden="true" className="ml-2 shrink-0 text-dos-label font-semibold text-dos-blueText">Check in</span>
+        <ChevronRight aria-hidden="true" className="ml-1 h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+      </button>
+    </div>
+  );
+}
+
+/* A section heading and its count. This is what replaced the three large
+   count boxes: the number sits on the list it counts, so it is never a
+   figure with nowhere to go. */
+function HomeCheckInSectionHeading({ count, label }: { count: number; label: string }) {
+  return (
+    <div className="flex items-baseline gap-2 pb-1 pt-2.5 first:pt-0">
+      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#2563EB]" style={{ fontFamily: font.rajdhani }}>{label}</p>
+      <span className="text-dos-meta font-semibold text-dos-secondary">{count}</span>
+    </div>
+  );
+}
+
+/* Home's Check-ins: today, then what is already late, then the way to
+   everything else. It sits directly under the Home action buttons, above Top
+   Time Investments, and is the only accountability list on Home -- the lower
+   card with three large count boxes and "N more on the people themselves" is
+   gone, because a number with no destination is not a list. */
+const homeCheckInVisibleRows = 6;
+
 function HomeCheckInsPanel({
-  attentionCount,
   onOpenAll,
   onOpenRow,
+  onOpenUpcoming,
   rows,
+  upcomingCount,
 }: {
-  attentionCount: number;
   onOpenAll: () => void;
   onOpenRow: (row: AccountabilityCheckInRow) => void;
+  onOpenUpcoming: () => void;
   rows: AccountabilityCheckInRow[];
+  upcomingCount: number;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const sections = accountabilityCheckInHomeSections(rows);
+  /* Today is never the thing that gets cut. It is the smaller list and it is
+     the day's own work, so it is shown in full and the remainder of the
+     visible rows goes to the overdue backlog. */
+  const visibleToday = isExpanded ? sections.today : sections.today.slice(0, homeCheckInVisibleRows);
+  const visibleOverdue = isExpanded
+    ? sections.overdue
+    : sections.overdue.slice(0, Math.max(0, homeCheckInVisibleRows - visibleToday.length));
+  const hiddenCount = (sections.today.length - visibleToday.length) + (sections.overdue.length - visibleOverdue.length);
+
   return (
     <DesktopPanel
       action={<DashboardHeaderAction onClick={onOpenAll}>View all check-ins</DashboardHeaderAction>}
@@ -13284,18 +13360,58 @@ function HomeCheckInsPanel({
     >
       {rows.length ? (
         <>
-          <p className="mb-2 text-xs font-semibold text-[#64748B]">{accountabilityCheckInAttentionLabel(attentionCount)}</p>
-          <div className="grid">
-            {rows.map((row) => (
-              <CheckInListRow key={row.id} onOpen={() => onOpenRow(row)} row={row} />
-            ))}
-          </div>
+          {visibleToday.length ? (
+            <>
+              <HomeCheckInSectionHeading count={sections.today.length} label="Today" />
+              <div className="grid">
+                {visibleToday.map((row) => (
+                  <HomeCheckInRow key={row.id} onOpen={() => onOpenRow(row)} row={row} />
+                ))}
+              </div>
+            </>
+          ) : null}
+          {visibleOverdue.length ? (
+            <>
+              <HomeCheckInSectionHeading count={sections.overdue.length} label="Overdue" />
+              <div className="grid">
+                {visibleOverdue.map((row) => (
+                  <HomeCheckInRow key={row.id} onOpen={() => onOpenRow(row)} row={row} />
+                ))}
+              </div>
+            </>
+          ) : null}
+          {/* The rest open here, in place. The old card counted them and then
+              sent the reader away to find them one person at a time. */}
+          {hiddenCount || isExpanded ? (
+            <button
+              className="mt-2 flex min-h-11 w-full items-center justify-center rounded-dos-3 border border-dos-line bg-white text-dos-label font-semibold text-dos-blueText transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+              onClick={() => setIsExpanded((current) => !current)}
+              type="button"
+            >
+              {isExpanded ? "Show fewer" : `Show ${hiddenCount} more`}
+            </button>
+          ) : null}
         </>
       ) : (
         /* One short line. An empty list needs no explanation of what it would
            have contained. */
         <p className="text-sm font-semibold text-[#64748B]">No check-ins need attention.</p>
       )}
+      {/* Upcoming is reachable without taking a row from today: one quiet
+          line under the list, opening the full list already on that filter. */}
+      {upcomingCount ? (
+        <button
+          className="mt-2 flex min-h-11 w-full items-center justify-between gap-3 border-t border-dos-line pt-2 text-left text-dos-meta font-semibold text-dos-secondary transition-colors hover:text-dos-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+          onClick={onOpenUpcoming}
+          type="button"
+        >
+          <span>Upcoming</span>
+          <span className="flex items-center gap-1 text-dos-blueText">
+            {upcomingCount}
+            <ChevronRight aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
+          </span>
+        </button>
+      ) : null}
     </DesktopPanel>
   );
 }
@@ -14135,6 +14251,7 @@ function PersonAccountabilityDetailSheet({
   onAddProgress,
   onCheckIn,
   onClose,
+  onDelete,
   onEdit,
   personName = null,
   progressKind,
@@ -14148,6 +14265,7 @@ function PersonAccountabilityDetailSheet({
   onAddProgress?: () => void;
   onCheckIn?: () => void;
   onClose: () => void;
+  onDelete?: () => void;
   onEdit?: () => void;
   /* The Person this belongs to, shown once in the header. */
   personName?: string | null;
@@ -14158,13 +14276,30 @@ function PersonAccountabilityDetailSheet({
   return (
     <DosDetailSheet
       actions={(
-        <div className="grid grid-cols-2 gap-2">
-          {progressKind === "people" && onAddPerson ? <AppButton icon="people" onClick={onAddPerson} tone="black">Add person</AppButton> : null}
-          {progressKind === "count" && onAddProgress ? <AppButton icon="add" onClick={onAddProgress} tone="black">Add progress</AppButton> : null}
-          {progressKind === "check_in" && onCheckIn ? <AppButton icon="log" onClick={onCheckIn} tone="black">Check in</AppButton> : null}
-          {/* System-generated Journey follow-ups keep their own semantics and
-              are not editable as though someone had written them. */}
-          {onEdit && !isSystemGenerated ? <AppButton onClick={onEdit} tone="white">Edit</AppButton> : null}
+        <div className="grid gap-2">
+          <div className="grid grid-cols-2 gap-2">
+            {progressKind === "people" && onAddPerson ? <AppButton icon="people" onClick={onAddPerson} tone="black">Add person</AppButton> : null}
+            {progressKind === "count" && onAddProgress ? <AppButton icon="add" onClick={onAddProgress} tone="black">Add progress</AppButton> : null}
+            {progressKind === "check_in" && onCheckIn ? <AppButton icon="log" onClick={onCheckIn} tone="black">Check in</AppButton> : null}
+            {/* System-generated Journey follow-ups keep their own semantics and
+                are not editable as though someone had written them. */}
+            {onEdit && !isSystemGenerated ? <AppButton onClick={onEdit} tone="white">Edit</AppButton> : null}
+          </div>
+          {/* The same delete the record's own menu offers, reachable from the
+              item a check-in row opens -- so the Check-ins list needs no menu
+              of its own on a row that is already one tap target. A Journey's
+              follow-up is not deletable here for the same reason it is not
+              editable: DOS writes it, and the Journey ends it. */}
+          {onDelete && !isSystemGenerated ? (
+            <button
+              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-[14px] font-semibold text-[#B42318] transition-colors hover:bg-[#FEF3F2]"
+              onClick={onDelete}
+              type="button"
+            >
+              <Trash2 aria-hidden="true" className="h-4 w-4" strokeWidth={1.9} />
+              Delete
+            </button>
+          ) : null}
         </div>
       )}
       /* USA-280 follow-up: sized by its content. Every read-only sheet in DOS
@@ -15663,6 +15798,7 @@ function AccountabilityScheduleSheet({
 function DesktopHomeDashboard({
   checkInAttentionCount,
   checkInRows,
+  checkInUpcomingCount,
   engagementLevelsEnabled,
   meetingActivity,
   onAddPerson,
@@ -15670,6 +15806,7 @@ function DesktopHomeDashboard({
   onLogMeeting,
   onOpenCheckIn,
   onOpenCheckIns,
+  onOpenCheckInsUpcoming,
   onOpenGroupJoinRequests,
   onOpenMeeting,
   onOpenPerson,
@@ -15690,6 +15827,7 @@ function DesktopHomeDashboard({
      these and hands off to the full list under People; the workflow does not
      live here (USA-257). */
   checkInRows: AccountabilityCheckInRow[];
+  checkInUpcomingCount: number;
   /* The Engagement Levels Advanced Feature, resolved from the workspace's
      feature flags by the same helper every other surface uses. */
   engagementLevelsEnabled: boolean;
@@ -15702,6 +15840,7 @@ function DesktopHomeDashboard({
   onLogMeeting: () => void;
   onOpenCheckIn: (row: AccountabilityCheckInRow) => void;
   onOpenCheckIns: () => void;
+  onOpenCheckInsUpcoming: () => void;
   onOpenGroupJoinRequests: (groupId: string) => void;
   onOpenMeeting: (meetingId: string) => void;
   onOpenPerson: (personId: string) => void;
@@ -15848,10 +15987,11 @@ function DesktopHomeDashboard({
                 section, so Home carries one check-in list rather than two
                 competing ones. */}
             <HomeCheckInsPanel
-              attentionCount={checkInAttentionCount}
               onOpenAll={onOpenCheckIns}
               onOpenRow={onOpenCheckIn}
+              onOpenUpcoming={onOpenCheckInsUpcoming}
               rows={checkInRows}
+              upcomingCount={checkInUpcomingCount}
             />
           </div>
 
@@ -32253,6 +32393,7 @@ function MyRecordOverviewPanel({
   onMarkResourceAssignmentInProgress,
   onOpenGuidedResource,
   onOpenMeeting,
+  onDeleteCommitment,
   onOpenPersonRecord,
   onOpenScheduledMeeting,
   onOpenSheet,
@@ -32281,6 +32422,7 @@ function MyRecordOverviewPanel({
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
   onOpenMeeting: (meeting: DosAppUserMentorMeeting) => void;
+  onDeleteCommitment: ((commitment: DosAppPersonCommitment) => void) | null;
   onOpenPersonRecord: ((personId: string) => void) | null;
   onOpenScheduledMeeting: (meetingId: string) => void;
   onOpenSheet: (sheet: MyRecordSheetState) => void;
@@ -32399,6 +32541,7 @@ function MyRecordOverviewPanel({
               {activeCommitments.map((commitment) => (
                 <MyRecordSectionRow
                   key={commitment.id}
+                  extraItems={onDeleteCommitment ? [{ danger: true, label: "Delete", onSelect: () => onDeleteCommitment(commitment) }] : []}
                   meta={[commitment.status === "paused" ? "Paused" : "Active", commitment.targetDate ? `Due ${formatShortDate(commitment.targetDate)}` : null].filter(Boolean).join(" · ")}
                   onOpen={() => onOpenPersonRecord?.(commitment.personId)}
                   primary={commitment.title}
@@ -32880,6 +33023,7 @@ function MyRecordWorkspace({
   onMarkResourceAssignmentComplete,
   onMarkResourceAssignmentInProgress,
   onOpenGuidedResource,
+  onDeleteCommitment,
   onOpenPersonRecord,
   onOpenScheduledMeeting,
   onPauseResourceAssignment,
@@ -32924,6 +33068,7 @@ function MyRecordWorkspace({
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentInProgress: (assignment: DosAppResourceAssignment) => void;
   onOpenGuidedResource: (resource: DosResource, personId?: string | null, assignmentId?: string | null) => void;
+  onDeleteCommitment: ((commitment: DosAppPersonCommitment) => void) | null;
   onOpenPersonRecord: ((personId: string) => void) | null;
   /* USA-272 follow-up: the Meetings record itself, opened the way Person's
      Next meeting card opens it. My Record does not keep a second copy. */
@@ -33314,6 +33459,7 @@ function MyRecordWorkspace({
                   onMarkResourceAssignmentInProgress={onMarkResourceAssignmentInProgress}
                   onOpenGuidedResource={onOpenGuidedResource}
                   onOpenMeeting={(meeting) => openMyRecordSheet({ kind: "mentor_meeting", meeting, mode: "view" })}
+                  onDeleteCommitment={onDeleteCommitment}
                   onOpenPersonRecord={onOpenPersonRecord}
                   onOpenScheduledMeeting={onOpenScheduledMeeting}
                   onOpenSheet={openMyRecordSheet}
@@ -36736,6 +36882,7 @@ function PersonDetailOverlay({
   onEditReminder,
   onEditCommitment,
   onEdit,
+  onDeleteAccountabilityRecord,
   onLogAccountabilityCheckIn,
   onLogResourceCheckIn,
   onMarkResourceAssignmentComplete,
@@ -36827,6 +36974,7 @@ function PersonDetailOverlay({
   onEditReminder: (reminderId: string) => void;
   onEditCommitment: (commitment: DosAppPersonCommitment) => void;
   onEdit: () => void;
+  onDeleteAccountabilityRecord: (target: PendingAccountabilityDelete) => void;
   onLogAccountabilityCheckIn: (schedule?: DosAppAccountabilitySchedule | null) => void;
   onLogResourceCheckIn: (assignment: DosAppResourceAssignment) => void;
   onMarkResourceAssignmentComplete: (assignment: DosAppResourceAssignment) => void;
@@ -37106,6 +37254,15 @@ function PersonDetailOverlay({
        fits it lives inside, named for what it records: a people target adds a
        person, a numeric target adds progress, everything else checks in. */
     actionLabel: row.progressKind === "people" ? "Add person" : row.progressKind === "count" ? "Add progress" : "Check in",
+    /* Every row here is leader-authored -- the unified rows already exclude
+       Journey follow-ups -- so Delete belongs on all of them. The dialog
+       asks before anything goes. */
+    onDelete: () => onDeleteAccountabilityRecord({
+      id: row.sourceId,
+      kind: row.kind === "recurring" ? "schedule" : "commitment",
+      personId: person.id,
+      title: row.title,
+    }),
     onOpen: () => {
       const schedule = row.kind === "recurring" ? scheduleById.get(row.sourceId) ?? null : null;
       const commitment = row.kind === "recurring" ? null : commitmentById.get(row.sourceId) ?? null;
@@ -38106,7 +38263,10 @@ function PersonDetailOverlay({
                       {cappedRows("accountability", accountabilityTopics).map((topic) => (
                         <PersonRecordItem
                           key={topic.id}
-                          menuItems={[{ label: "View commitment", onSelect: topic.onOpen }]}
+                          menuItems={[
+                            { label: "View commitment", onSelect: topic.onOpen },
+                            { danger: true, label: "Delete", onSelect: topic.onDelete },
+                          ]}
                           menuLabel={`Actions for ${topic.title}`}
                         >
                           {/* USA-280 follow-up: the row is the commitment's
@@ -40170,6 +40330,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
   const [gatheringSheet, setGatheringSheet] = useState<{ gathering: GroupGatheringView; groupId: string } | null>(null);
   const [gatheringMessage, setGatheringMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [commitmentSheet, setCommitmentSheet] = useState<CommitmentSheetState>(null);
+  const [pendingAccountabilityDelete, setPendingAccountabilityDelete] = useState<PendingAccountabilityDelete | null>(null);
   const [prayerRequestPersonId, setPrayerRequestPersonId] = useState<string | null>(null);
   // "Add observed Fruit" opens the canonical fruit capture with its section
   // already expanded, rather than introducing a second manual fruit writer.
@@ -40801,7 +40962,9 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
     });
   }, [commitmentsEnabled, data.accountabilitySchedules, data.commitments, data.resourceAssignments, groups, personNamesById, reportNow, reportToday]);
   const checkInCounts = useMemo(() => accountabilityCheckInCounts(checkInRows), [checkInRows]);
-  const checkInPreviewRows = useMemo(() => accountabilityCheckInPreviewRows(checkInRows), [checkInRows]);
+  /* Home shows the rows that need attention -- overdue and due today -- and
+     the panel itself decides how many fit before the expander. */
+  const checkInAttentionRows = useMemo(() => accountabilityCheckInRowsForFilter(checkInRows, "attention"), [checkInRows]);
   const homeMinistryReport = useMemo(
     () => buildDosMinistryReport({ ...ministryReportInput, now: reportNow, range: "30d" }),
     [ministryReportInput, reportNow],
@@ -43212,6 +43375,44 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
       setCommitmentSheet(null);
       setCommitmentNotice({ personId: result.commitment.personId, text: "Accountability updated.", tone: "success" });
     }
+  }
+
+  /* Deleting is asked for once, in the app's own dialog, and then done
+     outright. It is deliberately not the lifecycle's "cancelled": that is for
+     a commitment that was real and ended, and it stays on the record as
+     history. This is for a record that should not exist at all.
+
+     What survives is stated in the question, because the two records do not
+     lose the same things: a rhythm's recorded check-ins keep their rows and
+     stay on the person's record, while a goal's own progress updates are
+     part of the goal and go with it. */
+  function requestAccountabilityDelete(target: PendingAccountabilityDelete) {
+    setErrorMessage("");
+    setPendingAccountabilityDelete(target);
+  }
+
+  async function confirmAccountabilityDelete() {
+    if (!pendingAccountabilityDelete) {
+      return;
+    }
+
+    const target = pendingAccountabilityDelete;
+    const result = await submitJson(
+      target.kind === "schedule" ? "/api/dos/app/accountability/schedules" : "/api/dos/app/commitments",
+      { id: target.id },
+      "DELETE",
+      false,
+    );
+
+    /* The dialog stays open on a failure so the reason is read where the
+       action was taken, exactly as a failed save keeps its sheet. */
+    if (!result) {
+      return;
+    }
+
+    setPendingAccountabilityDelete(null);
+    setCommitmentSheet(null);
+    announceAccountabilitySaved(target.personId, "Accountability deleted.");
   }
 
   function openPersonAccountabilityRecord(personId: string, schedule?: DosAppAccountabilitySchedule | null, commitment?: DosAppPersonCommitment | null) {
@@ -47474,7 +47675,8 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
               </div>
               <DesktopHomeDashboard
                 checkInAttentionCount={checkInCounts.attention}
-                checkInRows={checkInPreviewRows}
+                checkInRows={checkInAttentionRows}
+                checkInUpcomingCount={checkInCounts.upcoming}
                 engagementLevelsEnabled={engagementLevelsEnabled}
                 meetingActivity={homeMinistryReport.totals}
                 onAddPerson={() => openForm("person")}
@@ -47482,6 +47684,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                 onLogMeeting={() => openForm("meeting")}
                 onOpenCheckIn={openCheckInRow}
                 onOpenCheckIns={() => openCheckIns("attention")}
+                onOpenCheckInsUpcoming={() => openCheckIns("upcoming")}
                 onOpenGroupJoinRequests={openGroupJoinRequests}
                 onOpenMeeting={openMeetingDetail}
                 onOpenPerson={openPersonDetail}
@@ -47570,19 +47773,30 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                       in the control row People already has -- deliberately
                       NOT a fourth bottom-nav tab.
 
-                      It carries no number. USA-264 settled that People shows
-                      one count, the visible results, so the Household toggle
-                      has no competing number beside it; a second tally in the
-                      same row would reopen exactly that. The due count lives
-                      where it is acted on: Home's preview and notification,
-                      and this list's own filters. */}
+                      It carries the number that needs attention, at the
+                      founder's call. USA-264's one-count rule is about the
+                      people list itself -- the visible results, with nothing
+                      competing beside the Household toggle -- and this badge
+                      counts check-ins, not people, so it says what the
+                      control opens rather than restating the list. It is the
+                      same figure as Home and the notification, from the same
+                      helper, so there is still only one number for one
+                      thing. */}
                   <button
+                    aria-label={checkInCounts.attention
+                      ? `Check-ins, ${checkInCounts.attention} need attention`
+                      : "Check-ins"}
                     className="flex h-11 shrink-0 items-center gap-1.5 rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
                     onClick={() => openCheckIns()}
                     type="button"
                   >
                     <ClipboardCheck aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={1.9} />
                     <span>Check-ins</span>
+                    {checkInCounts.attention ? (
+                      <span aria-hidden="true" className="inline-flex h-5 min-w-[20px] items-center justify-center rounded-dos-3 bg-dos-blue50 px-1.5 text-dos-pill font-semibold text-dos-blueText">
+                        {checkInCounts.attention}
+                      </span>
+                    ) : null}
                   </button>
                   {secondaryFieldPeopleCount ? (
                     <button
@@ -48575,6 +48789,12 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onMarkResourceAssignmentComplete={(assignment) => void setResourceAssignmentStatus(assignment, "completed")}
             onMarkResourceAssignmentInProgress={(assignment) => void setResourceAssignmentStatus(assignment, "in_progress")}
             onOpenGuidedResource={openJourneyForPerson}
+            onDeleteCommitment={(commitment) => requestAccountabilityDelete({
+              id: commitment.id,
+              kind: "commitment",
+              personId: commitment.personId,
+              title: commitment.title,
+            })}
             onOpenPersonRecord={myRecordPerson ? openPersonDetail : null}
             onOpenScheduledMeeting={openMeetingDetail}
             onPauseResourceAssignment={(assignment) => void setResourceAssignmentStatus(assignment, assignment.status === "paused" ? "in_progress" : "paused")}
@@ -48646,6 +48866,7 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             onEditResourceAssignment={openResourceAssignmentEdit}
             onLogMeeting={() => openMeetingForPerson(selectedPerson.id)}
             onLogMeetingWithFruit={() => { setOpenMeetingFruitSection(true); openMeetingForPerson(selectedPerson.id); }}
+            onDeleteAccountabilityRecord={requestAccountabilityDelete}
             onLogAccountabilityCheckIn={(schedule) => openPersonAccountabilityCheckIn(selectedPerson.id, schedule ?? null)}
             onCheckInCommitment={(commitment) => openPersonAccountabilityCheckIn(selectedPerson.id, null, commitment)}
             onOpenAccountabilityRecord={({ commitment, schedule }) => openPersonAccountabilityRecord(selectedPerson.id, schedule, commitment)}
@@ -49062,6 +49283,31 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
             the same way, and so the question can name what is going and what
             happens to it. It portals above every sheet, which is why it sits
             here rather than inside either panel. */}
+        {/* USA-282 follow-up: deleting an accountability record asks first, in
+            the same dialog a Journey removal uses, and names what goes with
+            it. It sits here, above every sheet, because the delete can be
+            asked for from a record row or from the item sheet a check-in row
+            opens. */}
+        {pendingAccountabilityDelete ? (
+          <DosConfirmDialog
+            cancelLabel="Keep it"
+            confirmLabel="Delete"
+            description={[
+              `${pendingAccountabilityDelete.title}.`,
+              pendingAccountabilityDelete.kind === "schedule"
+                ? "The check-ins already recorded stay on their record. This rhythm stops and cannot be restored."
+                : "The progress recorded against this goal goes with it. Check-ins written beside it stay on their record.",
+              errorMessage || null,
+            ].filter(Boolean).map((line) => <span key={line as string}>{line}</span>)}
+            onCancel={() => {
+              setErrorMessage("");
+              setPendingAccountabilityDelete(null);
+            }}
+            onConfirm={() => void confirmAccountabilityDelete()}
+            title="Delete this accountability?"
+          />
+        ) : null}
+
         {pendingRemoval ? (
           <DosConfirmDialog
             cancelLabel="Cancel"
@@ -49287,6 +49533,11 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
               onAddProgress={commitment ? () => openPersonAccountabilityProgress(commitment) : undefined}
               onCheckIn={() => openPersonAccountabilityCheckIn(record.personId, schedule, commitment)}
               onClose={() => setCommitmentSheet(null)}
+              onDelete={schedule
+                ? () => requestAccountabilityDelete({ id: schedule.id, kind: "schedule", personId: record.personId, title: schedule.title })
+                : commitment
+                  ? () => requestAccountabilityDelete({ id: commitment.id, kind: "commitment", personId: record.personId, title: commitment.title })
+                  : undefined}
               onEdit={schedule
                 ? () => openAccountabilitySchedule(record.personId, schedule)
                 : commitment
