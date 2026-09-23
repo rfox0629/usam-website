@@ -145,7 +145,8 @@ check("a /join testimony is split into its questions", operations.includes("func
 check("the story empty state shows only when nothing was captured", detailPage.includes("item.storyTestimony || item.storyAnswers.length > 0") && !detailPage.includes("No structured story answers are captured yet."));
 check("Profile and DOS setup say what exists, not 'linked'", operations.includes('PROFILE_PRIVATE_DRAFT = "Private record (unpublished)"') && operations.includes('DOS_NO_LOGIN = "Application record only (no login)"') && !/"(Profile|Workspace) linked"/.test(detailPage.replace(/\/\/.*$/gm, "")));
 check("login status comes from an actual applicant user", operations.includes("if (cleanText(row.applicant_user_id)) {"));
-check("a value saved before the option change is still shown", detailPage.includes("defaultValue && !options.includes(defaultValue) ? [...options, defaultValue] : options"));
+check("a value saved before the option change is still shown", detailPage.includes("keepSavedValue && defaultValue && !options.includes(defaultValue) ? [...options, defaultValue] : options"));
+check("a display summary is never offered as a stored choice", detailPage.includes('<SelectField defaultValue={item.fundraisingLabel} label="Fundraising"') && !/fundraisingLabel\} keepSavedValue/.test(detailPage));
 check("reviewers can open both photos", operations.includes("viewHref: joinPhotoViewHref(row, photo.kind)") && detailPage.includes("src={item.viewHref}"));
 check("the photo route checks the missionaries module", photoRoute.includes('canAccessOperationsModule(authorization, "missionaries")'));
 check("the photo is streamed, never a shareable signed URL", !photoRoute.includes("createSignedUrl") && !operations.slice(operations.indexOf("export async function loadOperationsApplicationPhoto")).includes("createSignedUrl"));
