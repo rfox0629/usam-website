@@ -163,7 +163,10 @@ async function main() {
   await waitForServer();
   await mkdir(update ? baselineDir : resultsDir, { recursive: true });
 
-  const browser = await chromium.launch();
+  /* A machine whose Chromium is not where Playwright's pinned download would
+     put it (a container with a preinstalled browser, for instance) can point
+     at it rather than being unable to run this at all. */
+  const browser = await chromium.launch(process.env.DOS_VISUAL_CHROMIUM ? { executablePath: process.env.DOS_VISUAL_CHROMIUM } : {});
   const failures = [];
   let compared = 0;
 

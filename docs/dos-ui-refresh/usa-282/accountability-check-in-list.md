@@ -223,6 +223,54 @@ about the people list itself — the visible results, with nothing competing
 beside the Household toggle — and this badge counts check-ins, not people. It
 is the same figure as Home and the notification, from the same helper.
 
+## The delete, verified against a database
+
+Source assertions cannot prove a cascade. `scripts/dos-accountability-delete-e2e.mjs`
+runs the real `DELETE` handlers against a throwaway Postgres carrying this
+repository's migrations, then queries the database directly. Ten checks, all
+passing:
+
+```
+PASS  An unauthenticated caller cannot delete a schedule
+PASS  An unauthenticated caller cannot delete a goal
+PASS  A signed-in user without access to the workspace is refused
+PASS  A record in another workspace is not found from this one
+PASS  A Journey's generated follow-up refuses deletion
+PASS  A Journey's shadow commitment refuses deletion
+PASS  Deleting a rhythm removes it and keeps the check-ins recorded under it
+PASS  Deleting a goal removes it with its own progress, and leaves the check-ins beside it
+PASS  Deleting the same record twice reports not found rather than erroring
+PASS  Workspace B's rows are untouched by everything above
+```
+
+The only substitution is `getDosAuthorization()`, which reads a session cookie
+and cannot exist outside a request; the workspace-access check it feeds stays
+real and still queries the database. Every row belongs to two throwaway
+workspaces in a database created for the run. See that directory's README.
+
+## Visual baselines
+
+Three scenes change, and only three. Recorded on this platform from `main`
+and from this branch against an identical fixture, 15 of the 18 scenes are
+byte-identical; the three that differ are the ones this work is about:
+
+| Scene | What changed |
+|---|---|
+| `mobile--home` | the check-in notification appears at the top (the panel itself sits below the fold in this frame) |
+| `desktop--dashboard` | the Accountability card with its three bubbles is replaced by the Check-ins panel, moved up beside Top Time Investments |
+| `mobile--field` | People's action row gains the Check-ins control and its count |
+
+Side-by-side images are in `visual-review/`. **The committed baselines are
+`darwin-arm64` and still need re-recording on a Mac** — they are compared
+byte for byte and Chromium rasterises text differently on macOS and Linux, so
+a Linux recording cannot stand in for one. On a Mac:
+
+```sh
+npm run test:dos:visual -- --update
+```
+
+then review that only those three files changed.
+
 ## Open, for Ryan
 
 1. **Two Home rows for one person on one date read identically.** The
