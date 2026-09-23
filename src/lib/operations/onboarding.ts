@@ -98,10 +98,16 @@ export type OperationsOnboardingDocumentItem = {
   status: string;
 };
 
+export type OperationsOnboardingAnswerGroup = {
+  items: OperationsOnboardingDetailItem[];
+  title: string;
+};
+
 export type OperationsOnboardingDetail = OperationsOnboardingItem & {
   adminNotes: string | null;
   adminApprovedMonthlyGoalLabel: string | null;
   applicantPhone: string | null;
+  applicationAnswers: OperationsOnboardingAnswerGroup[];
   canManage: boolean;
   callingFocus: string | null;
   createdAt: string | null;
@@ -248,6 +254,29 @@ function fullNameFromRecord(record: Record<string, unknown>, fallback = "") {
     || fallback;
 }
 
+/**
+ * The /join application stores its repeating answers (household members,
+ * references, prayer partners) as one line per person with cells separated by
+ * a pipe; see app/join/field-list.ts. Older free-text answers have no pipes and
+ * come back as a single cell.
+ */
+function joinListRows(value: unknown, columnCount: number) {
+  return asString(value)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const cells = line.split("|").map((cell) => cell.trim());
+
+      return Array.from({ length: columnCount }, (_unused, index) => cells[index] ?? "");
+    });
+}
+
+function joinPhotos(row: UsamApplicationRow) {
+  return asArray(asRecord(row.contact_payload).photos)
+    .filter((photo) => asString(photo.path) && (photo.kind === "profile" || photo.kind === "family"));
+}
+
 function testApplication(row: UsamApplicationRow) {
   return hasOperationsTestMarker(row.applicant_email)
     || hasOperationsTestMarker(row.applicant_name)
@@ -330,7 +359,8 @@ function documentsLabel(row: UsamApplicationRow) {
   }
 
   if (
-    cleanText(row.profile_photo_url)
+    joinPhotos(row).length > 0
+    || cleanText(row.profile_photo_url)
     || cleanText(photos.profilePhotoName)
     || cleanText(photos.familyPhotoName)
     || cleanText(profileUpload.path)
@@ -393,7 +423,24 @@ function itemFromApplication(row: UsamApplicationRow): OperationsOnboardingItem 
 }
 
 function householdDetails(row: UsamApplicationRow) {
-  const household = asRecord(asRecord(row.contact_payload).household_json);
+  const contactPayload = asRecord(row.contact_payload);
+  // DOS onboarding wrote household_json; the /join application writes spouse
+  // and address as their own objects. Either shape fills the same fields.
+  const joinSpouse = asRecord(contactPayload.spouse);
+  const joinAddress = asRecord(contactPayload.address);
+  const household = {
+    addressLine1: asString(joinAddress.line1),
+    addressLine2: asString(joinAddress.line2),
+    city: asString(joinAddress.city),
+    maritalStatus: asString(contactPayload.maritalStatus),
+    spouseEmail: asString(joinSpouse.email),
+    spouseFirstName: asString(joinSpouse.firstName),
+    spouseLastName: asString(joinSpouse.lastName),
+    spousePhone: asString(joinSpouse.phone),
+    state: asString(joinAddress.state),
+    zip: asString(joinAddress.zip),
+    ...Object.fromEntries(Object.entries(asRecord(contactPayload.household_json)).filter(([, value]) => asString(value))),
+  } as Record<string, unknown>;
   const spouseName = [
     asString(household.spouseFirstName),
     asString(household.spouseLastName),
@@ -412,11 +459,23 @@ function householdDetails(row: UsamApplicationRow) {
     compactDetail("State", household.state),
     compactDetail("Zip", household.zip),
     compactDetail("Country", household.country),
+    compactDetail("Marital Status", household.maritalStatus),
   ].filter((item): item is OperationsOnboardingDetailItem => Boolean(item));
 }
 
 function householdMembers(row: UsamApplicationRow): OperationsOnboardingHouseholdMember[] {
-  const household = asRecord(asRecord(row.contact_payload).household_json);
+  const contactPayload = asRecord(row.contact_payload);
+  const household = asRecord(contactPayload.household_json);
+
+  if (asArray(household.familyMembers).length === 0 && asString(contactPayload.familyMembers)) {
+    // /join: name | age | relationship, one person per line.
+    return joinListRows(contactPayload.familyMembers, 3).map(([name, age, relationship]) => ({
+      age: age || null,
+      name: name || "Household member",
+      relationship: relationship || null,
+      status: null,
+    }));
+  }
 
   return asArray(household.familyMembers)
     .map((member) => ({
@@ -443,7 +502,19 @@ function storyAnswers(row: UsamApplicationRow) {
 }
 
 function prayerPartners(row: UsamApplicationRow): OperationsOnboardingContactItem[] {
-  const prayer = asRecord(asRecord(row.contact_payload).prayer_json);
+  const contactPayload = asRecord(row.contact_payload);
+  const prayer = asRecord(contactPayload.prayer_json);
+  const joinPartners = asRecord(contactPayload.profileDraft).prayerPartners;
+
+  if (asArray(prayer.partners).length === 0 && asString(joinPartners)) {
+    // /join: first name | last name, one person per line.
+    return joinListRows(joinPartners, 2).map(([firstName, lastName]) => ({
+      email: null,
+      name: [firstName, lastName].filter(Boolean).join(" ") || "Prayer partner",
+      phone: null,
+      relationship: null,
+    }));
+  }
 
   return asArray(prayer.partners)
     .map((partner) => ({
@@ -469,6 +540,20 @@ function prayerRequests(row: UsamApplicationRow) {
 function references(row: UsamApplicationRow): OperationsOnboardingReferenceItem[] {
   const contactPayload = asRecord(row.contact_payload);
   const structuredReferences = asArray(contactPayload.references_json);
+
+  if (structuredReferences.length === 0 && row.references_text?.includes("|")) {
+    // /join: name | relationship | how to reach them, one person per line.
+    // The contact cell is free text, so it is shown as an email when it looks
+    // like one and as a phone number otherwise.
+    return joinListRows(row.references_text, 3).map(([name, relationship, contact]) => ({
+      description: null,
+      email: contact.includes("@") ? contact : null,
+      name: name || "Reference",
+      organization: null,
+      phone: contact && !contact.includes("@") ? contact : null,
+      relationship: relationship || null,
+    }));
+  }
 
   if (structuredReferences.length === 0 && row.references_text?.trim()) {
     return row.references_text
@@ -576,8 +661,17 @@ function documentItems(row: UsamApplicationRow): OperationsOnboardingDocumentIte
     path: asString(document.path) || null,
     status: asString(document.status) || "Submitted",
   }));
+  // /join keeps both photos in contact_payload.photos. profile_photo_url
+  // repeats the profile one, so it is only listed when there is no such array.
+  const submittedPhotos = joinPhotos(row).map((photo) => ({
+    fileName: asString(photo.fileName) || (photo.kind === "family" ? "Family photo" : "Profile photo"),
+    kind: photo.kind === "family" ? "Family" : "Profile",
+    path: asString(photo.path),
+    status: "Submitted",
+  }));
   const uploads = [
-    asString(row.profile_photo_url)
+    ...submittedPhotos,
+    asString(row.profile_photo_url) && submittedPhotos.length === 0
       ? { fileName: "Profile photo", kind: "Profile", path: row.profile_photo_url as string, status: "Submitted" }
       : null,
     asString(photos.profilePhotoName) || asString(profileUpload.path)
@@ -601,6 +695,82 @@ function documentItems(row: UsamApplicationRow): OperationsOnboardingDocumentIte
   return [...uploads, ...documents];
 }
 
+/**
+ * The /join answers that have no home in the DOS onboarding panels above:
+ * church, each calling question, experience, the mission, and the draft
+ * public profile. Grouped the way the applicant was asked them. Empty groups
+ * are left out, so a DOS onboarding record shows nothing here.
+ */
+function applicationAnswers(row: UsamApplicationRow): OperationsOnboardingAnswerGroup[] {
+  const contactPayload = asRecord(row.contact_payload);
+  const church = asRecord(contactPayload.church);
+  const calling = asRecord(contactPayload.calling);
+  const experience = asRecord(contactPayload.experience);
+  const mission = asRecord(contactPayload.mission);
+  const profileDraft = asRecord(contactPayload.profileDraft);
+  const details = (items: (OperationsOnboardingDetailItem | null)[]) =>
+    items.filter((item): item is OperationsOnboardingDetailItem => Boolean(item));
+
+  return [
+    {
+      items: details([
+        compactDetail("Church", church.name),
+        compactDetail("Church City", church.city),
+        compactDetail("Church State", church.state),
+        compactDetail("Time There", church.years),
+        compactDetail("Role And Relationship", church.role),
+        compactDetail("Pastor Or Leader", church.leaderName),
+        compactDetail("Leader Email", church.leaderEmail),
+        compactDetail("Leader Phone", church.leaderPhone),
+      ]),
+      title: "Church",
+    },
+    {
+      items: details([
+        compactDetail("Why Ministry", calling.whyMinistry),
+        compactDetail("Why USA Missionaries", calling.whyUsam),
+        compactDetail("Called To Reach", calling.whoCalledTo),
+        compactDetail("Community Or Area", calling.geography),
+        compactDetail("This Season", calling.thisSeason),
+        compactDetail("Vision Or Burden", calling.burden),
+      ]),
+      title: "Calling",
+    },
+    {
+      items: details([
+        compactDetail("Church And Ministry Background", experience.background),
+        compactDetail("Ministry Or Leadership Experience", experience.leadership),
+        compactDetail("Current Ministry", experience.currentInvolvement),
+        compactDetail("Training Or Education", experience.training),
+        compactDetail("Gifts And Strengths", experience.gifts),
+      ]),
+      title: "Experience",
+    },
+    {
+      items: details([
+        compactDetail("Ministry Envisioned", mission.focus),
+        compactDetail("Who They Would Serve", mission.people),
+        compactDetail("Week To Week", mission.rhythm),
+        compactDetail("First Goals", mission.goals),
+        compactDetail("Churches Or Partners", mission.partners),
+        compactDetail("Service Area", mission.area),
+        compactDetail("Needs To Begin", mission.needs),
+      ]),
+      title: "Mission",
+    },
+    {
+      items: details([
+        compactDetail("Public Name", profileDraft.publicName),
+        compactDetail("Public Location", profileDraft.publicLocation),
+        compactDetail("Short Bio", profileDraft.shortBio),
+        compactDetail("Story For Supporters", profileDraft.longNarrative),
+        compactDetail("Ministry Description", profileDraft.ministryDescription),
+      ]),
+      title: "Profile Draft (Unpublished)",
+    },
+  ].filter((group) => group.items.length > 0);
+}
+
 function detailFromApplication(
   row: UsamApplicationRow,
   authorization: OperationsAuthorization,
@@ -612,6 +782,7 @@ function detailFromApplication(
     adminNotes: cleanText(row.admin_notes),
     adminApprovedMonthlyGoalLabel: moneyLabel(row.admin_approved_monthly_goal),
     applicantPhone: cleanText(row.applicant_phone),
+    applicationAnswers: applicationAnswers(row),
     canManage: canManageOperationsModule(authorization, "missionaries"),
     callingFocus: cleanText(row.calling_focus),
     createdAt: row.created_at ?? null,
