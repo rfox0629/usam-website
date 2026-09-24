@@ -310,6 +310,67 @@ function sectionTitle(page: Page) {
   return { intro: section?.intro ?? "", title: section?.title ?? "" };
 }
 
+/**
+ * What a resume link that cannot reopen a draft says, on a screen of its own.
+ *
+ * These used to fall through to the new-application welcome page with the dead
+ * ?resume= still in the address bar. The notice explaining why only appeared
+ * after "Begin application", so a submitted applicant clicking their saved-
+ * application email looked as if they were being asked to start again. Nothing
+ * here reads the draft: the server resolves the token to a state and returns
+ * no answers for any of these.
+ */
+const linkStatusCopy: Record<Exclude<ResumeState, "none" | "restored">, { body: string; restart: string; title: string }> = {
+  expired: {
+    body: "Resume links stop working after a while. Your answers are still saved, so contact USA Missionaries and we will send you a fresh link.",
+    restart: "Start a new application instead",
+    title: "This link has expired",
+  },
+  revoked: {
+    body: "This saved application was closed, so the link no longer opens it. Contact USA Missionaries if you need a new one.",
+    restart: "Start a new application",
+    title: "This link is no longer active",
+  },
+  submitted: {
+    body: "This application has already been submitted, so its resume link no longer opens it. There is nothing else you need to do here. A real person on the USA Missionaries team will read it and follow up with you.",
+    restart: "Start a different application",
+    title: "Your application was submitted",
+  },
+  unavailable: {
+    body: "We could not find a saved application for this link. It may have been copied incompletely. Try the button in your email again, or start a new application.",
+    restart: "Start a new application",
+    title: "We could not open that application",
+  },
+};
+
+function ResumeLinkStatus({
+  onRestart,
+  state,
+}: {
+  onRestart: () => void;
+  state: Exclude<ResumeState, "none" | "restored">;
+}) {
+  const copy = linkStatusCopy[state];
+
+  return (
+    <div className="join-screen">
+      <div aria-hidden="true" className="join-landscape" />
+      <section aria-live="polite" className="join-done join-link-status" role="status">
+        <p className="join-eyebrow">USA Missionaries application</p>
+        <h1>{copy.title}</h1>
+        <div className="join-done-body">
+          <p>{copy.body}</p>
+        </div>
+        <p style={{ marginTop: 24 }}>
+          <button className="join-button join-button-secondary" onClick={onRestart} type="button">
+            {copy.restart}
+          </button>
+        </p>
+      </section>
+    </div>
+  );
+}
+
 function resumeNotice(state: ResumeState, exact: boolean) {
   switch (state) {
     case "expired":
@@ -402,6 +463,10 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
    * on the page. Cleared when they return.
    */
   const [fromReview, setFromReview] = useState(false);
+
+  // A resume link that could not reopen a draft gets its own screen until the
+  // applicant chooses to start over.
+  const [linkStatusOpen, setLinkStatusOpen] = useState(resumeState !== "none" && resumeState !== "restored");
   const [focusTarget, setFocusTarget] = useState<string | null>(null);
 
   // One intentional click owns one stable request ID. It survives an
@@ -507,6 +572,23 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     },
     [currentPageKey, draft, stepId, token],
   );
+
+  /*
+   * A resume link that did not reopen a draft leaves a dead ?resume= behind.
+   * It is removed so a refresh or a new application cannot carry it along.
+   */
+  useEffect(() => {
+    if (resumeState === "none" || resumeState === "restored") {
+      return;
+    }
+
+    const url = new URL(window.location.href);
+
+    if (url.searchParams.has("resume")) {
+      url.searchParams.delete("resume");
+      window.history.replaceState(window.history.state, "", url.toString());
+    }
+  }, [resumeState]);
 
   /*
    * Keep the resume token in the address bar once the first save mints it.
@@ -887,6 +969,21 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
           <div aria-hidden="true" className="join-landscape" />
           <SubmittedScreen applicationId={applicationId} name={applicantDisplayName(draft)} />
         </div>
+      </main>
+    );
+  }
+
+  if (!started && linkStatusOpen && resumeState !== "none" && resumeState !== "restored") {
+    return (
+      <main aria-label="Apply to become a USA Missionary" className="join">
+        <ResumeLinkStatus
+          onRestart={() => {
+            setLinkStatusOpen(false);
+            setNoticeVisible(false);
+            window.scrollTo({ top: 0 });
+          }}
+          state={resumeState}
+        />
       </main>
     );
   }

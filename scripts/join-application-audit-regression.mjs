@@ -102,6 +102,12 @@ check("an older draft without a position opens at its step", client.includes("co
 check("the notice only claims the exact question when it is", client.includes("this is the question you stopped on") && client.includes("We have opened the part of the application you were working on"));
 check("the old 'exactly where you left it' promise is gone", !client.includes("exactly where you left it"));
 
+// ---- USA-285: a resume link that cannot reopen a draft says so on its own screen
+check("a dead resume link gets its own screen, not the new-application welcome", client.includes("<ResumeLinkStatus") && client.includes("linkStatusOpen && resumeState !== \"none\" && resumeState !== \"restored\""));
+check("every unopenable state has its own message", ["expired: {", "revoked: {", "submitted: {", "unavailable: {"].every((key) => client.includes(key)) && client.includes("Your application was submitted"));
+check("the dead ?resume= is dropped from the address bar", client.includes('url.searchParams.delete("resume")'));
+check("the status screen reads nothing from the draft", !client.slice(client.indexOf("function ResumeLinkStatus("), client.indexOf("function resumeNotice(")).includes("draft"));
+
 // ---- USA-285: the welcome-back notice is dismissible and does not follow the applicant
 check("the notice can be dismissed", client.includes('aria-label="Dismiss this message"') && client.includes("setNoticeVisible(false)"));
 check("the notice goes once the applicant moves on", client.includes("if (clamped !== safeIndex) {\n      setNoticeVisible(false);"));
