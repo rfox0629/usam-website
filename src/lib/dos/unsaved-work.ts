@@ -164,3 +164,35 @@ export function formIsDirty(
 
   return false;
 }
+
+/* USA-283 follow-up: who currently holds unsaved work?
+ *
+ * The app reloads itself when a new build is deployed (see
+ * src/components/dos/DosBuildRefresh.tsx). Deciding that from the DOM --
+ * "is a dialog open?" -- misses the full-screen workflow pages, which hold
+ * the longest-running work in DOS (Log Meeting, Manage circles) and are not
+ * dialogs at all. So every surface that guards unsaved work registers its own
+ * dirtiness here while it is mounted, and the refresher asks this instead of
+ * guessing from markup. A surface is protected by using the guard, which it
+ * already had to do; nothing new has to be remembered per screen. */
+const dosUnsavedWorkSources = new Set<() => boolean>();
+
+export function registerDosUnsavedWorkSource(getIsDirty: () => boolean) {
+  dosUnsavedWorkSources.add(getIsDirty);
+
+  return () => {
+    dosUnsavedWorkSources.delete(getIsDirty);
+  };
+}
+
+export function dosHasUnsavedWork() {
+  return Array.from(dosUnsavedWorkSources).some((getIsDirty) => {
+    try {
+      return getIsDirty();
+    } catch {
+      /* A surface mid-unmount cannot report; treat it as holding work so the
+         answer errs towards keeping what the leader typed. */
+      return true;
+    }
+  });
+}

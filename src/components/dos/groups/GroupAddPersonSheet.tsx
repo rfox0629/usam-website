@@ -720,7 +720,7 @@ export function GroupAddPersonSheet({
             ) : null}
             <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-2 border-t border-dos-line pt-4 min-[420px]:grid-cols-2">
               <Button fullWidth icon="add" onClick={() => startNewPerson(queryLooksLikeName ? "" : trimmedQuery)} variant="secondary">Add a new person</Button>
-              <Button fullWidth icon="upload" onClick={() => { resetMessages(); setMode("contacts"); }} variant="secondary">Import from contacts</Button>
+              <Button fullWidth icon="upload" onClick={() => { resetMessages(); setMode("contacts"); }} variant="secondary">Import a contact file</Button>
             </div>
           </section>
         ) : null}
@@ -762,7 +762,13 @@ export function GroupAddPersonSheet({
 
         {mode === "contacts" ? (
           <section className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-4">
-            <SectionTitle hint="Choose the people to add. You check each one before anything is saved.">Import from contacts</SectionTitle>
+            {/* USA-283: this is a contact FILE import, not Apple Contacts
+                integration. Picking straight from the phone's address book
+                needs the browser Contact Picker, which iOS keeps behind an
+                experimental flag, so the button below appears only where the
+                browser really has it. The copy says which one you are using
+                rather than implying the other. */}
+            <SectionTitle hint="Choose the people to add. You check each one before anything is saved.">{pickerAvailable ? "Import from contacts" : "Import a contact file"}</SectionTitle>
             {!reviewed ? (
               <>
                 {pickerAvailable ? (
@@ -770,7 +776,7 @@ export function GroupAddPersonSheet({
                 ) : null}
                 <label className="grid cursor-pointer gap-1 rounded-dos-1 border border-dashed border-dos-blue100 bg-dos-blue50 px-4 py-3.5 focus-within:ring-2 focus-within:ring-dos-blue">
                   <span className="text-dos-body font-semibold text-dos-blueText">Choose a contact file (.vcf)</span>
-                  <span className="text-dos-meta text-dos-secondary">{contactsFileName ? `Loaded ${contactsFileName}` : "From Files, iCloud Drive or a download"}</span>
+                  <span className="text-dos-meta text-dos-secondary">{contactsFileName ? `Loaded ${contactsFileName}` : "Export contacts from the Contacts app first, then choose that file"}</span>
                   <input accept=".vcf,.vcard,text/vcard,text/x-vcard" className="sr-only" data-unsaved="ignore" onChange={(event) => void handleContactFile(event)} type="file" />
                 </label>
                 <details className="rounded-dos-1 border border-dos-line px-4 py-3 text-dos-meta text-dos-body">
@@ -780,7 +786,7 @@ export function GroupAddPersonSheet({
                     <li>Several people: in Contacts, tap <strong>Lists</strong>, touch and hold a list, tap <strong>Export</strong>, then <strong>Save to Files</strong>.</li>
                     <li>Come back here and choose that file. Only the people you tick are added.</li>
                   </ol>
-                  {!pickerAvailable ? <p className="mt-2 text-dos-secondary">Safari does not let websites open your contacts directly, so a contact file is the way in.</p> : null}
+                  {!pickerAvailable ? <p className="mt-2 text-dos-secondary">On iPhone, Safari does not let a website open your address book, so this route goes through an exported file. Picking people straight from Contacts needs a separate piece of work.</p> : null}
                 </details>
                 {contactsError ? <p className="text-dos-label text-dos-red" role="alert">{contactsError}</p> : null}
                 {contacts.length > 1 ? (

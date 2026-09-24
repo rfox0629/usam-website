@@ -7,6 +7,7 @@ import { loadDosAppData, type DosAppData, type DosAppPerson, type DosAppPrayerRe
 import { relationshipModelCounts } from "@/src/lib/dos/relationship-model";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { DosMobileMessageScreen } from "../app/DosMobileMessageScreen";
+import { dosAppBuildId } from "@/src/lib/dos/app-build";
 import { DosMvpAppClient } from "../app/DosMvpAppClient";
 import { emptyDosAppDiscipleship } from "@/src/lib/dos/discipleship-graph";
 
@@ -392,6 +393,7 @@ export default async function DosWorkspaceAppPage({
             userEmail: authorization.email,
           },
         }}
+        buildId={dosAppBuildId()}
         renderedAt={new Date().toISOString()}
       />
     </DosAppRouteFrame>

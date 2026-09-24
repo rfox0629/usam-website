@@ -163,7 +163,11 @@ assert.ok(route.includes("workspace_id.eq.${workspaceId},household_id.eq.${works
 const sheet = read("src/components/dos/groups/GroupAddPersonSheet.tsx");
 const client = read("app/dos/app/DosMvpAppClient.tsx");
 
-assert.ok(sheet.includes("Find an existing person") && sheet.includes("Add a new person") && sheet.includes("Import from contacts"), "the three ways in are named plainly");
+assert.ok(sheet.includes("Find an existing person") && sheet.includes("Add a new person") && sheet.includes("Import a contact file"), "the three ways in are named plainly");
+/* USA-283 (Ryan, 2026-09-24): the file route must not be labelled as if it
+   were Apple Contacts integration. It says "contact file" unless the browser
+   really exposes a contact picker. */
+assert.ok(sheet.includes('{pickerAvailable ? "Import from contacts" : "Import a contact file"}'), "the panel names the route the leader is actually on");
 assert.ok(!sheet.includes("New Guest") && !sheet.includes("Search Field") && !client.includes("New Guest</p>") && !client.includes("<FieldLabel>Search Field</FieldLabel>"), "the old labels are gone");
 assert.ok(sheet.includes("First name<RequiredMark />") && sheet.includes('label="Last name"'), "a new person has First name (required) and Last name, like the People form");
 assert.ok(sheet.includes("name: draftName,") && sheet.includes("const draftName = joinNameParts(draft.firstName, draft.lastName);"), "the stored name is composed exactly as the People form composes it");

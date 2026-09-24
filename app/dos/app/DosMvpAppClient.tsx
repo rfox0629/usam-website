@@ -24,6 +24,8 @@ import {
 import { formatDosMeetingSecondary, formatDosParticipantList, formatDosParticipantTitle, resolveDosMeetingParticipantNames } from "@/src/lib/dos/meeting-display";
 import { dosAdvancedFeatures, type DosAdvancedFeatureKey } from "@/src/lib/dos/advanced-features";
 import { DosCircleTarget } from "@/components/dos/DosCircleTarget";
+import { DosBuildRefresh } from "@/src/components/dos/DosBuildRefresh";
+import { dosAppBuildLabel } from "@/src/lib/dos/app-build";
 import { Icon, type IconName } from "@/src/components/dos/Icon";
 import { CompactOptionSelect, FormOptionSelect } from "@/src/components/dos/forms/OptionSelect";
 import { accountabilityDraftFrequency, accountabilityDraftSummary, accountabilityTrackingModeFor, type AccountabilityDraft, type AccountabilityTrackingMode } from "@/src/lib/dos/accountability-presentation";
@@ -39912,7 +39914,7 @@ function MeetingDetailOverlay({
   );
 }
 
-export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; renderedAt: string }) {
+export function DosMvpAppClient({ buildId = "development", data, renderedAt }: { buildId?: string; data: DosAppData; renderedAt: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const appShellRef = useRef<HTMLDivElement | null>(null);
@@ -47667,6 +47669,10 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
 
   return (
     <div className={dosRootShellClassName}>
+      {/* USA-283 follow-up: the installed Home Screen app does not reload
+          itself, so it keeps running the build it was opened with. This
+          notices a newer deployment and refreshes when nothing is open. */}
+      <DosBuildRefresh buildId={buildId} />
       <div ref={appShellRef} className={`${dosPhoneShellClassName} ${dosAppBackgroundClassName}`}>
         <DesktopNavigation
           activeTab={activeTab}
@@ -48133,6 +48139,13 @@ export function DosMvpAppClient({ data, renderedAt }: { data: DosAppData; render
                       {visibleMobileAppCatalogItems.length ? null : (
                         <EmptyState text="Try a different name." title="No items found." />
                       )}
+                      {/* USA-283 follow-up: which build this device is running.
+                          An installed Home Screen app can sit on an old one for
+                          days, and without this there is no way to tell from the
+                          screen. */}
+                      <p className="pb-2 pt-1 text-center text-dos-meta text-dos-secondary">
+                        DOS · build {dosAppBuildLabel(buildId)}
+                      </p>
                     </div>
                   </>
                 ) : null}

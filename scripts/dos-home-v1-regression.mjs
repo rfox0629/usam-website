@@ -140,7 +140,9 @@ for (const [label, region] of [["Home", dashboard], ["Accountability", accountab
    render is computed twice, at two different instants, and React discards the
    tree when the two disagree (hydration error #418). The instant comes from
    the server render instead, as a prop. */
-assert(client.includes("renderedAt }: { data: DosAppData; renderedAt: string }"), "The app takes the server render's instant as a prop.");
+/* USA-283 follow-up added the build stamp beside it; the render instant is
+   still a server-supplied prop, which is what this protects. */
+assert(client.includes("renderedAt }: { buildId?: string; data: DosAppData; renderedAt: string }"), "The app takes the server render's instant as a prop.");
 assert(!client.includes("const reportNow = useMemo(() => new Date(), []);"), "The report window must not read the wall clock during render.");
 assert(client.includes("const rendered = new Date(renderedAt);"), "reportNow is derived from the server render's instant.");
 assert(client.includes("const reportToday = useMemo(() => displayDateKey(reportNow) || reportNow.toISOString().slice(0, 10), [reportNow]);"), "The accountability day key comes from the same instant, read in the workspace's display timezone.");
