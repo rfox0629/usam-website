@@ -20,6 +20,7 @@ import { resourceAssignmentFollowUpScheduleTitle } from "@/src/lib/dos/resource-
 import type { DosTableInvitationBooking } from "@/src/lib/dos/table-invitation-data";
 import { createDefaultDosTableInvitation, type DosTableInvitation } from "@/src/lib/dos/table-invitations";
 import { DosMobileMessageScreen } from "../DosMobileMessageScreen";
+import { dosAppBuildId } from "@/src/lib/dos/app-build";
 import { DosMvpAppClient } from "../DosMvpAppClient";
 import { PrimitivesGallery } from "./PrimitivesGallery";
 import { RecipientFormsGallery, type RecipientFormPreviewKey } from "./RecipientFormsGallery";
@@ -3506,5 +3507,5 @@ export default async function DosAppPreviewPage({
       ? buildBrookePerspectiveData(demoData)
       : demoData;
 
-  return <DosMvpAppClient data={perspectiveData} renderedAt={demoNow().toISOString()} />;
+  return <DosMvpAppClient buildId={dosAppBuildId()} data={perspectiveData} renderedAt={demoNow().toISOString()} />;
 }
