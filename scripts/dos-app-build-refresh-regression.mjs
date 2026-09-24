@@ -15,6 +15,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dosAppBuildId, dosAppBuildLabel } from "../src/lib/dos/app-build.ts";
+import { dosHasUnsavedWork, registerDosUnsavedWorkSource } from "../src/lib/dos/unsaved-work.ts";
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 
@@ -47,6 +48,32 @@ assert.ok(refresh.includes('document.querySelector(\'[role="dialog"], [aria-moda
 assert.ok(refresh.indexOf("rememberReloadedFor(serverBuildId);") < refresh.indexOf("window.location.reload();"), "the build is remembered before reloading, so one build can only ever trigger one reload");
 assert.ok(refresh.includes('buildId === "development"') && refresh.includes('serverBuildId === "development"'), "local development never reloads itself");
 assert.ok(/catch \{\n      \/\* Offline/.test(refresh), "a failed check is silent: being offline is not an update");
+
+/* 3b. Unsaved work anywhere in DOS, not just what looks like a dialog.
+ *
+ * The full-screen workflow pages (Log Meeting, Add Person, Manage circles)
+ * hold the longest work in the app and carry no dialog role, so a DOM check
+ * would reload straight over them -- verified in a browser: that page is not
+ * a dialog, and with the registry the typed value survives a new deployment.
+ */
+assert.equal(dosHasUnsavedWork(), false, "a quiet app holds nothing");
+
+const releaseDirty = registerDosUnsavedWorkSource(() => true);
+
+assert.equal(dosHasUnsavedWork(), true, "a registered dirty surface is reported");
+releaseDirty();
+assert.equal(dosHasUnsavedWork(), false, "unmounting a surface stops it reporting");
+
+const releaseBroken = registerDosUnsavedWorkSource(() => { throw new Error("mid-unmount"); });
+
+assert.equal(dosHasUnsavedWork(), true, "a surface that cannot answer is treated as holding work, never as safe to discard");
+releaseBroken();
+
+const surfaces = read("src/components/dos/overlays/DosSurfaces.tsx");
+
+assert.ok(surfaces.includes("useEffect(() => registerDosUnsavedWorkSource(() => isDirtyRef.current()), []);"), "every surface using the unsaved-work guard registers itself, so new screens are covered without remembering anything");
+assert.ok(refresh.includes("dosHasUnsavedWork() || document.querySelector("), "the refresher asks the guard first, then the DOM");
+assert.ok(refresh.includes('active.tagName === "INPUT"'), "a field being typed into counts as busy even before it is dirty");
 
 /* 4. Wiring: every surface that renders the app stamps its build. */
 const client = read("app/dos/app/DosMvpAppClient.tsx");

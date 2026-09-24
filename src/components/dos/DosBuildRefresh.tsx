@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { dosHasUnsavedWork } from "@/src/lib/dos/unsaved-work";
 
 /* USA-283 follow-up: an installed Home Screen app never reloads itself.
  *
@@ -41,9 +42,23 @@ function rememberReloadedFor(buildId: string) {
   }
 }
 
-/* Anything modal on screen means the leader is mid-task. */
+/* Is anything on screen worth protecting?
+ *
+ *   - Unsaved work anywhere in DOS. Every surface that guards work registers
+ *     its dirtiness (useUnsavedWorkGuard), which covers the full-screen
+ *     workflow pages -- Log Meeting, Manage circles -- that hold the longest
+ *     work in the app and are not dialogs, so no DOM sniffing would find them.
+ *   - Any open dialog or sheet, dirty or not: reloading the screen out from
+ *     under someone who is reading a record is its own kind of rude.
+ *   - A field being typed into, even before it is dirty by comparison. */
 function appIsBusy() {
-  return Boolean(document.querySelector('[role="dialog"], [aria-modal="true"]'));
+  if (dosHasUnsavedWork() || document.querySelector('[role="dialog"], [aria-modal="true"]')) {
+    return true;
+  }
+
+  const active = document.activeElement;
+
+  return Boolean(active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT" || (active as HTMLElement).isContentEditable));
 }
 
 export function DosBuildRefresh({ buildId }: { buildId: string }) {

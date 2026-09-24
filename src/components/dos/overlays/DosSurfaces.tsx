@@ -4,7 +4,7 @@ import { ArrowLeft, X } from "lucide-react";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode, RefObject } from "react";
-import { backdropMayDismiss, discardConfirmationCopy, exitNeedsConfirmation, formIsDirty, isViewingControl, type DiscardConfirmationCopy, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
+import { backdropMayDismiss, discardConfirmationCopy, exitNeedsConfirmation, formIsDirty, isViewingControl, registerDosUnsavedWorkSource, type DiscardConfirmationCopy, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
 
 /* The DOS overlay primitives and the single unsaved-work guard. Moved verbatim
  * from app/dos/app/DosMvpAppClient.tsx in USA-211 (spec §3, B7). The order of
@@ -301,6 +301,15 @@ export function useUnsavedWorkGuard({
   onExit: () => void;
 }) {
   const [isConfirming, setIsConfirming] = useState(false);
+
+  /* While this surface is mounted, the app-wide checks (today: the new-build
+     refresher) can ask whether it is holding work. Registering the getter
+     rather than a value keeps it live without re-rendering on every key. */
+  const isDirtyRef = useRef(getIsDirty);
+
+  isDirtyRef.current = getIsDirty;
+
+  useEffect(() => registerDosUnsavedWorkSource(() => isDirtyRef.current()), []);
 
   const requestExit = () => {
     if (exitNeedsConfirmation({ isDirty: getIsDirty(), kind: "editable" })) {
