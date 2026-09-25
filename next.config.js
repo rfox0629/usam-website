@@ -11,6 +11,16 @@ const hostRedirects = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  async headers() {
+    return [
+      {
+        // Videos are versioned in the filename (dos-bumper-v1-*), so a new
+        // cut gets a new name and these can be cached for good.
+        source: "/videos/:path*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+    ];
+  },
   async redirects() {
     const redirects = hostRedirects.map(([sourceHost, destinationHost]) => ({
       source: "/:path*",
