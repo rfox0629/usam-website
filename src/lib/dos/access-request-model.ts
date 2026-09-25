@@ -182,6 +182,37 @@ export function normalizeDosAccessRequestAnswers(input: unknown): DosAccessReque
   };
 }
 
+const pathOnlyFields = {
+  individual: ["individualRole", "churchOrCommunity"],
+  organization: ["organizationName", "organizationType", "organizationRole", "expectedUsers", "organizationWebsite"],
+} as const satisfies Record<DosAccessRequestType, readonly (keyof DosAccessRequestAnswers)[]>;
+
+/** Whether an answer applies to a request type. Answers from the other path do not. */
+export function isAnswerForRequestType(key: string, requestType: DosAccessRequestType | "" | null | undefined) {
+  return !dosAccessRequestTypes.some((type) => (
+    type !== requestType && (pathOnlyFields[type] as readonly string[]).includes(key)
+  ));
+}
+
+/**
+ * Clears answers that belong to the path the person did not choose. The form
+ * keeps them on the device in case they switch back, but only the chosen
+ * path's answers are stored.
+ */
+export function answersForRequestType(answers: DosAccessRequestAnswers): DosAccessRequestAnswers {
+  const cleared = { ...answers };
+
+  for (const type of dosAccessRequestTypes) {
+    if (type !== answers.requestType) {
+      for (const key of pathOnlyFields[type]) {
+        cleared[key] = "";
+      }
+    }
+  }
+
+  return cleared;
+}
+
 /** Field errors for one step. An empty object means the step is complete. */
 export function validateDosAccessRequestStep(
   stepId: DosAccessRequestStepId,

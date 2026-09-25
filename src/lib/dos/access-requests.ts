@@ -10,6 +10,7 @@ import {
   dosSupportEmail,
 } from "@/src/lib/dos/access-request-email";
 import {
+  answersForRequestType,
   dosAccessRequestSchemaVersion,
   normalizeDosAccessRequestAnswers,
   validateDosAccessRequest,
@@ -181,7 +182,7 @@ export async function createDosAccessRequest({
   submissionKey: string;
   userAgent: string | null;
 }): Promise<CreateDosAccessRequestResult> {
-  const answers = normalizeDosAccessRequestAnswers(input);
+  const answers = answersForRequestType(normalizeDosAccessRequestAnswers(input));
   const fieldErrors = validateDosAccessRequest(answers);
 
   if (Object.keys(fieldErrors).length > 0 || !answers.requestType) {

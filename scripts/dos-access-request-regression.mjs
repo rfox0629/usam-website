@@ -14,8 +14,10 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import {
+  answersForRequestType,
   emptyDosAccessRequestAnswers,
   firstInvalidStep,
+  isAnswerForRequestType,
   isValidSubmissionKey,
   normalizeDosAccessRequestAnswers,
   validateDosAccessRequest,
@@ -56,6 +58,11 @@ const organization = normalizeDosAccessRequestAnswers({ ...complete, requestType
 const orgErrors = validateDosAccessRequestStep("details", organization);
 check(Boolean(orgErrors.organizationName && orgErrors.organizationType && orgErrors.organizationRole && orgErrors.expectedUsers), "an organization request needs name, type, role, and size");
 check(normalizeDosAccessRequestAnswers({ requestType: "usam" }).requestType === "", "the missionary path is not a DOS access request type");
+const switched = answersForRequestType(normalizeDosAccessRequestAnswers({ ...complete, churchOrCommunity: "Left behind", organizationName: "Synthetic Fellowship", organizationType: "Church", requestType: "organization" }));
+check(switched.individualRole === "" && switched.churchOrCommunity === "" && switched.organizationName === "Synthetic Fellowship", "a request stores only the chosen path's answers (switching path drops the other path's)");
+const backToMe = answersForRequestType({ ...switched, individualRole: "Missionary", requestType: "individual" });
+check(backToMe.organizationName === "" && backToMe.organizationType === "" && backToMe.individualRole === "Missionary", "an individual request stores no organization answers");
+check(!isAnswerForRequestType("organizationName", "individual") && !isAnswerForRequestType("individualRole", "organization") && isAnswerForRequestType("goals", "individual"), "path-only answers are recognized for each request type");
 check(isValidSubmissionKey("3f2b8c1e-8c6f-4a36-9d2e-4a1b2c3d4e5f") && !isValidSubmissionKey("x") && !isValidSubmissionKey("a b c d e f g h i j k l"), "submission keys are validated");
 
 console.log("\nForm (/dos/setup)");
@@ -84,6 +91,8 @@ const migration = read("supabase/migrations/20260925174009_usa_289_dos_access_re
 const createBody = store.slice(store.indexOf("export async function createDosAccessRequest"), store.indexOf("async function createFallbackFormSubmission"));
 
 check(route.includes("isValidSubmissionKey") && route.includes("website"), "the endpoint validates the submission key and has a honeypot");
+check(createBody.includes("answersForRequestType(normalizeDosAccessRequestAnswers(input))"), "submission clears the other path's answers before validating and storing");
+check(read("app/operations/submissions/dos-access/[id]/page.tsx").includes("isAnswerForRequestType(key, requestType)"), "Operations detail hides answers from the path the person did not choose, including on older rows");
 check(!/auth\.admin|missionary_households|collective_memberships|profiles/.test(createBody), "submission creates no account, workspace, or membership");
 check(createBody.includes('status: "submitted"'), "submissions are stored with status submitted");
 check(/submission_key text not null unique/.test(migration), "the submission key is unique in the database");
