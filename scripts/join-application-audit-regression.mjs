@@ -102,6 +102,19 @@ check("an older draft without a position opens at its step", client.includes("co
 check("the notice only claims the exact question when it is", client.includes("this is the question you stopped on") && client.includes("We have opened the part of the application you were working on"));
 check("the old 'exactly where you left it' promise is gone", !client.includes("exactly where you left it"));
 
+// ---- USA-285: photo previews, and the way back to Review
+const previewRoute = read("app/api/join/photos/preview/route.ts");
+const draftsLib = read("src/lib/join/drafts.ts");
+
+check("a photo chosen in this visit previews from the file on the device", client.includes("URL.createObjectURL(file)"));
+check("a restored photo previews through the private route", client.includes('fetch("/api/join/photos/preview"') && client.includes('className="join-photo-preview"'));
+check("the preview route keeps the resume token out of the URL", previewRoute.includes("export async function POST(") && !previewRoute.includes("export async function GET("));
+check("the preview route answers only for a draft still in progress", draftsLib.includes('.eq("status", "draft")') && previewRoute.includes("findLiveJoinDraft(resumeToken)"));
+check("the preview route reads only paths /join wrote", previewRoute.includes('!photo.path.startsWith("pending/")') && previewRoute.includes('photo.path.includes("..")'));
+check("the preview is private and uncacheable", previewRoute.includes('"Cache-Control": "private, no-store, max-age=0"'));
+check("a step-rail jump no longer closes the way back to Review", client.includes("if (options.fromReview === true) {\n      setFromReview(true);\n    }") && !client.includes("setFromReview(options.fromReview === true)"));
+check("the rail offers Review once it has been reached", client.includes("reviewReached && reviewIndex >= 0") && client.includes('aria-label="Review and submit"'));
+
 // ---- USA-285: a resume link that cannot reopen a draft says so on its own screen
 check("a dead resume link gets its own screen, not the new-application welcome", client.includes("<ResumeLinkStatus") && client.includes("linkStatusOpen && resumeState !== \"none\" && resumeState !== \"restored\""));
 check("every unopenable state has its own message", ["expired: {", "revoked: {", "submitted: {", "unavailable: {"].every((key) => client.includes(key)) && client.includes("Your application was submitted"));
@@ -226,7 +239,17 @@ if (base) {
       check(`${width}px: the empty cell is marked`, (await page.locator("#references-row2-cell3").getAttribute("aria-invalid")) === "true");
 
       await page.locator("#references-row2-cell3").fill("taylor@example.test");
-      await page.getByRole("button", { name: /Back to review|^Review$/ }).click();
+
+      // USA-285: the rail keeps the way back open and offers Review directly.
+      if (width >= 1024) {
+        await page.locator(".join-rail").getByRole("button", { exact: true, name: "Your Mission" }).first().click();
+        check(`${width}px: after a rail jump, Back to review is still offered`, (await page.locator(".join-footer").getByRole("button", { name: /Back to review/ }).count()) === 1);
+        await page.locator(".join-rail").getByRole("button", { name: "Review and submit" }).click();
+        check(`${width}px: the rail's Review stop opens Review`, (await page.getByRole("heading", { name: "Review and submit" }).count()) === 1);
+      } else {
+        await page.getByRole("button", { name: /Back to review|^Review$/ }).first().click();
+      }
+
       check(`${width}px: the way back returns to Review`, (await page.getByRole("heading", { name: "Review and submit" }).count()) === 1);
       check(`${width}px: the fixed reference is no longer flagged`, (await page.getByText(/Taylor Placeholder\): add/).count()) === 0);
       await page.close();

@@ -464,6 +464,14 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
    */
   const [fromReview, setFromReview] = useState(false);
 
+  /*
+   * Once the applicant has seen Review, the rail offers it directly. Before
+   * that it stays out of the rail, so nobody is invited to skip the questions.
+   */
+  const [reviewReached, setReviewReached] = useState(
+    () => initialStep === "review" || Boolean(initialDraft.position?.startsWith("review/")),
+  );
+
   // A resume link that could not reopen a draft gets its own screen until the
   // applicant chooses to start over.
   const [linkStatusOpen, setLinkStatusOpen] = useState(resumeState !== "none" && resumeState !== "restored");
@@ -872,11 +880,24 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
     }
 
     moveTo(index, index < safeIndex ? "back" : "forward");
-    setFromReview(options.fromReview === true);
+    // A jump from Review opens the way back. Any other jump (the step rail)
+    // keeps it open rather than closing it: the rail has no Review stop of its
+    // own until Review has been reached, so closing it here left an applicant
+    // who edited one answer and then used the rail with nothing but Continue
+    // through every page to get back.
+    if (options.fromReview === true) {
+      setFromReview(true);
+    }
     setFocusTarget(options.focusId ?? null);
   };
 
   const reviewIndex = pages.findIndex((candidate) => candidate.kind === "review");
+
+  useEffect(() => {
+    if (page.kind === "review") {
+      setReviewReached(true);
+    }
+  }, [page.kind]);
 
   // Puts the cursor in the control a Review jump was about, once its page has
   // rendered. preventScroll, then a scroll that leaves it clear of the footer.
@@ -1044,6 +1065,22 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
                 </li>
               );
             })}
+            {reviewReached && reviewIndex >= 0 ? (
+              <li>
+                <button
+                  aria-current={page.kind === "review" ? "step" : undefined}
+                  aria-label="Review and submit"
+                  data-state={page.kind === "review" ? "current" : "done"}
+                  onClick={() => moveTo(reviewIndex, "forward")}
+                  type="button"
+                >
+                  <span className="join-rail-label">Review</span>
+                  <span className="join-rail-index">
+                    <span aria-hidden="true">✓</span>
+                  </span>
+                </button>
+              </li>
+            ) : null}
           </ol>
 
           <p aria-live="polite" className="join-chrome-save" data-state={saveState}>
@@ -1127,6 +1164,7 @@ export function UsamApplicationClient({ initialDraft, initialStep, resumeState, 
             pageTotal={pages.length}
             questionSteps={questionSteps}
             removePhoto={removePhoto}
+            resumeToken={token}
             revealIssues={fromReview}
             step={step}
             stepIndex={stepIndex}
@@ -1244,6 +1282,7 @@ function PageView({
   pageTotal,
   questionSteps,
   removePhoto,
+  resumeToken,
   revealIssues,
   step,
   stepIndex,
@@ -1265,6 +1304,7 @@ function PageView({
   pageTotal: number;
   questionSteps: number;
   removePhoto: (path: string) => void;
+  resumeToken: string | null;
   revealIssues: boolean;
   step: { title: string };
   stepIndex: number;
@@ -1359,7 +1399,7 @@ function PageView({
         {heading.intro ? <p className="join-q-help">{heading.intro}</p> : null}
 
         <div className="join-answer">
-          <PhotoSection draft={draft} onRemove={removePhoto} onUploaded={addPhoto} />
+          <PhotoSection draft={draft} onRemove={removePhoto} onUploaded={addPhoto} resumeToken={resumeToken} />
         </div>
       </div>
     );
@@ -2445,13 +2485,60 @@ function PhotoSection({
   draft,
   onRemove,
   onUploaded,
+  resumeToken,
 }: {
   draft: JoinApplicationDraft;
   onRemove: (path: string) => void;
   onUploaded: (photo: JoinApplicationPhoto) => void;
+  resumeToken: string | null;
 }) {
   const [error, setError] = useState("");
   const [busyKind, setBusyKind] = useState("");
+
+  /*
+   * USA-285: a thumbnail of each photo, keyed by its storage path. A photo
+   * chosen in this visit previews straight from the file on the device. One
+   * restored with the draft is fetched once through the private preview route,
+   * which needs this draft's resume token, so nothing here is a shareable URL.
+   */
+  const [previews, setPreviews] = useState<Record<string, string>>({});
+  const previewsRef = useRef(previews);
+  previewsRef.current = previews;
+
+  useEffect(() => () => {
+    Object.values(previewsRef.current).forEach((url) => URL.revokeObjectURL(url));
+  }, []);
+
+  useEffect(() => {
+    if (!resumeToken) {
+      return;
+    }
+
+    let cancelled = false;
+
+    for (const photo of draft.photos) {
+      if (previewsRef.current[photo.path]) {
+        continue;
+      }
+
+      void fetch("/api/join/photos/preview", {
+        body: JSON.stringify({ kind: photo.kind, resumeToken }),
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      })
+        .then((response) => (response.ok ? response.blob() : null))
+        .then((blob) => {
+          if (blob && !cancelled) {
+            setPreviews((current) => (current[photo.path] ? current : { ...current, [photo.path]: URL.createObjectURL(blob) }));
+          }
+        })
+        .catch(() => undefined);
+    }
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draft.photos, resumeToken]);
 
   async function upload(kind: "family" | "profile", file: File) {
     setBusyKind(kind);
@@ -2470,7 +2557,10 @@ function PhotoSection({
         throw new Error(result.error || "We could not upload that photo.");
       }
 
-      onUploaded(result.photo);
+      const uploaded = result.photo;
+
+      setPreviews((current) => ({ ...current, [uploaded.path]: URL.createObjectURL(file) }));
+      onUploaded(uploaded);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "We could not upload that photo.");
     } finally {
@@ -2495,6 +2585,16 @@ function PhotoSection({
 
               {existing ? (
                 <div style={{ marginTop: 12 }}>
+                  {previews[existing.path] ? (
+                    // A local object URL for the applicant's own file, not a
+                    // remote image, so next/image has nothing to optimize.
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      alt={kind === "profile" ? "Your photo" : "Your family photo"}
+                      className="join-photo-preview"
+                      src={previews[existing.path]}
+                    />
+                  ) : null}
                   <p className="join-field-help" style={{ marginTop: 0, overflowWrap: "anywhere" }}>
                     {existing.fileName}
                   </p>

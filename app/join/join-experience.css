@@ -2103,3 +2103,16 @@
   max-width: 640px;
 }
 
+
+/* USA-285: the uploaded photo, so the applicant can see what they sent. */
+.join-photo-preview {
+  display: block;
+  width: 100%;
+  max-width: 220px;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
+  margin-bottom: 10px;
+}

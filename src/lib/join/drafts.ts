@@ -257,3 +257,33 @@ export async function markJoinDraftSubmitted(resumeToken: string, applicationId:
     })
     .eq("resume_token_hash", hashResumeToken(resumeToken));
 }
+
+/**
+ * The live draft behind a resume token, for reads that are not a resume: an
+ * applicant previewing their own uploaded photo, say. Unlike
+ * resolveResumeToken it records nothing, and it answers only for a draft still
+ * in progress. A submitted, abandoned or expired draft returns null, so a
+ * leaked old link cannot be used to fetch anything.
+ */
+export async function findLiveJoinDraft(token: string): Promise<JoinDraftRecord | null> {
+  const trimmed = token.trim();
+
+  if (!trimmed || !isJoinDraftStorageConfigured()) {
+    return null;
+  }
+
+  const { data, error } = await createSupabaseAdminClient()
+    .from(DRAFTS_TABLE)
+    .select(rowColumns)
+    .eq("resume_token_hash", hashResumeToken(trimmed))
+    .eq("status", "draft")
+    .maybeSingle();
+
+  if (error || !data) {
+    return null;
+  }
+
+  const record = toRecord(data as DraftRow);
+
+  return new Date(record.expiresAt).getTime() < Date.now() ? null : record;
+}
