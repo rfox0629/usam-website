@@ -20,6 +20,7 @@ import {
   accountabilityPeopleForStatus,
   accountabilityPeopleSummaryLabel,
   accountabilityPersonStatusOrder,
+  accountabilityProgressActionLabel,
   accountabilityUpcomingWindowDays,
   isAccountabilityCheckInFilter,
 } from "../src/lib/dos/accountability-checkins.ts";
@@ -446,18 +447,46 @@ const build = ({ commitments = [], schedules = [] }) => accountabilityCheckInRow
      after February. */
   assert.equal(accountabilityOccurrenceOnOrBefore("2026-01-31", "monthly", "2026-05-31"), "2026-05-31");
 
-  /* A check-in recorded late schedules the next one from the date it
-     actually happened, not from the date that was missed. */
-  /* A Thursday rhythm answered on Friday is due the FOLLOWING Thursday.
-     Snapping forward from Friday-plus-seven cost the leader a whole week
-     every time they answered late. */
-  assert.equal(nextAccountabilityCheckInDate("2026-09-25", "weekly", 4), "2026-10-01");
-  // Answered early, it does not fire again the next morning either.
-  assert.equal(nextAccountabilityCheckInDate("2026-09-23", "weekly", 4), "2026-10-01");
-  // Answered on its own day, it simply comes round again.
-  assert.equal(nextAccountabilityCheckInDate("2026-10-01", "weekly", 4), "2026-10-08");
-  // And a fortnightly rhythm answered two days late keeps its fortnight.
-  assert.equal(nextAccountabilityCheckInDate("2026-09-19", "every_two_weeks", 4), "2026-10-01");
+  /* The next reminder is counted from the date the check-in actually
+     happened, and from nothing else.
+
+     A Thursday rhythm (day_of_week 4) answered on a Friday is next due on
+     the FRIDAY: weekly means seven days later. The rhythm follows the
+     conversation rather than being dragged back to the day it was first set
+     up on -- which used to move the date by up to three days in either
+     direction, and by a whole week before that. */
+  const thursdayRhythm = 4;
+
+  assert.equal(nextAccountabilityCheckInDate("2026-09-25", "weekly"), "2026-10-02", "Friday + 7 days = Friday");
+  assert.equal(new Date("2026-09-25T00:00:00.000Z").getUTCDay(), 5, "the check-in really was a Friday");
+  assert.equal(new Date("2026-10-02T00:00:00.000Z").getUTCDay(), 5, "and so is the next reminder");
+  /* The stored weekday cannot change the answer: the argument is gone, and
+     passing one has no effect on a function that no longer reads it. */
+  assert.equal(
+    nextAccountabilityCheckInDate("2026-09-25", "weekly", thursdayRhythm),
+    nextAccountabilityCheckInDate("2026-09-25", "weekly"),
+    "the rhythm's original weekday has no say",
+  );
+  assert.equal(nextAccountabilityCheckInDate.length, 2, "and the function does not even take it");
+
+  // Answered early, it is seven days from the day it was answered.
+  assert.equal(nextAccountabilityCheckInDate("2026-09-23", "weekly"), "2026-09-30");
+  // Answered on its own day, it simply comes round again a week later.
+  assert.equal(nextAccountabilityCheckInDate("2026-10-01", "weekly"), "2026-10-08");
+  // Every two weeks is fourteen days from the check-in, on that same weekday.
+  assert.equal(nextAccountabilityCheckInDate("2026-09-19", "every_two_weeks"), "2026-10-03");
+  assert.equal(nextAccountabilityCheckInDate("2026-09-25", "every_two_weeks"), "2026-10-09");
+
+  /* Every cadence, stated plainly: 7, 14, and one calendar month. */
+  for (const [current, expected] of [["2026-03-01", "2026-03-08"], ["2026-12-28", "2027-01-04"]]) {
+    assert.equal(nextAccountabilityCheckInDate(current, "weekly"), expected);
+  }
+  for (const [current, expected] of [["2026-03-01", "2026-03-15"], ["2026-12-28", "2027-01-11"]]) {
+    assert.equal(nextAccountabilityCheckInDate(current, "every_two_weeks"), expected);
+  }
+  for (const [current, expected] of [["2026-03-15", "2026-04-15"], ["2026-12-31", "2027-01-31"], ["2026-08-31", "2026-09-30"]]) {
+    assert.equal(nextAccountabilityCheckInDate(current, "monthly"), expected);
+  }
   assert.equal(nextAccountabilityCheckInDate("2026-09-25", "weekly"), "2026-10-02");
   assert.equal(nextAccountabilityCheckInDate("2026-09-25", "every_two_weeks"), "2026-10-09");
   assert.equal(nextAccountabilityCheckInDate("2026-09-25", "one_time"), null, "a one-time reminder has no next one");
@@ -517,10 +546,18 @@ const build = ({ commitments = [], schedules = [] }) => accountabilityCheckInRow
     "two due today say so",
   );
 
-  // The same words on the row and inside the item, from the same function.
-  assert.equal(accountabilityCheckInActionLabel("check_in"), "Check in");
-  assert.equal(accountabilityCheckInActionLabel("people"), "Add person");
-  assert.equal(accountabilityCheckInActionLabel("count"), "Add progress");
+  /* Every item's action is Check in, whatever it records -- the same word on
+     the row and inside the item, so two rows in one list never do two
+     different things under one name. */
+  assert.equal(accountabilityCheckInActionLabel, "Check in");
+  assert.equal(typeof accountabilityCheckInActionLabel, "string", "there is no per-kind variant to drift");
+
+  /* The specialised actions are named for exactly what they do and belong
+     INSIDE the flow Check in opens. An item that only records a
+     conversation offers neither. */
+  assert.equal(accountabilityProgressActionLabel("people"), "Add person");
+  assert.equal(accountabilityProgressActionLabel("count"), "Add progress");
+  assert.equal(accountabilityProgressActionLabel("check_in"), null);
 }
 
 // ---------------------------------------------------------------------------
@@ -674,9 +711,10 @@ assert.equal(client.includes("more on the people themselves"), false, "The dead-
   assert.match(personSheet, /onOpenItem\(row\)/, "Each item opens its own record, so one check-in cannot complete another.");
 
   /* Check in and Stop, together, on every item -- one-time goal, weekly
-     rhythm or Journey milestone alike. Edit and Delete are a tap further,
-     inside the item. */
-  assert.match(itemRow, /accountabilityCheckInActionLabel\(row\.progressKind\)/, "The row's action is named for what it records.");
+     rhythm or Journey milestone alike, and called the same thing on each.
+     Edit and Delete are a tap further, inside the item. */
+  assert.match(itemRow, /\{accountabilityCheckInActionLabel\}/, "Every row's action is Check in, from the one label.");
+  assert.equal(/Add person|Add progress/.test(itemRow), false, "A specialised action never reaches the row.");
   assert.match(itemRow, />\s*Stop\s*</, "And Stop sits beside it.");
   assert.match(personSheet, /onCheckIn=\{\(\) => onCheckIn\(row\)\}/);
   assert.match(personSheet, /onStop=\{\(\) => onStop\(row\)\}/);
@@ -746,7 +784,13 @@ assert.match(client, /\.\.\.\(isEdit \? \{\} : \{ status: "active" \}\),/, "An e
   );
 
   assert.notEqual(client.indexOf("function PersonAccountabilityDetailSheet("), -1);
+  assert.match(detail, /onCheckIn \? <AppButton icon="log" onClick=\{onCheckIn\} tone="black">\{accountabilityCheckInActionLabel\}<\/AppButton> : null/, "The item's primary action is Check in, from the same label as the row.");
   assert.match(detail, /onStop \? <AppButton icon="bell" onClick=\{onStop\} tone="white">Stop<\/AppButton> : null/, "Stop is a primary action.");
+  assert.equal(
+    /Add person|Add progress/.test(detail),
+    false,
+    "A measurable goal's own action does not replace Check in here either.",
+  );
   assert.equal(
     /onStop && !isSystemGenerated|!isSystemGenerated && onStop/.test(detail),
     false,
@@ -757,6 +801,47 @@ assert.match(client, /\.\.\.\(isEdit \? \{\} : \{ status: "active" \}\),/, "An e
   assert.equal(detail.includes("Reschedule"), false);
 }
 assert.match(client, /onStop=\{itemRow \? \(\) => void stopAccountabilityRow\(itemRow\) : undefined\}/, "The item stops the same record the list stops.");
+
+/* Check in opens ONE destination for every kind of item, and the specialised
+   actions live inside the flow it opens. A measurable goal used to jump
+   straight to its own form, so the same word on two rows did two different
+   things. */
+{
+  const router = client.slice(
+    client.indexOf("function openCheckInRowAction(row: AccountabilityCheckInRow) {"),
+    client.indexOf("function openCheckInRow(row: AccountabilityCheckInRow) {"),
+  );
+
+  assert.notEqual(client.indexOf("function openCheckInRowAction(row: AccountabilityCheckInRow) {"), -1);
+  assert.equal(
+    (router.match(/openPersonAccountabilityCheckIn\(/g) ?? []).length,
+    2,
+    "A goal and a rhythm both open the check-in flow.",
+  );
+  assert.equal(
+    /openCommitmentSubject|openPersonAccountabilityProgress/.test(router),
+    false,
+    "Neither jumps past it into a specialised form.",
+  );
+}
+{
+  const checkInSheet = client.slice(
+    client.indexOf("function PersonAccountabilityCheckInSheet("),
+    client.indexOf("function PersonAccountabilityProgressSheet("),
+  );
+
+  assert.match(checkInSheet, /accountabilityProgressActionLabel\(progressKind\)/, "The flow names the specialised action for what it does,");
+  assert.match(checkInSheet, /specificProgressLabel && onSpecificProgress \?/, "and offers it only where there is something to count.");
+  assert.match(checkInSheet, /\{specificProgressLabel\}/);
+  /* Now that every item's Check in opens this flow, Done must not become a
+     way to mark a goal of three achieved at one. */
+  assert.match(
+    checkInSheet,
+    /const canComplete = Boolean\(commitment\) && !schedule && progressKind === "check_in";/,
+    "Done stays off a goal that counts something.",
+  );
+}
+assert.match(client, /\? \(\) => openCommitmentSubject\(checkInSheetCommitment\)\s*: \(\) => openPersonAccountabilityProgress\(checkInSheetCommitment\)/, "Both specialised flows are reached from inside the check-in.");
 
 /* The delete is one operation, asked for once, and offered wherever an
    accountability record is managed: the record's own menu, the item a

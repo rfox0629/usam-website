@@ -163,6 +163,7 @@ import {
   accountabilityCheckInRows,
   accountabilityPeopleForFilter,
   accountabilityPeopleSummaryLabel,
+  accountabilityProgressActionLabel,
   accountabilityPeopleCounts,
   accountabilityPeopleDueToday,
   accountabilityPeopleForStatus,
@@ -13394,9 +13395,11 @@ function CheckInsWorkspace({
  *
  * Check in records what happened. Stop ends the reminder. They sit together
  * on every item -- a one-time goal, a weekly rhythm, a Journey milestone --
- * because a leader should not have to work out which kind of record they are
- * looking at before they know what they can do with it. Everything else
- * (edit, delete) lives inside the item, one tap further. */
+ * and they are called the same thing on each, because a leader should not
+ * have to work out which kind of record they are looking at before they know
+ * what pressing it does. Anything specialised (naming who was discipled,
+ * counting one more occurrence) waits inside the flow Check in opens, and
+ * everything else (edit, delete) lives inside the item, one tap further. */
 function PersonAccountabilityItemRow({
   onCheckIn,
   onOpen,
@@ -13429,7 +13432,7 @@ function PersonAccountabilityItemRow({
           onClick={onCheckIn}
           type="button"
         >
-          {accountabilityCheckInActionLabel(row.progressKind)}
+          {accountabilityCheckInActionLabel}
         </button>
         <button
           className="flex min-h-9 flex-1 items-center justify-center rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label font-semibold text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
@@ -14287,8 +14290,6 @@ function PersonAccountabilityDetailSheet({
   confirmedSubjects,
   isSystemGenerated,
   meta,
-  onAddPerson,
-  onAddProgress,
   onCheckIn,
   onClose,
   onDelete,
@@ -14302,8 +14303,6 @@ function PersonAccountabilityDetailSheet({
   confirmedSubjects: AccountabilityConfirmedSubject[];
   isSystemGenerated: boolean;
   meta: string;
-  onAddPerson?: () => void;
-  onAddProgress?: () => void;
   onCheckIn?: () => void;
   onClose: () => void;
   onDelete?: () => void;
@@ -14321,13 +14320,14 @@ function PersonAccountabilityDetailSheet({
       actions={(
         <div className="grid gap-2">
           {/* The same two actions the list offers, in the same order and with
-              the same words, whatever kind of record this is. Stop works on a
-              Journey's follow-up too: it ends the reminder, never the
-              Journey. */}
+              the same words, whatever kind of record this is -- a measurable
+              goal included. Naming who was discipled, or counting one more
+              occurrence, belongs to the check-in itself rather than to a
+              button that makes this item read differently from the one above
+              it in the list. Stop works on a Journey's follow-up too: it ends
+              the reminder, never the Journey. */}
           <div className="grid grid-cols-2 gap-2">
-            {progressKind === "people" && onAddPerson ? <AppButton icon="people" onClick={onAddPerson} tone="black">Add person</AppButton> : null}
-            {progressKind === "count" && onAddProgress ? <AppButton icon="add" onClick={onAddProgress} tone="black">Add progress</AppButton> : null}
-            {progressKind === "check_in" && onCheckIn ? <AppButton icon="log" onClick={onCheckIn} tone="black">Check in</AppButton> : null}
+            {onCheckIn ? <AppButton icon="log" onClick={onCheckIn} tone="black">{accountabilityCheckInActionLabel}</AppButton> : null}
             {onStop ? <AppButton icon="bell" onClick={onStop} tone="white">Stop</AppButton> : null}
           </div>
           {/* Edit is secondary, and it is where a date or a cadence changes --
@@ -14454,7 +14454,9 @@ function PersonAccountabilityCheckInSheet({
   isSubmitting,
   meta,
   onClose,
+  onSpecificProgress,
   onSubmit,
+  progressKind,
   schedule,
   title,
 }: {
@@ -14463,14 +14465,25 @@ function PersonAccountabilityCheckInSheet({
   isSubmitting: boolean;
   meta: string;
   onClose: () => void;
+  /* Where a measurable goal's own way of recording progress lives now:
+     inside the flow the leader opened, not on the row or the item, where it
+     made one accountability item read differently from the next. */
+  onSpecificProgress?: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  schedule?: DosAppAccountabilitySchedule | null;
+  progressKind: AccountabilityProgressKind;
   title: string;
+  schedule?: DosAppAccountabilitySchedule | null;
 }) {
+  const specificProgressLabel = accountabilityProgressActionLabel(progressKind);
   /* Done finishes a one-time goal, which the model supports directly. A
      recurring rhythm has no "done": finishing it would end the rhythm, which
-     is what Pause is for, so it is not offered here. */
-  const canComplete = Boolean(commitment) && !schedule;
+     is what Stop is for, so it is not offered here.
+
+     Nor is it offered on a goal that counts something. Now that every item's
+     Check in opens this flow, a measurable goal reaches it too, and a tap
+     here would record "3 men discipled" as achieved at one. It is finished
+     by reaching its number, which the route does on its own. */
+  const canComplete = Boolean(commitment) && !schedule && progressKind === "check_in";
   const [state, setState] = useState<string>("going_well");
   const states = canComplete
     ? [...accountabilityCheckInStates, { label: "Done", value: "completed" as const }]
@@ -14504,6 +14517,22 @@ function PersonAccountabilityCheckInSheet({
           <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">Note</p>
           <VoiceTextarea className={`${FieldTextareaClass(false)} mt-1.5 min-h-[52px]`} name="note" placeholder="Optional" />
         </div>
+        {/* "Add person" on a goal that counts people, "Add progress" on one
+            that counts occurrences -- offered here, where the leader is
+            already recording what happened, and named for exactly what it
+            does. An item that only records a conversation shows nothing. */}
+        {specificProgressLabel && onSpecificProgress ? (
+          <div className="border-t border-dos-rule pt-3">
+            <AppButton
+              disabled={isSubmitting}
+              icon={progressKind === "people" ? "people" : "add"}
+              onClick={onSpecificProgress}
+              tone="white"
+            >
+              {specificProgressLabel}
+            </AppButton>
+          </div>
+        ) : null}
         {errorMessage ? <p className="rounded-xl bg-[#FEF2F2] px-3 py-2 text-[13px] font-semibold text-[#B42318]">{errorMessage}</p> : null}
         <div className="grid gap-2">
           <AppButton disabled={isSubmitting} icon="log" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Check-In"}</AppButton>
@@ -43645,25 +43674,19 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
   /* The row's named action, straight into the existing form for that item --
      the same form the item's own record opens, so there is one way to record
      a check-in and one place it is written. */
+  /* Check in, from a row: one destination for every kind of item.
+     A measurable goal used to jump straight to its own specialised form, so
+     the same word on two rows did two different things. The check-in flow
+     opens for all of them and offers "Add person" or "Add progress" inside
+     itself when the goal counts something. */
   function openCheckInRowAction(row: AccountabilityCheckInRow) {
     if (row.kind === "one_time_goal") {
       const commitment = data.commitments.find((candidate) => candidate.id === row.sourceId);
 
-      if (!commitment) {
-        return;
+      if (commitment) {
+        openPersonAccountabilityCheckIn(row.personId, null, commitment);
       }
 
-      if (row.progressKind === "people") {
-        openCommitmentSubject(commitment);
-        return;
-      }
-
-      if (row.progressKind === "count") {
-        openPersonAccountabilityProgress(commitment);
-        return;
-      }
-
-      openPersonAccountabilityCheckIn(row.personId, null, commitment);
       return;
     }
 
@@ -49844,8 +49867,6 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
                 : commitment
                   ? accountabilityProgressLabel(commitment) ?? (commitment.targetDate ? `Due ${formatDate(commitment.targetDate)}` : "")
                   : "")}
-              onAddPerson={commitment ? () => openCommitmentSubject(commitment) : undefined}
-              onAddProgress={commitment ? () => openPersonAccountabilityProgress(commitment) : undefined}
               onCheckIn={() => openPersonAccountabilityCheckIn(record.personId, schedule, commitment)}
               onClose={() => setCommitmentSheet(null)}
               onDelete={schedule
@@ -49878,6 +49899,14 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
 
         {commitmentSheet?.kind === "person_check_in" ? (() => {
           const journeyCopy = journeyFollowUpSheetCopy(checkInRows, commitmentSheet.schedule);
+          /* A rhythm records a conversation; a measurable goal also counts
+             people or occurrences, and that is what the flow offers inside
+             itself. Read from the commitment, the same way the item's own
+             record reads it. */
+          const checkInSheetCommitment = commitmentSheet.commitment ?? null;
+          const checkInSheetProgressKind: AccountabilityProgressKind = commitmentSheet.schedule || !checkInSheetCommitment
+            ? "check_in"
+            : accountabilityProgressKind(checkInSheetCommitment);
 
           return (
             <PersonAccountabilityCheckInSheet
@@ -49893,7 +49922,13 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
                   ? `Due ${formatDate(commitmentSheet.commitment.targetDate)}`
                   : "")}
               onClose={() => setCommitmentSheet(null)}
+              onSpecificProgress={checkInSheetCommitment
+                ? checkInSheetProgressKind === "people"
+                  ? () => openCommitmentSubject(checkInSheetCommitment)
+                  : () => openPersonAccountabilityProgress(checkInSheetCommitment)
+                : undefined}
               onSubmit={handlePersonAccountabilityCheckInSubmit}
+              progressKind={checkInSheetProgressKind}
               schedule={commitmentSheet.schedule}
               title={journeyCopy?.title ?? (commitmentSheet.schedule
                 ? resourceAssignmentFollowUpScheduleDisplayTitle(commitmentSheet.schedule.title)

@@ -301,15 +301,21 @@ export function accountabilityCheckInHomeSections(rows: ReadonlyArray<Accountabi
   };
 }
 
-/* What the item's own action is called, from how it records progress. The
-   same label appears on the row and inside the item, so the two never
-   disagree about what pressing it does. */
-export function accountabilityCheckInActionLabel(progressKind: AccountabilityProgressKind) {
+/* Every accountability item's own action is "Check in", whatever it records.
+   A leader reading a list of people should not have to work out which kind
+   of record each row is before they know what pressing it does, and the row
+   and the item inside it say the same word for the same act. */
+export const accountabilityCheckInActionLabel = "Check in";
+
+/* What a measurable goal offers INSIDE the check-in flow, once the leader
+   has opened it: naming who was discipled, or recording one more occurrence.
+   Null for an item that simply records a conversation. */
+export function accountabilityProgressActionLabel(progressKind: AccountabilityProgressKind) {
   if (progressKind === "people") {
     return "Add person";
   }
 
-  return progressKind === "count" ? "Add progress" : "Check in";
+  return progressKind === "count" ? "Add progress" : null;
 }
 
 export function accountabilityCheckInCounts(rows: ReadonlyArray<AccountabilityCheckInRow>): AccountabilityCheckInCounts {

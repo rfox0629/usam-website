@@ -84,6 +84,7 @@ const post = (handler, body) => call(handler, body, "POST");
 const patch = (handler, body) => call(handler, body, "PATCH");
 
 const MONTHLY_RHYTHM = "00000000-0000-4282-8000-000000000105";
+const THURSDAY_RHYTHM = "00000000-0000-4282-8000-000000000106";
 const ASSIGNMENT = "00000000-0000-4282-8000-000000000301";
 
 // --- authorization -----------------------------------------------------
@@ -248,16 +249,18 @@ await check("Recording the late check-in advances from the day it happened", asy
     "0",
     "no catch-up entries for the missed weeks",
   );
-  // The next date is a week after the check-in, on the rhythm's own weekday,
-  // and not another stale date in the past.
+  // The next date is exactly a week after the check-in, and not another stale
+  // date in the past.
   const next = sql(`select next_check_in::text from dos_accountability_schedules where id = '${MISSED_RHYTHM}'`);
 
-  /* A cadence step from the day it happened, landing on the rhythm's own
-     weekday -- the NEAREST one. The check-in was a Tuesday and the rhythm is
-     Mondays, so this is the Monday six days later. Snapping only forward put
-     it 13 days out, which charged a leader a whole extra week for answering
-     late. */
-  assert.equal(next, "2026-09-28");
+  /* Seven days from the day it actually happened. The check-in was a Tuesday
+     and the rhythm was set up on Mondays; the next one is the Tuesday,
+     because the rhythm follows the conversation rather than being dragged
+     back to the weekday it started on. */
+  assert.equal(next, "2026-09-29");
+  assert.equal(sql("select extract(dow from date '2026-09-29')::int::text"), "2", "which is a Tuesday,");
+  assert.equal(sql(`select day_of_week::text from dos_accountability_schedules where id = '${MISSED_RHYTHM}'`), "1",
+    "while the rhythm's stored day is still Monday -- it simply has no say here");
   assert.equal(next > "2026-09-22", true, "and is genuinely ahead of the check-in");
   assert.equal(next > sql("select current_date::text"), true, "the rhythm is not left cycling through missed dates");
   // History is preserved.
@@ -292,8 +295,18 @@ await check("A back-dated check-in still leaves the rhythm due in the future", a
   const todayKey = sql("select current_date::text");
 
   assert.equal(next >= todayKey, true, `next_check_in ${next} must not be in the past (today ${todayKey})`);
-  assert.equal(sql(`select extract(dow from next_check_in)::int::text from dos_accountability_schedules where id = '${MISSED_RHYTHM}'`), "1",
-    "and it keeps the rhythm's own weekday");
+  /* Catching up steps by whole weeks from the check-in, so the date keeps
+     the weekday the check-in itself landed on. */
+  assert.equal(
+    sql(`select extract(dow from next_check_in)::int::text from dos_accountability_schedules where id = '${MISSED_RHYTHM}'`),
+    sql("select extract(dow from date '2026-08-31')::int::text"),
+    "and it keeps the weekday of the day it was answered",
+  );
+  assert.equal(
+    sql(`select ((next_check_in - date '2026-08-31') % 7)::text from dos_accountability_schedules where id = '${MISSED_RHYTHM}'`),
+    "0",
+    "a whole number of weeks after it",
+  );
   assert.equal(
     sql(`select count(*) from dos_accountability_check_ins where schedule_id = '${MISSED_RHYTHM}'`),
     "3",
@@ -506,6 +519,38 @@ await check("An answered one-time reminder clears without completing anything", 
   assert.equal(edit.status, 200, `status ${edit.status}: ${JSON.stringify(edit.body)}`);
   assert.equal(sql(`select status from dos_accountability_schedules where id = '${FOLLOW_UP}'`), "stopped",
     "and a later edit to the Journey does not ask for it again");
+});
+
+// --- the founder's example, end to end ------------------------------------
+await check("A Thursday rhythm answered on a Friday is next due on the Friday", async () => {
+  reseed();
+  as("admin");
+
+  assert.equal(sql(`select day_of_week::text from dos_accountability_schedules where id = '${THURSDAY_RHYTHM}'`), "4",
+    "the rhythm was set up on Thursdays");
+
+  /* A Friday, taken from the database's own clock so this reads the same on
+     any day it runs -- and never the rhythm's own Thursday, which is the
+     whole point. */
+  const friday = sql("select (current_date + ((5 - extract(dow from current_date)::int + 7) % 7))::text");
+
+  assert.equal(sql(`select extract(dow from date '${friday}')::int::text`), "5", "answered on a Friday");
+
+  const result = await post(recordCheckIn, {
+    date: friday,
+    generalUpdate: "Met on Friday this week.",
+    scheduleId: THURSDAY_RHYTHM,
+    workspaceId: WS_A,
+  });
+
+  assert.equal(result.status, 200, `status ${result.status}: ${JSON.stringify(result.body)}`);
+
+  const next = sql(`select next_check_in::text from dos_accountability_schedules where id = '${THURSDAY_RHYTHM}'`);
+
+  assert.equal(next, sql(`select (date '${friday}' + 7)::text`), "the next one is seven days later");
+  assert.equal(sql(`select extract(dow from date '${next}')::int::text`), "5", "which is the Friday, not the Thursday");
+  assert.equal(sql(`select day_of_week::text from dos_accountability_schedules where id = '${THURSDAY_RHYTHM}'`), "4",
+    "and the stored day is left as it was rather than rewritten");
 });
 
 // --- month ends and the dates a check-in writes --------------------------

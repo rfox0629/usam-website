@@ -64,6 +64,11 @@ insert into dos_accountability_check_ins (id, workspace_id, schedule_id, person_
 insert into dos_accountability_schedules (id, workspace_id, person_id, title, frequency, day_of_week, start_date, next_check_in, status) values
   ('00000000-0000-4282-8000-000000000105', '00000000-0000-4282-8000-0000000000a1', '00000000-0000-4282-8000-0000000000a2', 'Monthly with Derek', 'monthly', null, '2026-01-31', '2026-01-31', 'active');
 
+-- A Thursday rhythm, for the founder's own example: answered on a Friday, the
+-- next one is the Friday -- not dragged back to Thursday.
+insert into dos_accountability_schedules (id, workspace_id, person_id, title, frequency, day_of_week, start_date, next_check_in, status) values
+  ('00000000-0000-4282-8000-000000000106', '00000000-0000-4282-8000-0000000000a1', '00000000-0000-4282-8000-0000000000a2', 'Thursdays with Ben', 'weekly', 4, '2026-09-03', '2026-09-24', 'active');
+
 -- Workspace B's own rhythm: a delete asked for against workspace A must not
 -- find it.
 insert into dos_accountability_schedules (id, workspace_id, person_id, title, frequency, day_of_week, start_date, next_check_in, status) values

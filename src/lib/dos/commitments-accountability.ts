@@ -207,10 +207,22 @@ export function accountabilityOccurrenceOnOrAfter(
   return anchorKey;
 }
 
+/* The next reminder, counted from the day the check-in actually happened.
+ *
+ * Weekly is seven days later, fortnightly fourteen, monthly one calendar
+ * month later clamped to the length of the shorter month. Nothing else: the
+ * rhythm follows the conversation, so a Thursday reminder answered on a
+ * Friday is next due on the Friday.
+ *
+ * The rhythm's original weekday is deliberately NOT consulted. Snapping back
+ * to it moved the date away from the day the leader chose -- forward by
+ * nearly a week when they answered late, or backwards when they answered
+ * early -- and neither is what "a week from now" means. `day_of_week` still
+ * describes the day a rhythm was set up on and still places its first date;
+ * it has no say over the one after a check-in. */
 export function nextAccountabilityCheckInDate(
   currentDate: string,
   frequency: DosAccountabilityFrequency,
-  dayOfWeek?: number | null,
 ) {
   if (frequency === "one_time") {
     return null;
@@ -223,25 +235,6 @@ export function nextAccountabilityCheckInDate(
   }
 
   date.setUTCDate(date.getUTCDate() + (frequency === "every_two_weeks" ? 14 : 7));
-
-  if (typeof dayOfWeek === "number" && dayOfWeek >= 0 && dayOfWeek <= 6 && date.getUTCDay() !== dayOfWeek) {
-    /* The rhythm's own day, and the NEAREST one.
-     *
-     * Always snapping forward cost a whole cycle whenever a check-in was
-     * recorded late: a Thursday rhythm answered on Friday landed a week and
-     * a half out, because Friday plus seven days is a Friday and the next
-     * Thursday after that is six days further on. Answering late already
-     * means falling behind; it should not also mean skipping a week.
-     *
-     * Four days or more forward is therefore taken backwards instead, which
-     * is the same weekday in the week the cadence actually lands in. The
-     * result is never sooner than four days (weekly) or eleven (fortnightly)
-     * after the check-in, so an early answer cannot make the rhythm fire
-     * again the next morning. */
-    const forward = (dayOfWeek - date.getUTCDay() + 7) % 7;
-
-    date.setUTCDate(date.getUTCDate() + (forward > 3 ? forward - 7 : forward));
-  }
 
   return keyFromDate(date);
 }

@@ -2858,7 +2858,10 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
         status: "active",
         targetCount: 3,
         targetKind: "people" as const,
-        targetDate: daysAgoIso(-30).slice(0, 10),
+        /* Due today, so the one measurable goal in the fixture is actually on
+           the Accountability list: its row says Check in like every other,
+           and "Add person" waits inside the flow that opens. */
+        targetDate: daysAgoIso(0).slice(0, 10),
         title: "Begin discipling 3 men",
         updatedAt: null,
         updates: [
