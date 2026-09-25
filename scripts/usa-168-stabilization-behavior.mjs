@@ -1494,9 +1494,18 @@ await check("Accountability opens as a record, and can be edited", async () => {
   assert(client.includes("function PersonAccountabilityDetailSheet("), "The record has its own sheet.");
   const detail = client.slice(client.indexOf("function PersonAccountabilityDetailSheet("));
   const detailBody = detail.slice(0, detail.indexOf("\nfunction "));
-  assert(detailBody.includes('progressKind === "people" && onAddPerson'), "A people target adds a person.");
-  assert(detailBody.includes('progressKind === "count" && onAddProgress'), "A count target adds progress.");
-  assert(detailBody.includes('progressKind === "check_in" && onCheckIn'), "Everything else checks in.");
+  /* USA-282, third pass: every accountability record's primary action is
+     Check in, whatever it records. A people target's "Add person" and a
+     count target's "Add progress" moved inside the flow that opens, so two
+     rows in one list cannot do two different things under one name. */
+  assert(detailBody.includes("onCheckIn ? <AppButton icon=\"log\" onClick={onCheckIn} tone=\"black\">{accountabilityCheckInActionLabel}"),
+    "Every record checks in, under the one label.");
+  assert(!detailBody.includes("Add person") && !detailBody.includes("Add progress"),
+    "The specialised actions are not on the record.");
+  const checkInFlow = client.slice(client.indexOf("function PersonAccountabilityCheckInSheet("));
+  const checkInFlowBody = checkInFlow.slice(0, checkInFlow.indexOf("\nfunction "));
+  assert(checkInFlowBody.includes("accountabilityProgressActionLabel(progressKind)"),
+    "They are offered inside the check-in flow instead.");
   assert(detailBody.includes("Recent check-ins") && detailBody.includes("Recent progress"), "It shows what has happened.");
 
   /* Journey follow-ups are written by DOS. Offering Edit would let someone
@@ -1568,8 +1577,15 @@ await check("Person check-in is small, canonical, and writes no meeting", async 
   const statesBody = states.slice(0, states.indexOf("] as const;"));
   assert(statesBody.includes('label: "Going well", value: "going_well"'), "Going well maps to the stored state that means it.");
   assert(statesBody.includes('label: "Needs attention", value: "struggling"'), "Needs attention maps to struggling, without exposing that word.");
-  /* Done finishes a one-time goal. A rhythm has no done: ending it is Pause. */
-  assert(sheetBody.includes("const canComplete = Boolean(commitment) && !schedule;"), "Done is offered only where it means something.");
+  /* Done finishes a one-time goal. A rhythm has no done: ending it is Stop.
+     Nor does a goal that counts something: since USA-282's third pass every
+     item's Check in opens this flow, and a tap here would otherwise record a
+     goal of three people as achieved at one. It finishes by reaching its
+     number, which the updates route does on its own. */
+  assert(
+    sheetBody.includes('const canComplete = Boolean(commitment) && !schedule && progressKind === "check_in";'),
+    "Done is offered only where it means something.",
+  );
 
   // Person V2 is off the legacy sheet. USA-257 then took the check-in
   // workflow off Home, which was the legacy form's only caller, so it is gone.

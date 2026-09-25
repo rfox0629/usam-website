@@ -49,6 +49,10 @@ SQL
 
 applied=0; failed=0
 for file in "$REPO"/supabase/migrations/*.sql; do
+  # Rollback scripts sit beside their migrations and sort after them, so
+  # applying every file in order undoes the migration it just applied. They
+  # are not part of the schema.
+  case "$file" in *_rollback.sql) continue;; esac
   if psql -h 127.0.0.1 -p "$PGPORT" -U postgres -d usam_test -v ON_ERROR_STOP=1 -q -f "$file" >>"$ROOT/log/migrate.log" 2>&1; then
     applied=$((applied+1))
   else

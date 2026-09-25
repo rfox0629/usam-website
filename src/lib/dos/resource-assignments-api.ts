@@ -214,6 +214,18 @@ export async function syncResourceAssignmentFollowUpSchedules({
     const title = resourceAssignmentFollowUpScheduleTitle(assignmentId, row.kind);
     const firstExisting = existingForKind[0] ?? null;
 
+    /* USA-282: a reminder the leader stopped stays stopped.
+
+       Sync used to force `status: 'active'` on the row it found, so any later
+       edit to the assignment -- a date change, a resume, anything that calls
+       this -- brought the reminder back. Stopping means "stop reminding me
+       about this", and it has to survive the next sync. Inserting a
+       replacement would resurrect it under a new id, so a stopped kind is
+       skipped entirely rather than re-created. */
+    if (existingForKind.some((existing) => String(existing.status) === "stopped")) {
+      continue;
+    }
+
     if (firstExisting) {
       const updateResult = await supabase
         .from("dos_accountability_schedules")
@@ -239,7 +251,10 @@ export async function syncResourceAssignmentFollowUpSchedules({
           .from("dos_accountability_schedules")
           .update({ status: "paused" })
           .eq("id", String(duplicate.id))
-          .eq("workspace_id", workspaceId);
+          .eq("workspace_id", workspaceId)
+          /* Never turn a stopped reminder into a paused one: paused is a
+             state this sync reactivates. */
+          .neq("status", "stopped");
 
         if (pauseResult.error) {
           return { error: pauseResult.error };
@@ -270,7 +285,7 @@ export async function syncResourceAssignmentFollowUpSchedules({
   for (const existingRow of existingRows) {
     const kind = scheduleKindFromRow(existingRow);
 
-    if (kind && desiredKinds.has(kind)) {
+    if ((kind && desiredKinds.has(kind)) || String(existingRow.status) === "stopped") {
       continue;
     }
 

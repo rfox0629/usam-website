@@ -1,4 +1,8 @@
-/* USA-282 follow-up: the DELETE handlers, end to end.
+/* USA-282: accountability against a real database, end to end.
+ *
+ * The delete handlers, Stop and its undo, the Journey synchronisation that
+ * must not resurrect a stopped reminder, and what a check-in does to the
+ * dates around it.
  *
  * Real route modules -> real supabase-js -> real PostgREST -> real Postgres
  * running the repository's own migrations. The only substitution is
@@ -38,6 +42,11 @@ const reseed = () => execFileSync("psql", [
 const { DELETE: deleteSchedule } = await import("../app/api/dos/app/accountability/schedules/route.ts");
 const { DELETE: deleteCommitment } = await import("../app/api/dos/app/commitments/route.ts");
 const { POST: recordCheckIn } = await import("../app/api/dos/app/accountability/check-ins/route.ts");
+const { PATCH: patchSchedule } = await import("../app/api/dos/app/accountability/schedules/route.ts");
+const { PATCH: patchCommitment } = await import("../app/api/dos/app/commitments/route.ts");
+/* The real Journey synchronisation, reached the way a leader reaches it:
+   by editing the assignment. */
+const { PATCH: patchAssignment } = await import("../app/api/dos/app/resource-assignments/route.ts");
 
 const identities = {
   admin: { access: "admin", email: "admin@example.test", role: "admin", status: "authorized", userId: "00000000-0000-4282-8000-00000000ad01" },
@@ -72,6 +81,11 @@ const call = async (handler, body, method = "DELETE") => {
   return { body: await response.json().catch(() => ({})), status: response.status };
 };
 const post = (handler, body) => call(handler, body, "POST");
+const patch = (handler, body) => call(handler, body, "PATCH");
+
+const MONTHLY_RHYTHM = "00000000-0000-4282-8000-000000000105";
+const THURSDAY_RHYTHM = "00000000-0000-4282-8000-000000000106";
+const ASSIGNMENT = "00000000-0000-4282-8000-000000000301";
 
 // --- authorization -----------------------------------------------------
 await check("An unauthenticated caller cannot delete a schedule", async () => {
@@ -235,16 +249,18 @@ await check("Recording the late check-in advances from the day it happened", asy
     "0",
     "no catch-up entries for the missed weeks",
   );
-  // The next date is a week after the check-in, on the rhythm's own weekday,
-  // and not another stale date in the past.
+  // The next date is exactly a week after the check-in, and not another stale
+  // date in the past.
   const next = sql(`select next_check_in::text from dos_accountability_schedules where id = '${MISSED_RHYTHM}'`);
 
-  /* A cadence step from the day it happened, landing on the rhythm's own
-     weekday. The check-in was a Tuesday and the rhythm is Mondays, so the
-     existing rule adds a week and then snaps forward to Monday -- 13 days,
-     not 6. That is the rule this repository already had; it is asserted here
-     rather than changed, and raised for the founder. */
-  assert.equal(next, "2026-10-05");
+  /* Seven days from the day it actually happened. The check-in was a Tuesday
+     and the rhythm was set up on Mondays; the next one is the Tuesday,
+     because the rhythm follows the conversation rather than being dragged
+     back to the weekday it started on. */
+  assert.equal(next, "2026-09-29");
+  assert.equal(sql("select extract(dow from date '2026-09-29')::int::text"), "2", "which is a Tuesday,");
+  assert.equal(sql(`select day_of_week::text from dos_accountability_schedules where id = '${MISSED_RHYTHM}'`), "1",
+    "while the rhythm's stored day is still Monday -- it simply has no say here");
   assert.equal(next > "2026-09-22", true, "and is genuinely ahead of the check-in");
   assert.equal(next > sql("select current_date::text"), true, "the rhythm is not left cycling through missed dates");
   // History is preserved.
@@ -279,8 +295,18 @@ await check("A back-dated check-in still leaves the rhythm due in the future", a
   const todayKey = sql("select current_date::text");
 
   assert.equal(next >= todayKey, true, `next_check_in ${next} must not be in the past (today ${todayKey})`);
-  assert.equal(sql(`select extract(dow from next_check_in)::int::text from dos_accountability_schedules where id = '${MISSED_RHYTHM}'`), "1",
-    "and it keeps the rhythm's own weekday");
+  /* Catching up steps by whole weeks from the check-in, so the date keeps
+     the weekday the check-in itself landed on. */
+  assert.equal(
+    sql(`select extract(dow from next_check_in)::int::text from dos_accountability_schedules where id = '${MISSED_RHYTHM}'`),
+    sql("select extract(dow from date '2026-08-31')::int::text"),
+    "and it keeps the weekday of the day it was answered",
+  );
+  assert.equal(
+    sql(`select ((next_check_in - date '2026-08-31') % 7)::text from dos_accountability_schedules where id = '${MISSED_RHYTHM}'`),
+    "0",
+    "a whole number of weeks after it",
+  );
   assert.equal(
     sql(`select count(*) from dos_accountability_check_ins where schedule_id = '${MISSED_RHYTHM}'`),
     "3",
@@ -339,9 +365,258 @@ await check("A check-in never completes a Journey or its milestone", async () =>
     "active",
     "and its shadow commitment is not completed by a leader's check-in",
   );
-  /* A one-time follow-up has no next date, so the rhythm pauses rather than
-     rolling forward -- the milestone is answered, not repeated. */
-  assert.equal(sql(`select status from dos_accountability_schedules where id = '${FOLLOW_UP}'`), "paused");
+  /* A one-time follow-up has no next date, so the reminder stops rather than
+     rolling forward -- the milestone is answered, not repeated. Stopping is
+     not completing: the assertions above are what the Journey's own status
+     says. */
+  assert.equal(sql(`select status from dos_accountability_schedules where id = '${FOLLOW_UP}'`), "stopped");
+});
+
+// --- Stop: the reminder ends, and nothing else does ----------------------
+await check("Stopping a rhythm ends the reminder and keeps every check-in", async () => {
+  reseed();
+  as("admin");
+
+  const result = await patch(patchSchedule, { id: RHYTHM, status: "stopped", workspaceId: WS_A });
+
+  assert.equal(result.status, 200, `status ${result.status}: ${JSON.stringify(result.body)}`);
+  assert.equal(sql(`select status from dos_accountability_schedules where id = '${RHYTHM}'`), "stopped");
+  assert.equal(sql(`select count(*) from dos_accountability_schedules where id = '${RHYTHM}'`), "1", "nothing is deleted");
+  assert.equal(
+    sql(`select count(*) from dos_accountability_check_ins where schedule_id = '${RHYTHM}'`),
+    "2",
+    "its history is untouched",
+  );
+  assert.equal(
+    sql(`select next_check_in::text from dos_accountability_schedules where id = '${RHYTHM}'`),
+    "2026-09-20",
+    "and the date it was on is remembered, for when it is started again",
+  );
+});
+
+await check("Stopping one reminder leaves this person's others alone", async () => {
+  reseed();
+  as("admin");
+
+  await patch(patchSchedule, { id: RHYTHM, status: "stopped", workspaceId: WS_A });
+
+  assert.equal(sql(`select status from dos_accountability_schedules where id = '${MISSED_RHYTHM}'`), "active");
+  assert.equal(sql(`select status from dos_accountability_schedules where id = '${FOLLOW_UP}'`), "active");
+  assert.equal(sql(`select status from dos_person_commitments where id = '${GOAL}'`), "active");
+});
+
+await check("Undo puts a stopped reminder back exactly as it was", async () => {
+  reseed();
+  as("admin");
+
+  const before = sql(`select next_check_in::text || '|' || frequency || '|' || title from dos_accountability_schedules where id = '${RHYTHM}'`);
+
+  await patch(patchSchedule, { id: RHYTHM, status: "stopped", workspaceId: WS_A });
+  const undo = await patch(patchSchedule, { id: RHYTHM, status: "active", workspaceId: WS_A });
+
+  assert.equal(undo.status, 200, `status ${undo.status}: ${JSON.stringify(undo.body)}`);
+  assert.equal(sql(`select status from dos_accountability_schedules where id = '${RHYTHM}'`), "active");
+  assert.equal(
+    sql(`select next_check_in::text || '|' || frequency || '|' || title from dos_accountability_schedules where id = '${RHYTHM}'`),
+    before,
+    "the reminder comes back on the same date, cadence and topic",
+  );
+  assert.equal(sql(`select count(*) from dos_accountability_check_ins where schedule_id = '${RHYTHM}'`), "2");
+});
+
+await check("Stopping a goal cancels it -- it is never recorded as achieved", async () => {
+  reseed();
+  as("admin");
+
+  const result = await patch(patchCommitment, { id: GOAL, status: "cancelled", workspaceId: WS_A });
+
+  assert.equal(result.status, 200, `status ${result.status}: ${JSON.stringify(result.body)}`);
+  assert.equal(sql(`select status from dos_person_commitments where id = '${GOAL}'`), "cancelled");
+  assert.equal(
+    sql(`select coalesce(completed_date::text, 'null') from dos_person_commitments where id = '${GOAL}'`),
+    "null",
+    "no completion date is written",
+  );
+  assert.equal(sql(`select count(*) from dos_commitment_updates where commitment_id = '${GOAL}'`), "2",
+    "the progress recorded against it stays");
+});
+
+// --- Stop on a Journey-generated reminder --------------------------------
+await check("Stopping a Journey's follow-up ends the reminder, not the Journey", async () => {
+  reseed();
+  as("admin");
+
+  const result = await patch(patchSchedule, { id: FOLLOW_UP, status: "stopped", workspaceId: WS_A });
+
+  assert.equal(result.status, 200, `status ${result.status}: ${JSON.stringify(result.body)}`);
+  assert.equal(sql(`select status from dos_accountability_schedules where id = '${FOLLOW_UP}'`), "stopped");
+  assert.equal(
+    sql(`select status from dos_resource_assignments where id = '${ASSIGNMENT}'`),
+    "in_progress",
+    "the assignment is still in progress",
+  );
+  assert.equal(
+    sql(`select coalesce(completed_at::text, 'null') from dos_resource_assignments where id = '${ASSIGNMENT}'`),
+    "null",
+    "and it is not completed",
+  );
+  assert.equal(sql(`select status from dos_person_commitments where id = '${SHADOW_COMMITMENT}'`), "active",
+    "nor is the goal behind it");
+  assert.equal(
+    sql(`select count(*) from dos_resource_assignments where linked_commitment_id = '${SHADOW_COMMITMENT}'`),
+    "1",
+    "and the Journey still points at its own record",
+  );
+});
+
+await check("A Journey synchronisation does not resurrect a stopped reminder", async () => {
+  reseed();
+  as("admin");
+
+  await patch(patchSchedule, { id: FOLLOW_UP, status: "stopped", workspaceId: WS_A });
+
+  /* Editing the assignment is what runs the synchronisation -- the path that
+     used to force every follow-up row back to 'active'. */
+  const edit = await patch(patchAssignment, { dueDate: "2026-10-20", id: ASSIGNMENT, workspaceId: WS_A });
+
+  assert.equal(edit.status, 200, `status ${edit.status}: ${JSON.stringify(edit.body)}`);
+  assert.equal(sql(`select status from dos_accountability_schedules where id = '${FOLLOW_UP}'`), "stopped",
+    "the stopped reminder stays stopped");
+  assert.equal(
+    sql(`select count(*) from dos_accountability_schedules where title like '%${ASSIGNMENT}:midpoint%'`),
+    "1",
+    "and no replacement is inserted under a new id",
+  );
+  assert.equal(
+    sql(`select count(*) from dos_accountability_schedules where title like '%${ASSIGNMENT}:midpoint%' and status = 'active'`),
+    "0",
+  );
+});
+
+await check("An answered one-time reminder clears without completing anything", async () => {
+  reseed();
+  as("admin");
+
+  const result = await post(recordCheckIn, {
+    date: "2026-09-22",
+    generalUpdate: "Talked about the reading.",
+    scheduleId: FOLLOW_UP,
+    workspaceId: WS_A,
+  });
+
+  assert.equal(result.status, 200, `status ${result.status}: ${JSON.stringify(result.body)}`);
+  /* Answered, so it stops asking -- and 'stopped' rather than 'paused',
+     because the synchronisation sets paused rows back to active and would ask
+     again for a milestone that has already happened. */
+  assert.equal(sql(`select status from dos_accountability_schedules where id = '${FOLLOW_UP}'`), "stopped");
+  assert.equal(sql(`select status from dos_person_commitments where id = '${SHADOW_COMMITMENT}'`), "active",
+    "the goal behind it is not marked achieved");
+  assert.equal(sql(`select status from dos_resource_assignments where id = '${ASSIGNMENT}'`), "in_progress",
+    "and the Journey runs on");
+
+  const edit = await patch(patchAssignment, { dueDate: "2026-10-20", id: ASSIGNMENT, workspaceId: WS_A });
+
+  assert.equal(edit.status, 200, `status ${edit.status}: ${JSON.stringify(edit.body)}`);
+  assert.equal(sql(`select status from dos_accountability_schedules where id = '${FOLLOW_UP}'`), "stopped",
+    "and a later edit to the Journey does not ask for it again");
+});
+
+// --- the founder's example, end to end ------------------------------------
+await check("A Thursday rhythm answered on a Friday is next due on the Friday", async () => {
+  reseed();
+  as("admin");
+
+  assert.equal(sql(`select day_of_week::text from dos_accountability_schedules where id = '${THURSDAY_RHYTHM}'`), "4",
+    "the rhythm was set up on Thursdays");
+
+  /* A Friday, taken from the database's own clock so this reads the same on
+     any day it runs -- and never the rhythm's own Thursday, which is the
+     whole point. */
+  const friday = sql("select (current_date + ((5 - extract(dow from current_date)::int + 7) % 7))::text");
+
+  assert.equal(sql(`select extract(dow from date '${friday}')::int::text`), "5", "answered on a Friday");
+
+  const result = await post(recordCheckIn, {
+    date: friday,
+    generalUpdate: "Met on Friday this week.",
+    scheduleId: THURSDAY_RHYTHM,
+    workspaceId: WS_A,
+  });
+
+  assert.equal(result.status, 200, `status ${result.status}: ${JSON.stringify(result.body)}`);
+
+  const next = sql(`select next_check_in::text from dos_accountability_schedules where id = '${THURSDAY_RHYTHM}'`);
+
+  assert.equal(next, sql(`select (date '${friday}' + 7)::text`), "the next one is seven days later");
+  assert.equal(sql(`select extract(dow from date '${next}')::int::text`), "5", "which is the Friday, not the Thursday");
+  assert.equal(sql(`select day_of_week::text from dos_accountability_schedules where id = '${THURSDAY_RHYTHM}'`), "4",
+    "and the stored day is left as it was rather than rewritten");
+});
+
+// --- month ends and the dates a check-in writes --------------------------
+await check("A monthly rhythm on the 31st lands on the last day of a short month", async () => {
+  reseed();
+  as("admin");
+
+  assert.equal(sql(`select next_check_in::text from dos_accountability_schedules where id = '${MONTHLY_RHYTHM}'`), "2026-01-31");
+
+  const result = await post(recordCheckIn, {
+    date: "2026-01-31",
+    generalUpdate: "January's conversation.",
+    scheduleId: MONTHLY_RHYTHM,
+    workspaceId: WS_A,
+  });
+
+  assert.equal(result.status, 200, `status ${result.status}: ${JSON.stringify(result.body)}`);
+  /* Two things at once. February has no 31st, so the last day of February is
+     the honest answer rather than the 3rd of March, which is where adding a
+     month to the 31st used to land. And the check-in is eight months old, so
+     the rhythm is caught up to the current month -- counting months from the
+     check-in itself, which brings the 31st back rather than leaving the
+     rhythm on the 28th for good. */
+  const next = sql(`select next_check_in::text from dos_accountability_schedules where id = '${MONTHLY_RHYTHM}'`);
+  const todayKey = sql("select current_date::text");
+
+  assert.equal(next >= todayKey, true, `next_check_in ${next} must not be in the past (today ${todayKey})`);
+  assert.equal(
+    sql(`select extract(day from next_check_in)::int::text from dos_accountability_schedules where id = '${MONTHLY_RHYTHM}'`),
+    sql(`select extract(day from (date_trunc('month', next_check_in) + interval '1 month - 1 day'))::int::text from dos_accountability_schedules where id = '${MONTHLY_RHYTHM}'`),
+    "the rhythm is still on the last day of its month, not stranded on the 28th",
+  );
+
+  /* The single step, without a catch-up in the way, is asserted in the pure
+     regression: a month after the 31st of January is the 28th of February,
+     and the month after that is the 31st of March. */
+});
+
+await check("A check-in is stored on the day the leader chose, with no timezone drift", async () => {
+  reseed();
+  as("admin");
+
+  /* The last day of a month, which is where an hour's drift in either
+     direction changes the month as well as the day. */
+  const result = await post(recordCheckIn, {
+    date: "2026-09-30",
+    generalUpdate: "End of the month.",
+    scheduleId: RHYTHM,
+    workspaceId: WS_A,
+  });
+
+  assert.equal(result.status, 200, `status ${result.status}: ${JSON.stringify(result.body)}`);
+  assert.equal(
+    sql(`select count(*) from dos_accountability_check_ins where schedule_id = '${RHYTHM}' and check_in_date = '2026-09-30'`),
+    "1",
+    "the date saved is the date chosen",
+  );
+  assert.equal(
+    sql("select data_type from information_schema.columns where table_name = 'dos_accountability_check_ins' and column_name = 'check_in_date'"),
+    "date",
+    "a day is stored as a day, not as an instant that a timezone can move",
+  );
+  assert.equal(
+    sql("select data_type from information_schema.columns where table_name = 'dos_accountability_schedules' and column_name = 'next_check_in'"),
+    "date",
+  );
 });
 
 const failed = results.filter((result) => !result.ok);

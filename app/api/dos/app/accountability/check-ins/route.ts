@@ -22,7 +22,7 @@ import {
   resolveAuthorizedCommitmentsWorkspace,
   todayDateKey,
 } from "@/src/lib/dos/commitments-accountability-api";
-import { nextAccountabilityCheckInDate, type DosAccountabilityFrequency, type DosCommitmentProgressState } from "@/src/lib/dos/commitments-accountability";
+import { accountabilityOccurrenceOnOrAfter, nextAccountabilityCheckInDate, type DosAccountabilityFrequency, type DosCommitmentProgressState } from "@/src/lib/dos/commitments-accountability";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
 const checkInSelect = "id, workspace_id, schedule_id, person_id, check_in_date, duration_minutes, general_update, wins, struggles, prayer_needs, follow_up, created_by_user_id, created_at, updated_at";
@@ -318,33 +318,43 @@ export async function POST(request: Request) {
 
   if (schedule) {
     const frequency = String(schedule.frequency) as DosAccountabilityFrequency;
-    const scheduleDayOfWeek = typeof schedule.day_of_week === "number" ? schedule.day_of_week : null;
-    let nextCheckIn = nextAccountabilityCheckInDate(checkInDate, frequency, scheduleDayOfWeek);
+    /* Counted from the date the check-in actually happened -- a week, a
+       fortnight or a calendar month later -- and from nothing else. The
+       rhythm follows the conversation rather than dragging it back to the
+       weekday it was first set up on. */
+    let nextCheckIn = nextAccountabilityCheckInDate(checkInDate, frequency);
 
     /* USA-282 follow-up: a rhythm must never be left cycling through dates
        that have already gone by.
-   
+
        The next date is computed from the date the check-in actually happened,
        which is right for the ordinary case. But the date is the leader's to
        set, and a back-dated check-in -- "we met three weeks ago" -- would
        otherwise roll the rhythm forward to another date in the past, so it
        would still read as overdue the moment it was answered. Stepping the
-       cadence until the date is genuinely ahead keeps both the cadence and
-       the weekday, and touches nothing about an on-time check-in. */
+       cadence until the date is genuinely ahead keeps the cadence and the
+       day the check-in landed on, and touches nothing about an on-time
+       check-in. */
     const todayKey = todayDateKey();
 
-    for (let step = 0; step < 520 && nextCheckIn && nextCheckIn < todayKey; step += 1) {
-      const advanced = nextAccountabilityCheckInDate(nextCheckIn, frequency, scheduleDayOfWeek);
-
-      if (!advanced || advanced === nextCheckIn) {
-        break;
-      }
-
-      nextCheckIn = advanced;
+    if (nextCheckIn && nextCheckIn < todayKey) {
+      /* Counted from an anchor rather than one step at a time, so the rhythm
+         keeps its own date across the catch-up: a monthly rhythm on the 31st
+         counts months from the check-in itself and returns to the 31st
+         rather than sliding to the 28th for good. */
+      nextCheckIn = frequency === "monthly"
+        ? accountabilityOccurrenceOnOrAfter(checkInDate, frequency, todayKey)
+        : accountabilityOccurrenceOnOrAfter(nextCheckIn, frequency, todayKey);
     }
+    /* A one-time reminder has no next date: answering it is the end of it.
+       It is marked stopped rather than paused because paused is the Journey
+       sync's own working state -- the sync sets paused rows back to active,
+       which would ask for a milestone check-in that has already happened.
+       Nothing about the milestone, assignment or goal is completed here; the
+       reminder simply stops. */
     const schedulePatch = nextCheckIn
       ? { next_check_in: nextCheckIn }
-      : { next_check_in: checkInDate, status: "paused" };
+      : { next_check_in: checkInDate, status: "stopped" };
     const { data: updatedSchedule, error: scheduleError } = await supabase
       .from("dos_accountability_schedules")
       .update(schedulePatch)

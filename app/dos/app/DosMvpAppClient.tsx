@@ -157,11 +157,13 @@ import {
   type AccountabilityProgressKind,
 } from "@/src/lib/dos/accountability-presentation";
 import {
+  accountabilityCheckInActionLabel,
   accountabilityCheckInCounts,
   accountabilityCheckInPeople,
   accountabilityCheckInRows,
   accountabilityPeopleForFilter,
   accountabilityPeopleSummaryLabel,
+  accountabilityProgressActionLabel,
   accountabilityPeopleCounts,
   accountabilityPeopleDueToday,
   accountabilityPeopleForStatus,
@@ -13075,6 +13077,15 @@ function journeyFollowUpSheetCopy(
 /* What a pending delete is: which record, so the request can go to the right
    endpoint, and whose record it is, so the confirmation afterwards lands on
    the person it belongs to. The title is only for the question itself. */
+/* A reminder the leader stopped. It keeps its history and can be started
+   again; it is not deleted and its goal or Journey is untouched. */
+type StoppedAccountabilityItem = {
+  id: string;
+  kind: "commitment" | "schedule";
+  sourceId: string;
+  title: string;
+};
+
 type PendingAccountabilityDelete = {
   id: string;
   kind: "commitment" | "schedule";
@@ -13380,15 +13391,85 @@ function CheckInsWorkspace({
  * carries, and each opening its own record. Checking one off leaves the rest
  * exactly where they are -- there is no "complete the person" here, because a
  * person is not a task. */
+/* One row per reminder, with the same two actions everywhere.
+ *
+ * Check in records what happened. Stop ends the reminder. They sit together
+ * on every item -- a one-time goal, a weekly rhythm, a Journey milestone --
+ * and they are called the same thing on each, because a leader should not
+ * have to work out which kind of record they are looking at before they know
+ * what pressing it does. Anything specialised (naming who was discipled,
+ * counting one more occurrence) waits inside the flow Check in opens, and
+ * everything else (edit, delete) lives inside the item, one tap further. */
+function PersonAccountabilityItemRow({
+  onCheckIn,
+  onOpen,
+  onStop,
+  row,
+}: {
+  onCheckIn: () => void;
+  onOpen: () => void;
+  onStop: () => void;
+  row: AccountabilityCheckInRow;
+}) {
+  return (
+    <div className="border-t border-dos-line py-2.5 first:border-t-0">
+      <button
+        className="flex min-h-11 w-full min-w-0 items-center gap-2 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
+        onClick={onOpen}
+        type="button"
+      >
+        <span className="min-w-0 flex-1">
+          <span className="block truncate text-dos-body font-semibold text-dos-primary">{row.topic}</span>
+          <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">
+            {[row.statusLabel, row.context].filter(Boolean).join(" · ")}
+          </span>
+        </span>
+        <ChevronRight aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
+      </button>
+      <div className="mt-1.5 flex items-center gap-2">
+        <button
+          className="flex min-h-9 flex-1 items-center justify-center rounded-dos-3 bg-dos-blue px-3 text-dos-label font-semibold text-white transition-colors hover:bg-[#1D4ED8] focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+          onClick={onCheckIn}
+          type="button"
+        >
+          {accountabilityCheckInActionLabel}
+        </button>
+        <button
+          className="flex min-h-9 flex-1 items-center justify-center rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label font-semibold text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+          onClick={onStop}
+          type="button"
+        >
+          Stop
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* The person, opened deliberately: every open reminder they have, the same
+   two actions on each, a way to add another, and the ones already stopped
+   kept within reach rather than gone. */
 function PersonAccountabilitySheet({
+  onAdd,
+  onCheckIn,
   onClose,
   onOpenItem,
+  onRestart,
+  onStop,
   person,
+  stoppedItems,
 }: {
+  onAdd: () => void;
+  onCheckIn: (row: AccountabilityCheckInRow) => void;
   onClose: () => void;
   onOpenItem: (row: AccountabilityCheckInRow) => void;
+  onRestart: (item: StoppedAccountabilityItem) => void;
+  onStop: (row: AccountabilityCheckInRow) => void;
   person: AccountabilityPerson;
+  stoppedItems: StoppedAccountabilityItem[];
 }) {
+  const [showStopped, setShowStopped] = useState(false);
+
   return (
     <DosDetailSheet
       fit="content"
@@ -13397,28 +13478,64 @@ function PersonAccountabilitySheet({
       title="Accountability"
     >
       <div className="grid gap-1">
-        <p className="text-dos-meta font-semibold text-dos-secondary">
-          {person.itemCountLabel ?? "1 check-in"}
-        </p>
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-dos-meta font-semibold text-dos-secondary">
+            {person.itemCountLabel ?? "1 check-in"}
+          </p>
+          <button
+            className="inline-flex min-h-9 items-center gap-1 text-dos-label font-semibold text-dos-blueText focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+            onClick={onAdd}
+            type="button"
+          >
+            <span aria-hidden="true" className="text-[17px] leading-none">+</span>
+            Add
+          </button>
+        </div>
         <div className="grid">
           {person.items.map((row) => (
-            <div className="flex min-w-0 items-center border-t border-dos-line first:border-t-0" key={row.id}>
-              <button
-                className="flex min-h-[60px] min-w-0 flex-1 items-center gap-2.5 py-2.5 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue focus-visible:ring-inset"
-                onClick={() => onOpenItem(row)}
-                type="button"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-dos-body font-semibold text-dos-primary">{row.topic}</span>
-                  <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">
-                    {[row.statusLabel, row.context].filter(Boolean).join(" · ")}
-                  </span>
-                </span>
-                <ChevronRight aria-hidden="true" className="ml-2 h-4 w-4 shrink-0 text-dos-secondary" strokeWidth={2} />
-              </button>
-            </div>
+            <PersonAccountabilityItemRow
+              key={row.id}
+              onCheckIn={() => onCheckIn(row)}
+              onOpen={() => onOpenItem(row)}
+              onStop={() => onStop(row)}
+              row={row}
+            />
           ))}
         </div>
+        {/* Stopped reminders are not gone: their history stays on the record
+            and the reminder itself can be started again. */}
+        {stoppedItems.length ? (
+          <div className="mt-2 border-t border-dos-line pt-2">
+            <button
+              aria-expanded={showStopped}
+              className="flex min-h-9 w-full items-center justify-between gap-2 text-left text-dos-label font-semibold text-dos-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+              onClick={() => setShowStopped((current) => !current)}
+              type="button"
+            >
+              <span>{`Stopped (${stoppedItems.length})`}</span>
+              <ChevronRight aria-hidden="true" className={`h-4 w-4 shrink-0 transition-transform ${showStopped ? "rotate-90" : ""}`} strokeWidth={2} />
+            </button>
+            {showStopped ? (
+              <div className="grid">
+                {stoppedItems.map((item) => (
+                  <div className="flex min-w-0 items-center gap-2 border-t border-dos-line py-2.5" key={item.id}>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-dos-body font-semibold text-dos-primary">{item.title}</span>
+                      <span className="mt-0.5 block truncate text-dos-meta text-dos-secondary">Stopped</span>
+                    </span>
+                    <button
+                      className="flex min-h-9 shrink-0 items-center justify-center rounded-dos-3 border border-dos-line bg-white px-3 text-dos-label font-semibold text-dos-primary transition-colors hover:border-dos-blue100 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+                      onClick={() => onRestart(item)}
+                      type="button"
+                    >
+                      Start again
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </DosDetailSheet>
   );
@@ -14173,15 +14290,11 @@ function PersonAccountabilityDetailSheet({
   confirmedSubjects,
   isSystemGenerated,
   meta,
-  onAddPerson,
-  onAddProgress,
   onCheckIn,
   onClose,
   onDelete,
   onEdit,
-  onPause,
-  onReschedule,
-  pauseLabel = "Pause",
+  onStop,
   personName = null,
   progressKind,
   recentProgress,
@@ -14190,16 +14303,12 @@ function PersonAccountabilityDetailSheet({
   confirmedSubjects: AccountabilityConfirmedSubject[];
   isSystemGenerated: boolean;
   meta: string;
-  onAddPerson?: () => void;
-  onAddProgress?: () => void;
   onCheckIn?: () => void;
   onClose: () => void;
   onDelete?: () => void;
   onEdit?: () => void;
-  /* A rhythm only: a one-time goal has nothing to pause or move. */
-  onPause?: () => void;
-  onReschedule?: () => void;
-  pauseLabel?: string;
+  /* Ending the reminder, on every kind of item. */
+  onStop?: () => void;
   /* The Person this belongs to, shown once in the header. */
   personName?: string | null;
   progressKind: AccountabilityProgressKind;
@@ -14210,38 +14319,32 @@ function PersonAccountabilityDetailSheet({
     <DosDetailSheet
       actions={(
         <div className="grid gap-2">
+          {/* The same two actions the list offers, in the same order and with
+              the same words, whatever kind of record this is -- a measurable
+              goal included. Naming who was discipled, or counting one more
+              occurrence, belongs to the check-in itself rather than to a
+              button that makes this item read differently from the one above
+              it in the list. Stop works on a Journey's follow-up too: it ends
+              the reminder, never the Journey. */}
           <div className="grid grid-cols-2 gap-2">
-            {progressKind === "people" && onAddPerson ? <AppButton icon="people" onClick={onAddPerson} tone="black">Add person</AppButton> : null}
-            {progressKind === "count" && onAddProgress ? <AppButton icon="add" onClick={onAddProgress} tone="black">Add progress</AppButton> : null}
-            {progressKind === "check_in" && onCheckIn ? <AppButton icon="log" onClick={onCheckIn} tone="black">Check in</AppButton> : null}
-            {/* System-generated Journey follow-ups keep their own semantics and
-                are not editable as though someone had written them. */}
-            {onEdit && !isSystemGenerated ? <AppButton onClick={onEdit} tone="white">Edit</AppButton> : null}
+            {onCheckIn ? <AppButton icon="log" onClick={onCheckIn} tone="black">{accountabilityCheckInActionLabel}</AppButton> : null}
+            {onStop ? <AppButton icon="bell" onClick={onStop} tone="white">Stop</AppButton> : null}
           </div>
-          {/* When an old rhythm no longer fits: move the next one, or stop it
-              without losing what it has recorded. Both live here, on the
-              record itself, rather than on a list that must stay discreet.
-              A paused rhythm leaves the lists and keeps its history. */}
-          {(onReschedule || onPause) && !isSystemGenerated ? (
-            <div className="grid grid-cols-2 gap-2">
-              {onReschedule ? <AppButton icon="calendar" onClick={onReschedule} tone="white">Reschedule</AppButton> : null}
-              {onPause ? <AppButton icon="bell" onClick={onPause} tone="white">{pauseLabel}</AppButton> : null}
-            </div>
-          ) : null}
-          {/* The same delete the record's own menu offers, reachable from the
-              item a check-in row opens -- so the Check-ins list needs no menu
-              of its own on a row that is already one tap target. A Journey's
-              follow-up is not deletable here for the same reason it is not
-              editable: DOS writes it, and the Journey ends it. */}
+          {/* Edit is secondary, and it is where a date or a cadence changes --
+              there is no separate Reschedule. A Journey's follow-up is not
+              editable as though someone had written it. */}
+          {onEdit && !isSystemGenerated ? <AppButton onClick={onEdit} tone="white">Edit</AppButton> : null}
+          {/* Delete is secondary to Stop and lives in a menu: stopping is
+              what a leader almost always means, and it keeps the history.
+              A Journey's follow-up is not deletable here for the same reason
+              it is not editable: DOS writes it, and the Journey ends it. */}
           {onDelete && !isSystemGenerated ? (
-            <button
-              className="flex min-h-11 w-full items-center justify-center gap-2 rounded-full px-4 text-[14px] font-semibold text-[#B42318] transition-colors hover:bg-[#FEF3F2]"
-              onClick={onDelete}
-              type="button"
-            >
-              <Trash2 aria-hidden="true" className="h-4 w-4" strokeWidth={1.9} />
-              Delete
-            </button>
+            <div className="flex justify-center">
+              <RowActionMenu
+                items={[{ danger: true, label: "Delete", onSelect: onDelete }]}
+                label={`More actions for ${title}`}
+              />
+            </div>
           ) : null}
         </div>
       )}
@@ -14351,7 +14454,9 @@ function PersonAccountabilityCheckInSheet({
   isSubmitting,
   meta,
   onClose,
+  onSpecificProgress,
   onSubmit,
+  progressKind,
   schedule,
   title,
 }: {
@@ -14360,14 +14465,25 @@ function PersonAccountabilityCheckInSheet({
   isSubmitting: boolean;
   meta: string;
   onClose: () => void;
+  /* Where a measurable goal's own way of recording progress lives now:
+     inside the flow the leader opened, not on the row or the item, where it
+     made one accountability item read differently from the next. */
+  onSpecificProgress?: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  schedule?: DosAppAccountabilitySchedule | null;
+  progressKind: AccountabilityProgressKind;
   title: string;
+  schedule?: DosAppAccountabilitySchedule | null;
 }) {
+  const specificProgressLabel = accountabilityProgressActionLabel(progressKind);
   /* Done finishes a one-time goal, which the model supports directly. A
      recurring rhythm has no "done": finishing it would end the rhythm, which
-     is what Pause is for, so it is not offered here. */
-  const canComplete = Boolean(commitment) && !schedule;
+     is what Stop is for, so it is not offered here.
+
+     Nor is it offered on a goal that counts something. Now that every item's
+     Check in opens this flow, a measurable goal reaches it too, and a tap
+     here would record "3 men discipled" as achieved at one. It is finished
+     by reaching its number, which the route does on its own. */
+  const canComplete = Boolean(commitment) && !schedule && progressKind === "check_in";
   const [state, setState] = useState<string>("going_well");
   const states = canComplete
     ? [...accountabilityCheckInStates, { label: "Done", value: "completed" as const }]
@@ -14401,6 +14517,22 @@ function PersonAccountabilityCheckInSheet({
           <p className="text-[10.5px] font-bold uppercase tracking-[0.15em] text-dos-eyebrow">Note</p>
           <VoiceTextarea className={`${FieldTextareaClass(false)} mt-1.5 min-h-[52px]`} name="note" placeholder="Optional" />
         </div>
+        {/* "Add person" on a goal that counts people, "Add progress" on one
+            that counts occurrences -- offered here, where the leader is
+            already recording what happened, and named for exactly what it
+            does. An item that only records a conversation shows nothing. */}
+        {specificProgressLabel && onSpecificProgress ? (
+          <div className="border-t border-dos-rule pt-3">
+            <AppButton
+              disabled={isSubmitting}
+              icon={progressKind === "people" ? "people" : "add"}
+              onClick={onSpecificProgress}
+              tone="white"
+            >
+              {specificProgressLabel}
+            </AppButton>
+          </div>
+        ) : null}
         {errorMessage ? <p className="rounded-xl bg-[#FEF2F2] px-3 py-2 text-[13px] font-semibold text-[#B42318]">{errorMessage}</p> : null}
         <div className="grid gap-2">
           <AppButton disabled={isSubmitting} icon="log" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save Check-In"}</AppButton>
@@ -15700,6 +15832,7 @@ function MeetingAccountabilityComposer({
 function AccountabilityScheduleSheet({
   errorMessage,
   isSubmitting,
+  nextCheckIn = null,
   onClose,
   onSubmit,
   person,
@@ -15707,6 +15840,10 @@ function AccountabilityScheduleSheet({
 }: {
   errorMessage: string;
   isSubmitting: boolean;
+  /* The date the lists are showing for this rhythm, which for one missed for
+     weeks is not the date stored against it. The field opens on what the
+     leader just read. */
+  nextCheckIn?: string | null;
   onClose: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   person: DosAppPerson;
@@ -15728,6 +15865,20 @@ function AccountabilityScheduleSheet({
           lockType={Boolean(schedule)}
           namePrefix="accountability"
         />
+        {/* Editing an existing rhythm is also how it is moved: there is no
+            separate Reschedule, because "when is the next one" is one of the
+            reminder's details like any other. Left as it is, the cadence
+            decides the next date the way it always has. */}
+        {schedule ? (
+          <DosFormField label="Next check-in">
+            <input
+              className={FieldInputClass(false)}
+              defaultValue={nextCheckIn ?? schedule.nextCheckIn ?? todayCommitmentDateKey()}
+              name="accountability_next_check_in"
+              type="date"
+            />
+          </DosFormField>
+        ) : null}
         {errorMessage ? <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{errorMessage}</p> : null}
         <div className="grid gap-2">
           <AppButton disabled={isSubmitting} icon="calendar" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save"}</AppButton>
@@ -40044,7 +40195,8 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
   /* The person whose items are open over the list or over Home. Held by id
      rather than by value so a save's refreshed data flows straight into it. */
   const [accountabilityPersonId, setAccountabilityPersonId] = useState<string | null>(null);
-  const [rescheduleSchedule, setRescheduleSchedule] = useState<DosAppAccountabilitySchedule | null>(null);
+  /* What was just stopped, so it can be put back with one tap. */
+  const [accountabilityUndo, setAccountabilityUndo] = useState<{ kind: "commitment" | "schedule"; sourceId: string; text: string } | null>(null);
   /* A save inside the list has nothing else on screen to prove it worked, and
      the "Saved" sheet's Open Person Profile would take the reader off the
      list they are working. One short line instead (the USA-246 pattern). */
@@ -40904,6 +41056,32 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
   /* People who are past due or due today -- the number on the People control,
      counted the same way the list's first two filters count. */
   const accountabilityPeopleNeedingAttention = checkInPeopleCounts.due_today + checkInPeopleCounts.past_due;
+  /* What this person has stopped: the reminder is off, the record and its
+     history are not. Rendered only inside the person, never on Home. */
+  const stoppedAccountabilityItems = useMemo<StoppedAccountabilityItem[]>(() => {
+    if (!accountabilityPersonId) {
+      return [];
+    }
+
+    return [
+      ...data.accountabilitySchedules
+        .filter((schedule) => schedule.personId === accountabilityPersonId && schedule.status === "stopped")
+        .map((schedule) => ({
+          id: `schedule-${schedule.id}`,
+          kind: "schedule" as const,
+          sourceId: schedule.id,
+          title: resourceAssignmentFollowUpScheduleDisplayTitle(schedule.title),
+        })),
+      ...data.commitments
+        .filter((commitment) => commitment.personId === accountabilityPersonId && commitment.status === "cancelled")
+        .map((commitment) => ({
+          id: `commitment-${commitment.id}`,
+          kind: "commitment" as const,
+          sourceId: commitment.id,
+          title: commitment.title,
+        })),
+    ];
+  }, [accountabilityPersonId, data.accountabilitySchedules, data.commitments]);
   const accountabilityPerson = useMemo(
     () => checkInPeopleAll.find((person) => person.personId === accountabilityPersonId) ?? null,
     [accountabilityPersonId, checkInPeopleAll],
@@ -41074,8 +41252,10 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
     ...todayCheckInPeople.map((person) => ({
       icon: <ClipboardCheck aria-hidden="true" className="h-4 w-4" strokeWidth={2} />,
       id: `check-in-${person.personId}`,
-      /* A count of check-ins, never of what they are about. */
-      meta: person.itemCountLabel ?? "",
+      /* Only what is due TODAY, because this line is about today. A person
+         with one due today and two past due is one check-in here; the
+         Accountability section below still shows all three. */
+      meta: person.dueTodayCountLabel ?? "",
       onClick: () => openAccountabilityPerson(person),
       title: `Check in with ${person.personName}`,
     })),
@@ -43449,49 +43629,71 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
     setAccountabilityPersonId(person.personId);
   }
 
-  /* Moving the next check-in, and stopping a rhythm that no longer fits.
-     Both go through the existing schedule endpoint: a rescheduled rhythm
-     keeps its cadence and only its next date moves, and a paused one keeps
-     every check-in ever recorded under it -- it simply stops asking. */
-  async function submitAccountabilityReschedule(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  /* Stopping a reminder.
 
-    if (!rescheduleSchedule) {
-      return;
-    }
+     "Stop reminding me about this" -- and nothing more. Nothing is deleted,
+     no goal is marked achieved, and no Journey, assignment or milestone is
+     completed or ended: a schedule moves to the 'stopped' state the Journey
+     sync leaves alone, and a one-time goal is cancelled, which is not
+     completed. Every check-in ever recorded under it stays on the record.
 
-    const nextCheckIn = String(new FormData(event.currentTarget).get("next_check_in") ?? "").trim();
-
-    if (!nextCheckIn) {
-      setErrorMessage("Choose the next check-in date.");
-      return;
-    }
-
+     It is reversible while the confirmation is on screen, and afterwards from
+     the person's own Stopped list, so a mis-tap costs a tap. */
+  async function stopAccountabilityRow(row: AccountabilityCheckInRow) {
+    const isCommitment = row.kind === "one_time_goal";
     const result = await submitJson(
-      "/api/dos/app/accountability/schedules",
-      { id: rescheduleSchedule.id, nextCheckIn },
-      "PATCH",
-      false,
-    );
-
-    if (result) {
-      setRescheduleSchedule(null);
-      announceAccountabilitySaved(rescheduleSchedule.personId, "Check-in rescheduled.");
-    }
-  }
-
-  async function toggleAccountabilitySchedulePause(schedule: DosAppAccountabilitySchedule) {
-    const paused = schedule.status === "paused";
-    const result = await submitJson(
-      "/api/dos/app/accountability/schedules",
-      { id: schedule.id, status: paused ? "active" : "paused" },
+      isCommitment ? "/api/dos/app/commitments" : "/api/dos/app/accountability/schedules",
+      { id: row.sourceId, status: isCommitment ? "cancelled" : "stopped" },
       "PATCH",
       false,
     );
 
     if (result) {
       setCommitmentSheet(null);
-      announceAccountabilitySaved(schedule.personId, paused ? "Check-in resumed." : "Check-in paused.");
+      setAccountabilityUndo({
+        kind: isCommitment ? "commitment" : "schedule",
+        sourceId: row.sourceId,
+        text: "Reminder stopped.",
+      });
+    }
+  }
+
+  async function restartAccountabilityItem(item: { kind: "commitment" | "schedule"; sourceId: string }) {
+    const result = await submitJson(
+      item.kind === "commitment" ? "/api/dos/app/commitments" : "/api/dos/app/accountability/schedules",
+      { id: item.sourceId, status: "active" },
+      "PATCH",
+      false,
+    );
+
+    if (result) {
+      setAccountabilityUndo(null);
+    }
+  }
+
+  /* The row's named action, straight into the existing form for that item --
+     the same form the item's own record opens, so there is one way to record
+     a check-in and one place it is written. */
+  /* Check in, from a row: one destination for every kind of item.
+     A measurable goal used to jump straight to its own specialised form, so
+     the same word on two rows did two different things. The check-in flow
+     opens for all of them and offers "Add person" or "Add progress" inside
+     itself when the goal counts something. */
+  function openCheckInRowAction(row: AccountabilityCheckInRow) {
+    if (row.kind === "one_time_goal") {
+      const commitment = data.commitments.find((candidate) => candidate.id === row.sourceId);
+
+      if (commitment) {
+        openPersonAccountabilityCheckIn(row.personId, null, commitment);
+      }
+
+      return;
+    }
+
+    const schedule = data.accountabilitySchedules.find((candidate) => candidate.id === row.sourceId);
+
+    if (schedule) {
+      openPersonAccountabilityCheckIn(row.personId, schedule, null);
     }
   }
 
@@ -44579,15 +44781,23 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
       };
   }
 
-  function accountabilitySchedulePayload(formData: FormData, prefix: string) {
+  /* `isEdit` decides two things the create path does not have to think about.
+     A saved reminder keeps whatever status it is in -- an edit is not a way to
+     restart a stopped one, and re-asserting "active" here would quietly undo a
+     Stop. And the next date is the user's own answer when they gave one:
+     without it the API re-derives the next occurrence from the cadence, which
+     is what an untouched date field should mean. */
+  function accountabilitySchedulePayload(formData: FormData, prefix: string, isEdit = false) {
     const frequency = String(formData.get(`${prefix}_frequency`) ?? "weekly");
     const date = String(formData.get(`${prefix}_date`) ?? "");
+    const nextCheckIn = String(formData.get(`${prefix}_next_check_in`) ?? "").trim();
 
     return {
       frequency,
       startDate: date,
-      status: "active",
       title: String(formData.get(`${prefix}_title`) ?? "").trim(),
+      ...(isEdit ? {} : { status: "active" }),
+      ...(isEdit && /^\d{4}-\d{2}-\d{2}$/.test(nextCheckIn) ? { nextCheckIn } : {}),
     };
   }
 
@@ -44608,7 +44818,7 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
         : {
           // Day of week is derived from the start date by the API and status
           // defaults to active -- neither is worth a control in the form.
-          ...accountabilitySchedulePayload(formData, "accountability"),
+          ...accountabilitySchedulePayload(formData, "accountability", Boolean(id)),
           id,
           personId,
         },
@@ -49354,34 +49564,49 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
             dropping the reader back to where they started. */}
         {accountabilityPerson ? (
           <PersonAccountabilitySheet
+            onAdd={() => openCommitmentCreate(accountabilityPerson.personId)}
+            onCheckIn={(row) => openCheckInRowAction(row)}
             onClose={() => setAccountabilityPersonId(null)}
             onOpenItem={openCheckInRow}
+            onRestart={(item) => void restartAccountabilityItem(item)}
+            onStop={(row) => void stopAccountabilityRow(row)}
             person={accountabilityPerson}
+            stoppedItems={stoppedAccountabilityItems}
           />
         ) : null}
 
-        {rescheduleSchedule ? (
-          <Sheet kind="editable" onClose={() => setRescheduleSchedule(null)} showEyebrow={false} title="Reschedule check-in">
-            <form className="grid gap-4" onSubmit={submitAccountabilityReschedule}>
-              <DosFormField label="Next check-in">
-                <input
-                  className={FieldInputClass(false)}
-                  defaultValue={rescheduleSchedule.nextCheckIn ?? todayCommitmentDateKey()}
-                  name="next_check_in"
-                  required
-                  type="date"
-                />
-              </DosFormField>
-              <p className="text-dos-meta text-dos-secondary">
-                The cadence stays as it is. Only the next date moves.
-              </p>
-              {errorMessage ? <p className="rounded-xl bg-[#FEF2F2] px-3 py-2 text-[13px] font-semibold text-[#B42318]">{errorMessage}</p> : null}
-              <div className="grid gap-2">
-                <AppButton disabled={isSubmitting} icon="calendar" tone="black" type="submit">{isSubmitting ? "Saving..." : "Save"}</AppButton>
-                <AppButton disabled={isSubmitting} onClick={() => setRescheduleSchedule(null)} tone="white">Cancel</AppButton>
+        {/* Stopping is quick, and quick to take back: the confirmation
+            carries the way out, and the person's own Stopped list carries it
+            afterwards. It sits above the sheets because a stop closes the
+            item it was asked from. */}
+        {accountabilityUndo ? (
+          <div className="fixed inset-x-0 bottom-[calc(env(safe-area-inset-bottom)+5.5rem)] z-[1200] flex justify-center px-4 md:bottom-8">
+            <div
+              aria-live="polite"
+              className="flex min-h-12 w-full max-w-md items-center justify-between gap-3 rounded-dos-3 border border-dos-line bg-white px-4 shadow-[0_18px_45px_rgba(42,37,29,0.14)]"
+              role="status"
+            >
+              <span className="min-w-0 truncate text-dos-label font-semibold text-dos-primary">{accountabilityUndo.text}</span>
+              <div className="flex shrink-0 items-center gap-1">
+                <button
+                  className="flex min-h-9 items-center rounded-dos-3 px-3 text-dos-label font-semibold text-dos-blueText transition-colors hover:bg-dos-blue50 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+                  disabled={isSubmitting}
+                  onClick={() => void restartAccountabilityItem(accountabilityUndo)}
+                  type="button"
+                >
+                  Undo
+                </button>
+                <button
+                  aria-label="Dismiss"
+                  className="flex min-h-9 w-9 items-center justify-center rounded-dos-3 text-dos-secondary transition-colors hover:bg-dos-surface2 focus:outline-none focus-visible:ring-2 focus-visible:ring-dos-blue"
+                  onClick={() => setAccountabilityUndo(null)}
+                  type="button"
+                >
+                  <X aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
+                </button>
               </div>
-            </form>
-          </Sheet>
+            </div>
+          </div>
         ) : null}
 
         {/* USA-282 follow-up: deleting an accountability record asks first, in
@@ -49592,6 +49817,9 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
             errorMessage={errorMessage}
             isSubmitting={isSubmitting}
             onClose={() => setCommitmentSheet(null)}
+            nextCheckIn={checkInRows.find((row) => (
+              row.kind !== "one_time_goal" && row.sourceId === commitmentSheet.schedule?.id
+            ))?.dueDate ?? null}
             onSubmit={handleAccountabilityScheduleSubmit}
             person={people.find((person) => person.id === commitmentSheet.personId) as DosAppPerson}
             schedule={commitmentSheet.schedule ?? null}
@@ -49603,6 +49831,12 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
           const commitment = record.commitment ?? null;
           const schedule = record.schedule ?? null;
           const journeyCopy = journeyFollowUpSheetCopy(checkInRows, schedule);
+          /* The same row the lists show, so Stop here and Stop there are one
+             operation on one record. */
+          const itemRow = checkInRows.find((candidate) => (
+            schedule ? candidate.kind !== "one_time_goal" && candidate.sourceId === schedule.id
+              : Boolean(commitment) && candidate.kind === "one_time_goal" && candidate.sourceId === commitment?.id
+          )) ?? null;
           const progressKind: AccountabilityProgressKind = schedule
             ? "check_in"
             : commitment
@@ -49625,13 +49859,14 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
               confirmedSubjects={commitment ? accountabilityConfirmedSubjects(commitment.updates) : []}
               /* Journey follow-ups are written by DOS, not by a leader. */
               isSystemGenerated={Boolean(schedule && parseResourceAssignmentFollowUpScheduleTitle(schedule.title))}
+              /* The date the list showed, not the stored one: a rhythm missed
+                 for weeks reads as its current occurrence everywhere, or the
+                 item a leader opened would contradict the row they tapped. */
               meta={journeyCopy?.meta ?? (schedule
-                ? `${accountabilityFrequencyLabels[schedule.frequency]} · Next ${formatDate(schedule.nextCheckIn)}`
+                ? `${accountabilityFrequencyLabels[schedule.frequency]} · Next ${formatDate(itemRow?.dueDate ?? schedule.nextCheckIn)}`
                 : commitment
                   ? accountabilityProgressLabel(commitment) ?? (commitment.targetDate ? `Due ${formatDate(commitment.targetDate)}` : "")
                   : "")}
-              onAddPerson={commitment ? () => openCommitmentSubject(commitment) : undefined}
-              onAddProgress={commitment ? () => openPersonAccountabilityProgress(commitment) : undefined}
               onCheckIn={() => openPersonAccountabilityCheckIn(record.personId, schedule, commitment)}
               onClose={() => setCommitmentSheet(null)}
               onDelete={schedule
@@ -49644,9 +49879,7 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
                 : commitment
                   ? () => openPersonAccountabilityEdit(commitment)
                   : undefined}
-              onPause={schedule ? () => void toggleAccountabilitySchedulePause(schedule) : undefined}
-              onReschedule={schedule ? () => setRescheduleSchedule(schedule) : undefined}
-              pauseLabel={schedule?.status === "paused" ? "Resume" : "Pause"}
+              onStop={itemRow ? () => void stopAccountabilityRow(itemRow) : undefined}
               progressKind={progressKind}
               recentProgress={recentProgress}
               title={journeyCopy?.title ?? (schedule ? resourceAssignmentFollowUpScheduleDisplayTitle(schedule.title) : commitment?.title ?? "Accountability")}
@@ -49666,6 +49899,14 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
 
         {commitmentSheet?.kind === "person_check_in" ? (() => {
           const journeyCopy = journeyFollowUpSheetCopy(checkInRows, commitmentSheet.schedule);
+          /* A rhythm records a conversation; a measurable goal also counts
+             people or occurrences, and that is what the flow offers inside
+             itself. Read from the commitment, the same way the item's own
+             record reads it. */
+          const checkInSheetCommitment = commitmentSheet.commitment ?? null;
+          const checkInSheetProgressKind: AccountabilityProgressKind = commitmentSheet.schedule || !checkInSheetCommitment
+            ? "check_in"
+            : accountabilityProgressKind(checkInSheetCommitment);
 
           return (
             <PersonAccountabilityCheckInSheet
@@ -49673,12 +49914,21 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
               errorMessage={errorMessage}
               isSubmitting={isSubmitting}
               meta={journeyCopy?.meta ?? (commitmentSheet.schedule
-                ? `${accountabilityFrequencyLabels[commitmentSheet.schedule.frequency]} · Next ${formatDate(commitmentSheet.schedule.nextCheckIn)}`
+                ? `${accountabilityFrequencyLabels[commitmentSheet.schedule.frequency]} · Next ${formatDate(
+                  checkInRows.find((row) => row.kind !== "one_time_goal" && row.sourceId === commitmentSheet.schedule?.id)?.dueDate
+                    ?? commitmentSheet.schedule.nextCheckIn,
+                )}`
                 : commitmentSheet.commitment?.targetDate
                   ? `Due ${formatDate(commitmentSheet.commitment.targetDate)}`
                   : "")}
               onClose={() => setCommitmentSheet(null)}
+              onSpecificProgress={checkInSheetCommitment
+                ? checkInSheetProgressKind === "people"
+                  ? () => openCommitmentSubject(checkInSheetCommitment)
+                  : () => openPersonAccountabilityProgress(checkInSheetCommitment)
+                : undefined}
               onSubmit={handlePersonAccountabilityCheckInSubmit}
+              progressKind={checkInSheetProgressKind}
               schedule={commitmentSheet.schedule}
               title={journeyCopy?.title ?? (commitmentSheet.schedule
                 ? resourceAssignmentFollowUpScheduleDisplayTitle(commitmentSheet.schedule.title)
