@@ -6,8 +6,10 @@ import { getDosLaunchWorkspaces, getDosWorkspaceAccess, type DosAuthorization } 
 import {
   buildDosAccessRequestAdminNotification,
   buildDosWelcomeEmail,
+  buildDosWelcomeEmailV2,
   dosEmailFrom,
   dosSupportEmail,
+  type DosWelcomeEmailInput,
 } from "@/src/lib/dos/access-request-email";
 import {
   answersForRequestType,
@@ -1379,6 +1381,7 @@ async function sendDosWelcomeEmail({
   const template = buildDosWelcomeEmail({
     accountState: outcome.authUser?.state === "created" ? "created" : "existing",
     firstName: row.first_name,
+    linkedExistingWorkspace: Boolean(outcome.linkedExistingWorkspace),
     organizationName: row.organization_name,
     requestType: row.request_type,
     workspaceName: outcome.workspaceName ?? `${row.first_name} ${row.last_name}`.trim(),
@@ -1415,4 +1418,111 @@ async function sendDosWelcomeEmail({
     .eq("id", row.id);
 
   return result.sent ? {} : { error: errorMessage ?? "Unknown email error." };
+}
+
+/* ------------------------------------------------- welcome email preview */
+
+export type DosWelcomeEmailPreviewVariant = "new" | "existing";
+
+/** What the welcome email says for an approved request, or for a sample recipient. */
+export function dosWelcomeEmailInputFor(row: DosAccessRequestRow | null, variant: DosWelcomeEmailPreviewVariant): DosWelcomeEmailInput {
+  if (row) {
+    const outcome = outcomeFrom(row);
+
+    return {
+      accountState: outcome.authUser?.state === "created" ? "created" : "existing",
+      firstName: row.first_name,
+      linkedExistingWorkspace: Boolean(outcome.linkedExistingWorkspace),
+      organizationName: row.organization_name,
+      requestType: row.request_type,
+      workspaceName: outcome.workspaceName ?? `${row.first_name} ${row.last_name}`.trim(),
+      workspaceSlug: row.provisioned_workspace_slug ?? outcome.householdSlug ?? "",
+    };
+  }
+
+  return {
+    accountState: variant === "new" ? "created" : "existing",
+    firstName: "Jordan",
+    linkedExistingWorkspace: variant === "existing",
+    organizationName: null,
+    requestType: "individual",
+    workspaceName: "Jordan Hale",
+    workspaceSlug: "",
+  };
+}
+
+/**
+ * Sends the redesigned welcome email to the signed-in reviewer only, marked
+ * [Test]. It uses an approved request's details when one is given, so the
+ * button opens that real workspace, but it writes nothing to the request or
+ * its email attempts and never emails the applicant.
+ */
+export async function sendDosWelcomeEmailTest({
+  authorization,
+  requestId,
+  variant,
+}: {
+  authorization: OperationsAuthorization;
+  requestId: string | null;
+  variant: DosWelcomeEmailPreviewVariant;
+}): Promise<DosAccessDecisionResult> {
+  if (!canDecideDosAccessRequests(authorization) || authorization.status !== "authorized") {
+    return { error: "Only an Operations admin can send a test welcome email." };
+  }
+
+  let row: DosAccessRequestRow | null = null;
+
+  if (requestId) {
+    if (!/^[0-9a-f-]{36}$/i.test(requestId)) {
+      return { error: "That request could not be found." };
+    }
+
+    const supabase = createSupabaseAdminClient();
+    const { data, error } = await supabase.from(requestTable).select("*").eq("id", requestId).maybeSingle();
+
+    if (error || !data) {
+      return { error: error?.message ?? "That request could not be found." };
+    }
+
+    row = data as DosAccessRequestRow;
+
+    if (row.access_status !== "ready") {
+      return { error: "Test sends use approved requests whose access is ready." };
+    }
+  }
+
+  const template = buildDosWelcomeEmailV2(dosWelcomeEmailInputFor(row, variant));
+  const result = await sendResendEmail(authorization.email, { ...template, subject: `[Test] ${template.subject}` }, {
+    from: dosEmailFrom(),
+    idempotencyKey: `dos-welcome-test-${randomUUID()}`,
+    replyTo: dosSupportEmail(),
+  });
+
+  if (!result.sent) {
+    return {
+      error: result.skippedReason === "missing_resend_api_key"
+        ? "RESEND_API_KEY is not configured on this deployment."
+        : [result.error, result.errorDetail].filter(Boolean).join(" · ") || "The test email could not be sent.",
+    };
+  }
+
+  return { message: `Test sent to ${authorization.email} at ${new Date().toISOString()} (Resend id ${result.id ?? "not returned"}).` };
+}
+
+
+/** Approved requests with ready access, newest first, for the welcome email preview. */
+export async function listDosWelcomeEmailPreviewRequests(authorization: OperationsAuthorization) {
+  if (!canViewDosAccessRequests(authorization) || !isSupabaseAdminConfigured()) {
+    return [] as DosAccessRequestRow[];
+  }
+
+  const supabase = createSupabaseAdminClient();
+  const { data } = await supabase
+    .from(requestTable)
+    .select("*")
+    .eq("access_status", "ready")
+    .order("decided_at", { ascending: false })
+    .limit(20);
+
+  return (data ?? []) as DosAccessRequestRow[];
 }
