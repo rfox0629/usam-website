@@ -76,8 +76,8 @@ The DOS sign-in page (`/login?next=/dos…`) now offers **Email me a sign-in lin
 
 ## Deploying
 
-1. Apply `supabase/migrations/20260925170000_usa_289_dos_access_requests.sql`. It needs founder approval under repo rules; the rollback file sits next to it.
-   - **Until it is applied,** submissions are saved to `form_submissions` as DOS Walkthrough rows carrying the reference code, so none are lost. They appear in the inbox but cannot be approved from Operations.
+1. **Applied to production 2026-09-25** (after founder approval) as Supabase version `20260925174009`. The file is named to match that version, so local and remote history agree. The rollback file sits next to it.
+   - **Before it was applied,** submissions fell back to `form_submissions` as DOS Walkthrough rows carrying the reference code. That fallback stays in the code as a safety net.
 2. Merge the PR and let Vercel deploy.
 3. Submit a test request, approve it in Operations, and confirm the email arrives in a real inbox.
 
