@@ -1,0 +1,137 @@
+{
+  "generated_from_commit": "local",
+  "files_scanned": 454,
+  "edges_total": 786,
+  "intra_domain": 493,
+  "into_shared_platform": 216,
+  "from_unclassified": 30,
+  "to_unclassified": 2,
+  "shared_platform_leaking_out": 0,
+  "cross_domain_total": 45,
+  "cross_domain": {
+    "dos-app -> organization-platform": {
+      "count": 2,
+      "files": [
+        "app/api/dos/portal/workspaces/route.ts -> src/lib/admin/organization-shared.ts",
+        "src/components/dos/WorkspaceV2Shell.tsx -> src/lib/admin/organization-shared.ts"
+      ]
+    },
+    "dos-app -> usam-public-web": {
+      "count": 1,
+      "files": [
+        "src/lib/prayer/email.ts -> src/data/missionaries.ts"
+      ]
+    },
+    "organization-platform -> transitional-or-unclear": {
+      "count": 12,
+      "files": [
+        "app/admin/finance/page.tsx -> app/admin/_components/OperationsInboxPage.tsx",
+        "app/admin/organizations/OrganizationsClient.tsx -> app/admin/_components/AdminUI.tsx",
+        "app/admin/organizations/[id]/UsamOrganizationHubClient.tsx -> app/admin/_components/AdminUI.tsx",
+        "app/admin/organizations/[id]/page.tsx -> app/admin/_components/AdminShell.tsx",
+        "app/admin/organizations/[id]/page.tsx -> app/admin/_components/AdminUI.tsx",
+        "app/admin/organizations/page.tsx -> app/admin/_components/AdminShell.tsx",
+        "app/admin/organizations/page.tsx -> app/admin/_components/AdminUI.tsx",
+        "app/admin/people/[id]/page.tsx -> app/admin/_components/AdminShell.tsx",
+        "app/admin/people/[id]/page.tsx -> app/admin/_components/AdminUI.tsx",
+        "app/admin/workspaces/[id]/preview/page.tsx -> app/admin/_components/AdminShell.tsx",
+        "app/admin/workspaces/[id]/preview/page.tsx -> app/admin/_components/AdminUI.tsx",
+        "src/lib/admin/organization-data.ts -> src/lib/admin/workspace-index.ts"
+      ]
+    },
+    "transitional-or-unclear -> dos-app": {
+      "count": 10,
+      "files": [
+        "app/admin/missionary-profiles/MissionaryProfilesAdminDashboard.tsx -> src/lib/dos/guide-resources.ts",
+        "app/admin/missionary-profiles/MissionaryProfilesAdminDashboard.tsx -> src/lib/dos/meeting-display.ts",
+        "app/admin/product-feedback/page.tsx -> src/lib/dos/product-feedback.ts",
+        "app/admin/relationship-intelligence/CircleEngineClient.tsx -> src/lib/dos/circle-scoring.ts",
+        "app/admin/relationship-intelligence/page.tsx -> src/lib/dos/circle-scoring.ts",
+        "app/api/admin/missionary-profiles/applications/[id]/status/route.ts -> src/lib/dos/usam-application.ts",
+        "app/api/admin/missionary-profiles/applications/from-workspace/route.ts -> src/lib/dos/usam-application.ts",
+        "app/review/[token]/page.tsx -> app/dos/review/[token]/page.tsx",
+        "app/testimony/[token]/TestimonyForm.tsx -> src/lib/dos/review-types.ts",
+        "app/testimony/[token]/page.tsx -> app/dos/testimony/[token]/page.tsx"
+      ]
+    },
+    "transitional-or-unclear -> organization-platform": {
+      "count": 2,
+      "files": [
+        "app/admin/_components/OperationsInboxPage.tsx -> app/admin/finance/actions.ts",
+        "app/api/admin/organizations/route.ts -> src/lib/admin/organization-shared.ts"
+      ]
+    },
+    "transitional-or-unclear -> usam-public-web": {
+      "count": 15,
+      "files": [
+        "app/admin/_components/OperationsInboxPage.tsx -> src/lib/missionaries/support-profile-options.ts",
+        "app/admin/_components/OperationsInboxPage.tsx -> src/lib/missionaries/support-profile-types.ts",
+        "app/admin/missionary-profiles/MissionaryProfilesAdminDashboard.tsx -> components/missionaries/SupportMissionButtons.tsx",
+        "app/admin/missionary-profiles/MissionaryProfilesAdminDashboard.tsx -> src/components/missionaries/SupportFlyerPreview.tsx",
+        "app/admin/missionary-profiles/MissionaryProfilesAdminDashboard.tsx -> src/lib/missionaries/location.ts",
+        "app/admin/missionary-profiles/MissionaryProfilesAdminDashboard.tsx -> src/lib/missionaries/profile-image-upload.ts",
+        "app/admin/missionary-profiles/MissionaryProfilesAdminDashboard.tsx -> src/lib/missionaries/public-origin.ts",
+        "app/admin/missionary-profiles/MissionaryProfilesAdminDashboard.tsx -> src/lib/missionaries/support-routing.ts",
+        "app/admin/partners-documents/PartnersDocumentsAdmin.tsx -> src/lib/partners-documents.ts",
+        "app/admin/partners-documents/actions.ts -> src/lib/partners-documents.ts",
+        "app/admin/partners-documents/page.tsx -> src/lib/partners-documents.ts",
+        "app/api/admin/missionary-profiles/generate-cutout/route.ts -> src/lib/missionaries/profile-image-constants.ts",
+        "app/api/admin/missionary-profiles/images/route.ts -> src/lib/missionaries/profile-image-constants.ts",
+        "app/api/admin/missionary-profiles/update/route.ts -> src/lib/missionaries/location.ts",
+        "app/api/admin/missionary-profiles/update/route.ts -> src/lib/missionaries/support-routing.ts"
+      ]
+    },
+    "usam-public-web -> dos-app": {
+      "count": 3,
+      "files": [
+        "app/join/page.tsx -> src/lib/dos/icon-metadata.ts",
+        "app/join/usam/UsamJoinClient.tsx -> src/lib/dos/relationship-model.ts",
+        "app/system/preview/ImproveDosFeedbackModal.tsx -> src/lib/dos/product-feedback.ts"
+      ]
+    }
+  },
+  "circular_dependencies": 0,
+  "unresolved_imports": 0,
+  "top_fan_in": [
+    {
+      "module": "src/lib/supabase/admin.ts",
+      "consumers": 117
+    },
+    {
+      "module": "src/lib/dos/auth.ts",
+      "consumers": 49
+    },
+    {
+      "module": "src/lib/dos/missionary-app.ts",
+      "consumers": 43
+    },
+    {
+      "module": "src/lib/dos/api-auth.ts",
+      "consumers": 36
+    },
+    {
+      "module": "src/lib/admin-auth.ts",
+      "consumers": 35
+    },
+    {
+      "module": "app/admin/_components/AdminShell.tsx",
+      "consumers": 17
+    },
+    {
+      "module": "src/lib/dos/circle-scoring.ts",
+      "consumers": 17
+    },
+    {
+      "module": "components/forms/PublicForm.tsx",
+      "consumers": 17
+    },
+    {
+      "module": "components/PrimaryNav.tsx",
+      "consumers": 17
+    },
+    {
+      "module": "app/admin/_components/AdminUI.tsx",
+      "consumers": 16
+    }
+  ]
+}
