@@ -7,6 +7,8 @@ const browser = await chromium.launch({ executablePath: "/opt/pw-browsers/chromi
 const mobile = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1" };
 const desktop = { viewport: { width: 1440, height: 900 } };
 const shot = (page, name, full = false) => page.screenshot({ path: `${OUT}/${name}.png`, fullPage: full });
+// The form's selects are listbox buttons (USA-289), not native <select>s.
+const choose = async (page, id, option) => { await page.locator(`#dsr-${id}`).click(); await page.locator(`#dsr-${id}-listbox [role=option]`, { hasText: option }).first().click(); };
 const cont = (page) => page.getByRole("button", { name: /^(Continue|Send request)$/ }).click();
 
 // 1. Mobile visitor, individual, with a legacy missionary draft on the device.
@@ -43,7 +45,7 @@ const cont = (page) => page.getByRole("button", { name: /^(Continue|Send request
   await page.fill("#dsr-lastName", "Synthetic");
   await page.fill("#dsr-email", "morgan.usa289@localtest.dev");
   await cont(page);
-  await page.selectOption("#dsr-individualRole", "Small group or Bible study leader");
+  await choose(page, "individualRole", "Small group or Bible study leader");
   await page.fill("#dsr-churchOrCommunity", "Synthetic Community Church");
   await cont(page);
   await page.getByRole("heading", { name: "How do you plan to use DOS?" }).waitFor();
@@ -108,9 +110,9 @@ const cont = (page) => page.getByRole("button", { name: /^(Continue|Send request
   await page.getByText("Add the organization's name.").waitFor();
   await shot(page, "12-desktop-org-validation");
   await page.fill("#dsr-organizationName", "Synthetic Fellowship");
-  await page.selectOption("#dsr-organizationType", "Church");
+  await choose(page, "organizationType", "Church");
   await page.fill("#dsr-organizationRole", "Discipleship Pastor");
-  await page.selectOption("#dsr-expectedUsers", "11–50 people");
+  await choose(page, "expectedUsers", "11–50 people");
   await cont(page);
   await page.getByRole("button", { name: "Equip leaders who disciple others" }).click();
   await cont(page);
@@ -133,7 +135,7 @@ const cont = (page) => page.getByRole("button", { name: /^(Continue|Send request
   await page.fill("#dsr-lastName", "Synthetic");
   await page.fill("#dsr-email", "MORGAN.usa289@localtest.dev");
   await cont(page);
-  await page.selectOption("#dsr-individualRole", "Disciple-maker");
+  await choose(page, "individualRole", "Disciple-maker");
   await cont(page);
   await page.getByRole("button", { name: "Prayer and follow-up" }).click();
   await cont(page);
@@ -157,7 +159,7 @@ const cont = (page) => page.getByRole("button", { name: /^(Continue|Send request
   await page.fill("#dsr-lastName", "Existing");
   await page.fill("#dsr-email", "existing.usa289@localtest.dev");
   await cont(page);
-  await page.selectOption("#dsr-individualRole", "Disciple-maker");
+  await choose(page, "individualRole", "Disciple-maker");
   await cont(page);
   await page.getByRole("button", { name: "Journeys and reading plans" }).click();
   await cont(page);

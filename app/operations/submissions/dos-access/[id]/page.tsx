@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { ReactNode } from "react";
-import { dosAccessRequestStatusLabel, dosAccessRequestTypeLabel } from "@/src/lib/dos/access-request-model";
+import { dosAccessRequestStatusLabel, dosAccessRequestTypeLabel, isAnswerForRequestType } from "@/src/lib/dos/access-request-model";
 import {
   canDecideDosAccessRequests,
   canViewDosAccessRequests,
@@ -29,21 +29,22 @@ import {
 
 export const dynamic = "force-dynamic";
 
+// In the order the form asks them.
 const answerLabels: Record<string, string> = {
-  churchOrCommunity: "Church or community",
+  phone: "Mobile phone",
   city: "City",
+  region: "State or region",
+  individualRole: "Describes them",
+  churchOrCommunity: "Church or community",
+  organizationName: "Organization",
+  organizationType: "Kind of organization",
+  organizationRole: "Their role",
   expectedUsers: "People who would use DOS",
+  organizationWebsite: "Website",
+  primaryUses: "Wants DOS to help with",
   goals: "Anything else",
   heardAbout: "Heard about DOS",
-  individualRole: "Describes them",
   invitedBy: "Invited by",
-  organizationName: "Organization",
-  organizationRole: "Their role",
-  organizationType: "Kind of organization",
-  organizationWebsite: "Website",
-  phone: "Mobile phone",
-  primaryUses: "Wants DOS to help with",
-  region: "State or region",
 };
 
 function FieldBlock({ label, value }: { label: string; value: ReactNode }) {
@@ -93,12 +94,15 @@ function outcomeValue(outcome: Record<string, unknown> | null, key: string) {
   return outcome && typeof outcome === "object" ? outcome[key] : undefined;
 }
 
-function answerRows(answers: Record<string, unknown> | null) {
+function answerRows(answers: Record<string, unknown> | null, requestType: DosAccessRequestRow["request_type"]) {
   if (!answers) {
     return [];
   }
 
+  // Requests stored before path-only answers were cleared can still carry
+  // answers from the path the person abandoned; those are not shown.
   return Object.entries(answerLabels)
+    .filter(([key]) => isAnswerForRequestType(key, requestType))
     .map(([key, label]) => {
       const value = answers[key];
       const text = Array.isArray(value) ? value.join("\n") : typeof value === "string" ? value : "";
@@ -183,7 +187,7 @@ export default async function DosAccessRequestDetailPage({
               <div className="min-w-0 space-y-4">
                 <OperationsPanel title="Answers">
                   <div className="divide-y divide-slate-100">
-                    {answerRows(request.answers).map((row) => (
+                    {answerRows(request.answers, request.request_type).map((row) => (
                       <div className="grid gap-2 py-3 first:pt-0 last:pb-0 md:grid-cols-[minmax(180px,0.42fr)_minmax(0,1fr)]" key={row.label}>
                         <p className="text-sm font-medium leading-6 text-slate-700">{row.label}</p>
                         <p className="whitespace-pre-wrap break-words text-sm leading-6 text-slate-900">{row.value}</p>

@@ -82,6 +82,8 @@ const setupCss = `
   --green:#067647;--green-tint:#ECFDF3;
   background:#fff;color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:1rem;line-height:1.6;
   min-height:100vh;display:flex;flex-direction:column;-webkit-font-smoothing:antialiased;
+  /* Long email addresses wrap instead of running off a phone screen. */
+  overflow-wrap:break-word;
 }
 .dsr *{box-sizing:border-box}
 .dsr a{color:inherit}
