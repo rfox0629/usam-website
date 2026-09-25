@@ -6684,6 +6684,7 @@ function DashboardHeaderAction({
 
 function DesktopSettingsRow({
   description,
+  formAction,
   href,
   icon,
   label,
@@ -6691,6 +6692,8 @@ function DesktopSettingsRow({
   onClick,
 }: {
   description?: string;
+  /** POSTs a plain form to this URL (used for Sign out, which must never be a GET link). */
+  formAction?: string;
   href?: string;
   icon: ReactNode;
   label: string;
@@ -6707,10 +6710,20 @@ function DesktopSettingsRow({
         {description ? <span className="mt-0.5 block truncate text-xs font-medium text-[#64748B]">{description}</span> : null}
       </span>
       {meta ? <span className="shrink-0 text-xs font-bold text-[#64748B]">{meta}</span> : null}
-      {onClick || href ? <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} /> : null}
+      {onClick || href || formAction ? <ChevronRight className="h-4 w-4 shrink-0 text-[#94A3B8]" aria-hidden="true" strokeWidth={1.9} /> : null}
     </>
   );
   const className = "flex min-h-[58px] min-w-0 items-center gap-3 rounded-[18px] border border-[#EAF2FF] bg-[#F8FBFF] px-3 py-2.5 text-left transition-colors hover:border-[#BFDBFE] hover:bg-white";
+
+  if (formAction) {
+    return (
+      <form action={formAction} className="min-w-0" method="post">
+        <button className={`${className} w-full`} type="submit">
+          {content}
+        </button>
+      </form>
+    );
+  }
 
   if (href) {
     return (
@@ -7039,7 +7052,7 @@ function DesktopSettingsProfileView({
             <div className="grid gap-2">
               <DesktopSettingsRow
                 description="End this DOS session."
-                href="/api/access/logout"
+                formAction="/api/access/logout"
                 icon={<LogOut className="h-4 w-4" aria-hidden="true" strokeWidth={1.9} />}
                 label="Sign out"
               />
@@ -16733,10 +16746,13 @@ function ProfileSheet({
         </ProfileGroup>
 
         <footer className="pb-1 pt-1 text-center">
-          <Link className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-[#64748B] transition-colors hover:bg-white" href="/api/access/logout">
-            <LogOut className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
-            Sign out
-          </Link>
+          {/* Sign out is a POST form: a GET link here returned HTTP 405 and could be prefetched. */}
+          <form action="/api/access/logout" method="post">
+            <button className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold text-[#64748B] transition-colors hover:bg-white" type="submit">
+              <LogOut className="h-3.5 w-3.5" aria-hidden="true" strokeWidth={1.9} />
+              Sign out
+            </button>
+          </form>
           <p className="mt-1 text-[10px] font-semibold text-[#94A3B8]">DOS v0.4.2</p>
         </footer>
       </div>

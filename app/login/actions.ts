@@ -1,7 +1,8 @@
 "use server";
 
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { isDosNextPath, RESET_NEXT_COOKIE_NAME } from "@/src/lib/auth/reset-next";
 import { createSupabaseServerClient, isSupabaseServerConfigured } from "@/src/lib/supabase/server";
 
 function getString(formData: FormData, name: string) {
@@ -96,13 +97,16 @@ export async function signInAdmin(formData: FormData) {
 
 export async function requestPasswordReset(formData: FormData) {
   const email = getString(formData, "reset_email").toLowerCase();
+  const rawNext = getString(formData, "next");
+  const nextPath = rawNext ? safeNextPath(rawNext) : "";
+  const nextQuery = nextPath ? `&next=${encodeURIComponent(nextPath)}` : "";
 
   if (!email || !email.includes("@")) {
-    redirect("/login?error=reset-missing");
+    redirect(`/login?error=reset-missing${nextQuery}`);
   }
 
   if (!isSupabaseServerConfigured()) {
-    redirect("/login?error=config");
+    redirect(`/login?error=config${nextQuery}`);
   }
 
   const origin = await requestOrigin();
@@ -112,10 +116,22 @@ export async function requestPasswordReset(formData: FormData) {
   });
 
   if (error) {
-    redirect(`/login?error=${encodeURIComponent("reset-failed")}`);
+    redirect(`/login?error=${encodeURIComponent("reset-failed")}${nextQuery}`);
   }
 
-  redirect("/login?reset=email-sent");
+  if (nextPath && isDosNextPath(nextPath)) {
+    const cookieStore = await cookies();
+
+    cookieStore.set(RESET_NEXT_COOKIE_NAME, nextPath, {
+      httpOnly: true,
+      maxAge: 60 * 60,
+      path: "/",
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    });
+  }
+
+  redirect(`/login?reset=email-sent${nextQuery}`);
 }
 
 export async function requestMagicLink(formData: FormData) {

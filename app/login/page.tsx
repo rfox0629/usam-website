@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
+import { isDosNextPath, RESET_NEXT_COOKIE_NAME } from "@/src/lib/auth/reset-next";
 import { requestMagicLink, requestPasswordReset, signInAdmin } from "./actions";
 
 export const metadata: Metadata = {
@@ -34,15 +36,25 @@ function isDosPath(path: string) {
 export default async function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; magic?: string; next?: string; reset?: string }>;
+  searchParams: Promise<{ error?: string; magic?: string; next?: string; reset?: string; signedOut?: string }>;
 }) {
   const params = await searchParams;
-  const nextPath = params.next?.startsWith("/") && !params.next.startsWith("//")
-    ? params.next
+  // After a DOS password reset, /update-password returns here without `next`;
+  // the reset request left a short-lived cookie naming the DOS destination.
+  const resetNext = params.reset === "success" && !params.next
+    ? (await cookies()).get(RESET_NEXT_COOKIE_NAME)?.value
+    : undefined;
+  const requestedNext = params.next ?? (resetNext && isDosNextPath(resetNext) ? resetNext : undefined);
+  const nextPath = requestedNext?.startsWith("/") && !requestedNext.startsWith("//")
+    ? requestedNext
     : "/admin";
   const isDosLogin = isDosPath(nextPath);
+  const dosErrors: Record<string, string> = {
+    "magic-missing": "Enter your email address.",
+    "reset-missing": "Enter your email address.",
+  };
   const error = params.error
-    ? errors[params.error] ?? "We could not complete that sign-in link. Request a new link and try again."
+    ? (isDosLogin ? dosErrors[params.error] : undefined) ?? errors[params.error] ?? "We could not complete that sign-in link. Request a new link and try again."
     : undefined;
   const success = params.reset === "success"
     ? "Your password has been updated. Sign in with your new password."
@@ -50,7 +62,9 @@ export default async function LoginPage({
       ? "If that account exists, a password reset email is on the way."
       : params.magic === "email-sent"
         ? "If that account exists, a magic sign-in link is on the way."
-        : undefined;
+        : params.signedOut === "1"
+          ? "You are signed out."
+          : undefined;
 
   return (
     <main className={`min-h-screen px-6 py-16 ${
@@ -134,6 +148,67 @@ export default async function LoginPage({
             Sign In
           </button>
         </form>
+
+        {isDosLogin ? (
+          <>
+            <div className="mt-8 border-t border-[#E2E8F0] pt-6">
+              <h2 className="text-base font-semibold text-[#0F172A]">Email me a sign-in link</h2>
+              <p className="mt-2 text-sm leading-6 text-[#475569]">
+                New to DOS, or no password yet? We&apos;ll email a link that signs you in. Open it on this device.
+              </p>
+              <form action={requestMagicLink} className="mt-4 space-y-3">
+                <input name="next" type="hidden" value={nextPath} />
+                <label className="block">
+                  <span className="text-[11px] uppercase tracking-[0.2em] text-[#64748B]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Email
+                  </span>
+                  <input
+                    autoComplete="email"
+                    className="mt-2 min-h-12 w-full rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[#0F172A] outline-none transition-colors focus:border-[#2563EB] focus:bg-white"
+                    name="magic_email"
+                    required
+                    type="email"
+                  />
+                </label>
+                <button
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-6 py-3 text-xs uppercase tracking-[0.2em] text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="submit"
+                >
+                  Send sign-in link
+                </button>
+              </form>
+            </div>
+            <details className="mt-6 border-t border-[#E2E8F0] pt-5">
+              <summary className="cursor-pointer text-sm font-semibold text-[#1D4ED8]">Set or reset password</summary>
+              <form action={requestPasswordReset} className="mt-4 space-y-3">
+                <input name="next" type="hidden" value={nextPath} />
+                <label className="block">
+                  <span className="text-[11px] uppercase tracking-[0.2em] text-[#64748B]" style={{ fontFamily: font.rajdhani, fontWeight: 700 }}>
+                    Email
+                  </span>
+                  <input
+                    autoComplete="email"
+                    className="mt-2 min-h-12 w-full rounded-2xl border border-[#E2E8F0] bg-[#F8FAFC] px-4 text-[#0F172A] outline-none transition-colors focus:border-[#2563EB] focus:bg-white"
+                    name="reset_email"
+                    required
+                    type="email"
+                  />
+                </label>
+                <button
+                  className="inline-flex min-h-12 w-full items-center justify-center rounded-full border border-[#BFDBFE] bg-white px-6 py-3 text-xs uppercase tracking-[0.2em] text-[#1D4ED8] transition-colors hover:bg-[#EBF2FF]"
+                  style={{ fontFamily: font.rajdhani, fontWeight: 700 }}
+                  type="submit"
+                >
+                  Email me a password link
+                </button>
+              </form>
+            </details>
+            <p className="mt-6 text-sm text-[#475569]">
+              Don&apos;t have DOS yet? <a className="font-semibold text-[#1D4ED8] underline" href="/dos/setup">Request access</a>
+            </p>
+          </>
+        ) : null}
 
         {!isDosLogin ? (
           <>

@@ -165,7 +165,7 @@ export function DosPortalClient({
             Create your personal workspace and begin walking with people.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
-            <a className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#2563EB] px-6 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] transition hover:bg-[#1D4ED8]" href="#get-started">
+            <a className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#2563EB] px-6 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] transition hover:bg-[#1D4ED8]" href="/dos/setup">
               Get Started
             </a>
             <Link className="inline-flex min-h-12 items-center justify-center rounded-full border border-[#E2E8F0] bg-white px-6 text-sm font-semibold text-[#0F172A] transition hover:border-[#2563EB]" href="/login?next=/dos">
@@ -293,6 +293,9 @@ export function DosPortalClient({
               <button className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[#2563EB] px-5 text-sm font-semibold text-white shadow-[0_16px_34px_rgba(37,99,235,0.24)] transition hover:bg-[#1D4ED8]" type="submit">
                 Sign In to Continue
               </button>
+              <p className="text-center text-sm text-[#64748B]">
+                New to DOS? <Link className="font-semibold text-[#2563EB] underline" href="/dos/setup">Request access</Link>
+              </p>
             </form>
           )}
         </section>

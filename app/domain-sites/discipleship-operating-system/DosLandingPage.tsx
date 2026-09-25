@@ -4,6 +4,10 @@ import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 
 import { getString, submitPublicForm } from "@/components/forms/submitPublicForm";
 
 const USAM_URL = "https://usamissionaries.org";
+// USA-289: the DOS access request lives on usamissionaries.org, where the DOS
+// app and its sign-in are hosted. Absolute, because this page is served from
+// discipleshipoperatingsystem.com.
+const DOS_SETUP_URL = `${USAM_URL}/dos/setup`;
 const DOS_MARKETING_SOURCE = "dos_marketing";
 
 const interestOptions = [
@@ -558,10 +562,7 @@ export function DosLandingPage() {
               <span className="attrib">An initiative of <a href={USAM_URL}>USA Missionaries</a></span>
             </div>
           </div>
-          <button className="btn btn-primary sm" onClick={openRequestForm} type="button">
-            <span className="cta-long">Request Information</span>
-            <span className="cta-short">Request Info</span>
-          </button>
+          <a className="btn btn-primary sm" href={DOS_SETUP_URL}>Get Started</a>
         </div>
       </header>
 
@@ -573,9 +574,10 @@ export function DosLandingPage() {
               <h1 className="reveal">Never lose a person or a <span className="hl">moment that matters.</span></h1>
               <p className="lede reveal">DOS is one clear, simple place for the people you&apos;re discipling, the prayers you&apos;ve promised, and the rhythms you share, so nothing meaningful slips away.</p>
               <div className="cta-row reveal">
-                <button className="btn btn-primary" onClick={openRequestForm} type="button">Request Information</button>
+                <a className="btn btn-primary" href={DOS_SETUP_URL}>Get Started</a>
+                <button className="btn btn-secondary" onClick={openRequestForm} type="button">Request Information</button>
               </div>
-              <p className="micro reveal">Available by request &middot; No public pricing &middot; No noise</p>
+              <p className="micro reveal">Available by request &middot; Every request reviewed &middot; No noise</p>
             </div>
             <div className="canvas reveal" role="img" aria-label="Illustrations of the kinds of moments DOS helps you keep">
               <div className="moment" style={{ left: "4%", top: "6%" }}>
@@ -719,9 +721,10 @@ export function DosLandingPage() {
             <h2 className="reveal">Built to multiply.</h2>
             <p className="reveal">&quot;Go therefore and make disciples of all nations.&quot; That command is the reason DOS exists: every person remembered, every promise kept, every disciple equipped to make disciples. DOS is not designed to help you become more productive. It is designed to help you faithfully fulfill the Great Commission.</p>
             <div className="cta-row reveal">
-              <button className="btn btn-primary" onClick={openRequestForm} type="button">Request Information</button>
+              <a className="btn btn-primary" href={DOS_SETUP_URL}>Get Started</a>
+              <button className="btn btn-secondary" onClick={openRequestForm} type="button">Request Information</button>
             </div>
-            <p className="micro reveal">No self-service signup &middot; No credit card &middot; A conversation first</p>
+            <p className="micro reveal">Every request reviewed &middot; No credit card &middot; A person reads it first</p>
           </div>
         </section>
       </main>
