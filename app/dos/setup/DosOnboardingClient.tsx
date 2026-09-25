@@ -173,11 +173,25 @@ const setupCss = `
 .dsr .req{color:var(--red);margin-left:.15rem}
 .dsr .control{width:100%;min-height:50px;border:1px solid var(--field);border-radius:0;background:#fff;padding:.7rem .85rem;font:inherit;font-size:1rem;color:var(--ink);outline:none;transition:border-color .15s,box-shadow .15s}
 .dsr textarea.control{min-height:120px;resize:vertical;line-height:1.5}
-.dsr select.control{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px;background-repeat:no-repeat;padding-right:2.4rem}
-.dsr select.control.placeholder{color:var(--muted)}
-.dsr select.control option{color:var(--ink)}
+.dsr .field-label{display:flex;justify-content:space-between;gap:.75rem;font-size:.92rem;font-weight:600;color:var(--ink);margin:0 0 .4rem}
+.dsr .select{position:relative}
+.dsr .select-button{display:flex;align-items:center;justify-content:space-between;gap:.75rem;text-align:left;cursor:pointer}
+.dsr .select-button.placeholder .select-value{color:var(--muted)}
+.dsr .select-value{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dsr .select .chev{flex:none;color:var(--blue-ink);transition:transform .15s}
+.dsr .select.open .chev{transform:rotate(180deg)}
+.dsr .select.open .select-button{border-color:var(--blue-ink);box-shadow:0 0 0 3px rgba(55,138,221,.22)}
+.dsr .listbox{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:40;margin:0;padding:.3rem 0;list-style:none;background:#fff;border:1px solid var(--blue-ink);box-shadow:0 18px 40px rgba(14,24,34,.16);max-height:min(18rem,55vh);overflow-y:auto;outline:none}
+.dsr .select.up .listbox{top:auto;bottom:calc(100% + 4px)}
+.dsr .listbox li{display:flex;align-items:center;justify-content:space-between;gap:.75rem;min-height:46px;padding:.6rem .85rem;font-size:1rem;color:var(--ink);cursor:pointer;line-height:1.35}
+.dsr .listbox li.active{background:var(--blue-tint);color:var(--blue-ink)}
+.dsr .listbox:focus-visible li.active{box-shadow:inset 3px 0 0 var(--blue-ink)}
+.dsr .listbox li[aria-selected="true"]{font-weight:600;color:var(--blue-ink)}
+.dsr .listbox .tick{flex:none;width:6px;height:11px;border:solid var(--blue-ink);border-width:0 2px 2px 0;transform:rotate(45deg) translateY(-2px)}
 .dsr .control:focus{border-color:var(--blue-ink);box-shadow:0 0 0 3px rgba(55,138,221,.22)}
 .dsr .control[aria-invalid="true"]{border-color:var(--red);box-shadow:0 0 0 3px rgba(180,35,24,.12)}
+/* Keyboard focus on a select is stronger than pointer focus, and wins over an error ring. */
+.dsr .control.select-button:focus-visible{outline:none;border-color:var(--blue-ink);box-shadow:0 0 0 3px rgba(55,138,221,.45)}
 .dsr .help{margin-top:.35rem;font-size:.84rem;color:var(--muted)}
 .dsr .err{margin-top:.35rem;font-size:.86rem;font-weight:600;color:var(--red)}
 .dsr .choices{display:grid;gap:.75rem;margin-top:1.6rem}
@@ -436,6 +450,18 @@ function TextField({
   );
 }
 
+/**
+ * DOS select: a button that opens a listbox (WAI-ARIA "select-only combobox").
+ *
+ * Replaces the native <select>, whose open menu is drawn by the browser in
+ * platform gray and cannot be styled. Keyboard: Enter, Space, Alt+ArrowDown or
+ * ArrowUp/ArrowDown open it; ArrowUp/ArrowDown, Home/End and typing a letter
+ * move the highlight; Enter or Space chooses; Escape closes without changing
+ * the answer; Tab closes and moves on. Clicking outside closes it.
+ *
+ * The button keeps the id `dsr-<field>`, so validation still focuses the first
+ * invalid field, and it carries aria-invalid / aria-describedby for errors.
+ */
 function SelectField({
   error,
   id,
@@ -456,27 +482,233 @@ function SelectField({
   wide?: boolean;
 }) {
   const fieldId = `dsr-${id}`;
+  const labelId = `${fieldId}-label`;
+  const listboxId = `${fieldId}-listbox`;
+  const optionId = (index: number) => `${fieldId}-option-${index}`;
+  const [isOpen, setIsOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const [opensUp, setOpensUp] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
+  const typeahead = useRef({ at: 0, text: "" });
+  const selectedIndex = options.indexOf(value);
+
+  const open = useCallback((index: number) => {
+    const button = buttonRef.current;
+
+    if (button) {
+      // Open downward below the question, never over it. A field near the end
+      // of a step cannot scroll to mid-screen, so give the step just enough
+      // room below while the menu is open (removed again on close).
+      const menuHeight = Math.min(288, window.innerHeight * 0.55) + 12;
+      const actionBar = 96;
+      const step = button.closest<HTMLElement>(".step");
+      const spaceBelow = () => window.innerHeight - button.getBoundingClientRect().bottom - actionBar;
+
+      button.scrollIntoView({ block: "center" });
+
+      if (step && spaceBelow() < menuHeight) {
+        step.style.paddingBottom = `calc(8.5rem + ${Math.ceil(menuHeight - spaceBelow())}px)`;
+        button.scrollIntoView({ block: "center" });
+      }
+
+      const rect = button.getBoundingClientRect();
+      const below = window.innerHeight - rect.bottom - actionBar;
+      setOpensUp(below < menuHeight && rect.top > below);
+    }
+
+    setActiveIndex(index >= 0 ? index : 0);
+    setIsOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) {
+      const step = buttonRef.current?.closest<HTMLElement>(".step");
+
+      if (step) {
+        step.style.paddingBottom = "";
+      }
+    }
+  }, [isOpen]);
+
+  const close = useCallback((returnFocus: boolean) => {
+    setIsOpen(false);
+
+    if (returnFocus) {
+      buttonRef.current?.focus();
+    }
+  }, []);
+
+  const choose = useCallback((index: number) => {
+    const option = options[index];
+
+    if (option !== undefined) {
+      onChange(option);
+    }
+
+    close(true);
+  }, [close, onChange, options]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", onPointerDown);
+    listRef.current?.focus({ preventScroll: true });
+
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen && activeIndex >= 0) {
+      document.getElementById(optionId(activeIndex))?.scrollIntoView({ block: "nearest" });
+    }
+    // optionId is derived from fieldId, which is stable for this field.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIndex, isOpen]);
+
+  function matchTypeahead(key: string) {
+    const now = Date.now();
+    const text = now - typeahead.current.at < 700 ? typeahead.current.text + key.toLowerCase() : key.toLowerCase();
+
+    typeahead.current = { at: now, text };
+
+    const from = Math.max(activeIndex, 0);
+    const ordered = [...options.slice(from + (text.length === 1 ? 1 : 0)), ...options.slice(0, from + (text.length === 1 ? 1 : 0))];
+    const match = ordered.find((option) => option.toLowerCase().startsWith(text));
+
+    return match ? options.indexOf(match) : -1;
+  }
+
+  function onButtonKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
+    if (["ArrowDown", "ArrowUp", "Enter", " "].includes(event.key)) {
+      event.preventDefault();
+      open(event.key === "ArrowUp" && selectedIndex < 0 ? options.length - 1 : selectedIndex);
+      return;
+    }
+
+    if (event.key.length === 1 && /\S/.test(event.key)) {
+      const index = matchTypeahead(event.key);
+
+      if (index >= 0) {
+        event.preventDefault();
+        open(index);
+      }
+    }
+  }
+
+  function onListKeyDown(event: React.KeyboardEvent<HTMLUListElement>) {
+    const last = options.length - 1;
+
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        setActiveIndex((current) => Math.min(current + 1, last));
+        return;
+      case "ArrowUp":
+        event.preventDefault();
+        setActiveIndex((current) => Math.max(current - 1, 0));
+        return;
+      case "Home":
+        event.preventDefault();
+        setActiveIndex(0);
+        return;
+      case "End":
+        event.preventDefault();
+        setActiveIndex(last);
+        return;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        choose(activeIndex);
+        return;
+      case "Escape":
+        event.preventDefault();
+        close(true);
+        return;
+      case "Tab":
+        setIsOpen(false);
+        return;
+      default:
+        if (event.key.length === 1 && /\S/.test(event.key)) {
+          const index = matchTypeahead(event.key);
+
+          if (index >= 0) {
+            event.preventDefault();
+            setActiveIndex(index);
+          }
+        }
+    }
+  }
+
+  const describedBy = error ? `${fieldId}-error` : undefined;
 
   return (
     <div className={`field${wide ? " full" : ""}`}>
-      <label htmlFor={fieldId}>
+      <p className="field-label" id={labelId}>
         <span>
           {label}
           {optional ? null : <span aria-hidden="true" className="req">*</span>}
         </span>
         {optional ? <span className="opt">Optional</span> : null}
-      </label>
-      <select
-        aria-describedby={error ? `${fieldId}-error` : undefined}
-        aria-invalid={error ? "true" : undefined}
-        className={`control${value ? "" : " placeholder"}`}
-        id={fieldId}
-        onChange={(event) => onChange(event.target.value)}
-        value={value}
-      >
-        <option value="">Choose one</option>
-        {options.map((option) => <option key={option} value={option}>{option}</option>)}
-      </select>
+      </p>
+      <div className={`select${isOpen ? " open" : ""}${opensUp ? " up" : ""}`} ref={rootRef}>
+        <button
+          aria-controls={listboxId}
+          aria-describedby={describedBy}
+          aria-expanded={isOpen}
+          aria-haspopup="listbox"
+          aria-invalid={error ? "true" : undefined}
+          aria-labelledby={`${labelId} ${fieldId}`}
+          aria-required={optional ? undefined : "true"}
+          className={`control select-button${value ? "" : " placeholder"}`}
+          id={fieldId}
+          onClick={() => (isOpen ? close(true) : open(selectedIndex))}
+          onKeyDown={onButtonKeyDown}
+          ref={buttonRef}
+          type="button"
+        >
+          <span className="select-value">{value || "Choose one"}</span>
+          <svg aria-hidden="true" className="chev" fill="none" height="16" viewBox="0 0 16 16" width="16">
+            <path d="M3.5 6l4.5 4.5L12.5 6" stroke="currentColor" strokeLinecap="square" strokeWidth="2" />
+          </svg>
+        </button>
+        {isOpen ? (
+          <ul
+            aria-activedescendant={activeIndex >= 0 ? optionId(activeIndex) : undefined}
+            aria-labelledby={labelId}
+            className="listbox"
+            id={listboxId}
+            onKeyDown={onListKeyDown}
+            ref={listRef}
+            role="listbox"
+            tabIndex={-1}
+          >
+            {options.map((option, index) => (
+              <li
+                aria-selected={option === value}
+                className={index === activeIndex ? "active" : undefined}
+                id={optionId(index)}
+                key={option}
+                onClick={() => choose(index)}
+                onPointerMove={() => setActiveIndex(index)}
+                role="option"
+              >
+                <span>{option}</span>
+                {option === value ? <span aria-hidden="true" className="tick" /> : null}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
       {error ? <p className="err" id={`${fieldId}-error`}>{error}</p> : null}
     </div>
   );

@@ -92,3 +92,13 @@ The DOS sign-in page (`/login?next=/dos…`) now offers **Email me a sign-in lin
 ## Evidence
 
 The screenshots in `evidence/` come from a production build (`next build` + `next start`) against the repo's migrations on local Postgres 16, served through PostgREST 12, with a small Supabase Auth stub (`local-walkthrough/`). All data is synthetic. Resend was not configured locally, so the email path is shown as the recorded "not sent" failure with Retry.
+
+### Select menus
+
+The form's four dropdowns ("Which best describes you?", "How did you hear about DOS?", organization type, and size) no longer use the browser's native `<select>`. Its open menu is drawn by the operating system and cannot match the DOS form. Each is now a select-only combobox: a button with `aria-haspopup="listbox"` and a `role="listbox"` menu.
+
+- **Keyboard:** Arrow keys, Home/End, Enter/Space, Escape, Tab, and type-ahead.
+- **Focus and names:** a visible focus ring, and the field's question as the accessible name.
+- **Unchanged behavior:** answers still save to the device, and a missing required answer still focuses the field and marks it invalid.
+
+`evidence/select-menus/` holds Chrome screenshots of each menu open and closed at 1440×900 and 390×844, taken from a production build.

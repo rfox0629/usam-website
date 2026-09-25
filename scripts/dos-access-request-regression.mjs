@@ -69,6 +69,10 @@ check(!/type=\{?["']password["']/.test(setupClient) && !setupClient.includes("co
 check(setupClient.includes("invitation-only application") && (setupClient.match(/href="\/join"/g) ?? []).length === 1, "missionary applicants are told to use their invitation; /join is linked only from the unfinished-application notice");
 check(!/<Link[^>]*className="ident"/.test(setupClient) && !setupClient.includes("Start a new request"), "the logo and confirmation do not link away from the flow");
 check(!setupClient.includes("/dos/ryan-fox"), "no hard-coded workspace link after submitting");
+check(!/<select\s/.test(setupClient) && !/<option[\s>]/.test(setupClient), "the form uses no native select, whose open menu the page cannot style");
+check(setupClient.includes('aria-haspopup="listbox"') && setupClient.includes('role="listbox"') && setupClient.includes('role="option"') && setupClient.includes("aria-activedescendant") && setupClient.includes("aria-expanded"), "each select is a labelled listbox button with an active option");
+check(["ArrowDown", "ArrowUp", "Home", "End", "Escape", "Enter"].every((key) => setupClient.includes(`"${key}"`)) && setupClient.includes("typeahead"), "the select supports arrow keys, Home/End, Enter/Space, Escape, and type-ahead");
+check(setupClient.includes("id={fieldId}") && setupClient.includes("aria-invalid") && setupClient.includes(".control.select-button:focus-visible"), "the select keeps its field id for error focus, marks errors, and shows keyboard focus");
 check(setupClient.includes("dos-unified-setup-draft-v1") && !/removeKey\(legacy/.test(setupClient), "legacy drafts are read and never deleted");
 check(setupClient.includes("submittingRef") && setupClient.includes("submissionKey"), "double submission is guarded in the browser and by a submission key");
 check(setupClient.includes("Awaiting review") && setupClient.includes("No account has been created yet"), "the confirmation says the request awaits review");
