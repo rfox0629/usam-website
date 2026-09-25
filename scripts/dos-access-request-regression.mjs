@@ -66,7 +66,8 @@ check(setupPage.includes("dosAppMetadata") && setupPage.includes("DosOnboardingC
 check(setupClient.includes('fetch("/api/dos/access-requests"'), "the form submits to the DOS access request endpoint");
 check(!setupClient.includes("/api/join/submit") && !setupClient.includes("/api/join/photos"), "the form no longer collects or submits missionary applications");
 check(!/type=\{?["']password["']/.test(setupClient) && !setupClient.includes("confirmPassword"), "the form asks for no password");
-check(setupClient.includes('href="/join"'), "missionary applicants are pointed to /join");
+check(setupClient.includes("invitation-only application") && (setupClient.match(/href="\/join"/g) ?? []).length === 1, "missionary applicants are told to use their invitation; /join is linked only from the unfinished-application notice");
+check(!/<Link[^>]*className="ident"/.test(setupClient) && !setupClient.includes("Start a new request"), "the logo and confirmation do not link away from the flow");
 check(!setupClient.includes("/dos/ryan-fox"), "no hard-coded workspace link after submitting");
 check(setupClient.includes("dos-unified-setup-draft-v1") && !/removeKey\(legacy/.test(setupClient), "legacy drafts are read and never deleted");
 check(setupClient.includes("submittingRef") && setupClient.includes("submissionKey"), "double submission is guarded in the browser and by a submission key");
