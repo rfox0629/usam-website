@@ -28,6 +28,7 @@
  * (USA-257 §9) and the list reads exactly the same dates.
  */
 
+import { accountabilityOccurrenceOnOrBefore } from "./commitments-accountability";
 import {
   accountabilityFrequencyLabels,
   accountabilityProgressKind,
@@ -205,7 +206,13 @@ export function accountabilityCheckInRows({
     .filter((schedule) => schedule.status === "active")
     .filter((schedule) => personNames.has(schedule.personId))
     .map((schedule) => {
-      const bucket = bucketFor(schedule.nextCheckIn, todayValue, dateValue);
+      /* One current occurrence per rhythm. A rhythm missed for weeks is one
+         reminder on its latest date, not a task for every week that went by;
+         the stored date is untouched until a real check-in moves it. */
+      const dueDate = schedule.nextCheckIn
+        ? accountabilityOccurrenceOnOrBefore(schedule.nextCheckIn, schedule.frequency, today)
+        : null;
+      const bucket = bucketFor(dueDate, todayValue, dateValue);
       const followUp = schedule.followUp ?? null;
 
       return {
@@ -224,8 +231,8 @@ export function accountabilityCheckInRows({
           : schedule.frequency === "one_time"
             ? null
             : accountabilityFrequencyLabels[schedule.frequency] ?? null,
-        dueDate: schedule.nextCheckIn,
-        dueDateLabel: schedule.nextCheckIn ? formatDate(schedule.nextCheckIn) : null,
+        dueDate,
+        dueDateLabel: dueDate ? formatDate(dueDate) : null,
         id: `schedule-${schedule.id}`,
         kind: followUp ? ("growth_follow_up" as const) : ("rhythm" as const),
         personId: schedule.personId,
@@ -233,7 +240,7 @@ export function accountabilityCheckInRows({
         /* A rhythm and a growth follow-up record a check-in, always. */
         progressKind: "check_in" as const,
         sourceId: schedule.id,
-        statusLabel: accountabilityCheckInStatusLabel(bucket, schedule.nextCheckIn, formatDate),
+        statusLabel: accountabilityCheckInStatusLabel(bucket, dueDate, formatDate),
         topic: followUp ? `${growthFollowUpTopic} · ${followUpPhaseLabels[followUp.kind]}` : schedule.title,
       };
     });
@@ -294,6 +301,17 @@ export function accountabilityCheckInHomeSections(rows: ReadonlyArray<Accountabi
   };
 }
 
+/* What the item's own action is called, from how it records progress. The
+   same label appears on the row and inside the item, so the two never
+   disagree about what pressing it does. */
+export function accountabilityCheckInActionLabel(progressKind: AccountabilityProgressKind) {
+  if (progressKind === "people") {
+    return "Add person";
+  }
+
+  return progressKind === "count" ? "Add progress" : "Check in";
+}
+
 export function accountabilityCheckInCounts(rows: ReadonlyArray<AccountabilityCheckInRow>): AccountabilityCheckInCounts {
   return {
     all: rows.length,
@@ -323,6 +341,12 @@ export type AccountabilityPersonStatus = "coming_up" | "due_today" | "past_due";
 export const accountabilityUpcomingWindowDays = 7;
 
 export type AccountabilityPerson = {
+  /* How many of their items are due TODAY, and how that reads. Today's
+     notification counts this, never the whole list: a person with one due
+     today and two past due is one check-in today, and saying "3 check-ins"
+     on a line about today is a number that describes something else. */
+  dueTodayCount: number;
+  dueTodayCountLabel: string | null;
   /* Whether anything of theirs is due today, regardless of the status the
      person carries. Someone with a past-due rhythm AND a check-in due today
      reads as Past due here, but today's agenda still has to include them. */
@@ -417,6 +441,8 @@ export function accountabilityCheckInPeople({
           : null;
 
     return {
+      dueTodayCount: dueToday.length,
+      dueTodayCountLabel: dueToday.length > 1 ? `${dueToday.length} check-ins` : null,
       hasDueToday: dueToday.length > 0,
       items,
       itemCountLabel: items.length > 1 ? `${items.length} check-ins` : null,

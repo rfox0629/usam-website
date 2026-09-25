@@ -21,7 +21,10 @@ export const dosCommitmentProgressStates = ["not_started", "in_progress", "going
    means the Accountability is not measurable at all. */
 export const dosCommitmentTargetKinds = ["people", "count"] as const;
 export const dosAccountabilityFrequencies = ["weekly", "every_two_weeks", "monthly", "one_time"] as const;
-export const dosAccountabilityScheduleStatuses = ["active", "paused"] as const;
+/* "stopped" is a leader ending the reminder, and is not the same as "paused":
+   the Journey sync owns 'paused' as a working state and sets rows back to
+   'active', so a stop has to be a state the sync will not touch. */
+export const dosAccountabilityScheduleStatuses = ["active", "paused", "stopped"] as const;
 
 export type DosCommitmentStatus = typeof dosCommitmentStatuses[number];
 export type DosCommitmentCategory = typeof dosCommitmentCategories[number];
@@ -86,6 +89,124 @@ export function firstScheduleDateOnOrAfter(startDate: string, dayOfWeek: number 
   return keyFromDate(date);
 }
 
+/* A month later, explicitly.
+ *
+ * `setUTCMonth(month + 1)` overflows: the 31st of January becomes the 3rd of
+ * March, because February has no 31st and JavaScript rolls the excess days
+ * forward. A monthly rhythm set on the 31st would drift a few days every
+ * short month and stop falling on its own date.
+ *
+ * The last day of a shorter month is the honest answer, and the day of the
+ * month is taken from the original date each time, so the 31st returns on the
+ * next month that has one. */
+export function addCalendarMonth(date: Date, months = 1) {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth() + months;
+  const day = date.getUTCDate();
+  const daysInTargetMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+
+  return new Date(Date.UTC(year, month, Math.min(day, daysInTargetMonth)));
+}
+
+/* The one current occurrence of a repeating rhythm: the latest one that has
+ * already come round, on or before today.
+ *
+ * A weekly rhythm due the 3rd, read on the 25th with nothing recorded since,
+ * is ONE reminder -- the 24th, and past due -- not four tasks for the 3rd,
+ * 10th, 17th and 24th. Missed weeks are not obligations that piled up; they
+ * are the same standing rhythm, still unanswered.
+ *
+ * This is derived, for display and counting only. Nothing is written: no
+ * check-in is invented for a week that did not happen, and the stored next
+ * date stays exactly as it is until a real check-in moves it.
+ *
+ * It never advances past today, because a rhythm nobody has answered must
+ * keep reading as late. Monthly steps from the ORIGINAL date each time
+ * rather than from the previous result, so a rhythm anchored on the 31st
+ * keeps returning to the 31st instead of walking backwards through every
+ * short month. The step ceiling is a guard against a corrupt date, not a
+ * limit anyone reaches: 600 weeks is eleven years. */
+export const maxAccountabilityOccurrenceSteps = 600;
+
+export function accountabilityOccurrenceOnOrBefore(
+  scheduledDate: string,
+  frequency: DosAccountabilityFrequency,
+  today: string,
+) {
+  const scheduled = normalizeDateKey(scheduledDate, scheduledDate);
+
+  /* A one-time date is the date. And an occurrence still ahead of today is
+     already the current one -- there is nothing to catch up. Date keys are
+     fixed-width, so comparing them as text orders them by day. */
+  if (frequency === "one_time" || scheduled >= today) {
+    return scheduled;
+  }
+
+  const anchor = dateFromKey(scheduled);
+
+  if (Number.isNaN(anchor.getTime())) {
+    return scheduled;
+  }
+
+  let current = scheduled;
+
+  for (let step = 1; step <= maxAccountabilityOccurrenceSteps; step += 1) {
+    const candidate = frequency === "monthly"
+      ? addCalendarMonth(anchor, step)
+      : new Date(anchor.getTime() + step * (frequency === "every_two_weeks" ? 14 : 7) * 86_400_000);
+    const candidateKey = keyFromDate(candidate);
+
+    if (candidateKey > today) {
+      break;
+    }
+
+    current = candidateKey;
+  }
+
+  return current;
+}
+
+/* The first occurrence on or after a given day, counted from an anchor.
+ *
+ * The mirror of the function above, and it exists for the same reason: a
+ * rhythm caught up one step at a time walks away from its own date. Counting
+ * months from the anchor each time, a rhythm on the 31st passes through
+ * February's 28th and comes back to the 31st; stepping from each result in
+ * turn, it would stay on the 28th for good.
+ *
+ * The anchor itself counts as an occurrence, so an anchor already on or after
+ * the target is returned unchanged. */
+export function accountabilityOccurrenceOnOrAfter(
+  anchorDate: string,
+  frequency: DosAccountabilityFrequency,
+  target: string,
+) {
+  const anchorKey = normalizeDateKey(anchorDate, anchorDate);
+
+  if (frequency === "one_time" || anchorKey >= target) {
+    return anchorKey;
+  }
+
+  const anchor = dateFromKey(anchorKey);
+
+  if (Number.isNaN(anchor.getTime())) {
+    return anchorKey;
+  }
+
+  for (let step = 1; step <= maxAccountabilityOccurrenceSteps; step += 1) {
+    const candidate = frequency === "monthly"
+      ? addCalendarMonth(anchor, step)
+      : new Date(anchor.getTime() + step * (frequency === "every_two_weeks" ? 14 : 7) * 86_400_000);
+    const candidateKey = keyFromDate(candidate);
+
+    if (candidateKey >= target) {
+      return candidateKey;
+    }
+  }
+
+  return anchorKey;
+}
+
 export function nextAccountabilityCheckInDate(
   currentDate: string,
   frequency: DosAccountabilityFrequency,
@@ -98,15 +219,28 @@ export function nextAccountabilityCheckInDate(
   const date = dateFromKey(normalizeDateKey(currentDate));
 
   if (frequency === "monthly") {
-    date.setUTCMonth(date.getUTCMonth() + 1);
-    return keyFromDate(date);
+    return keyFromDate(addCalendarMonth(date));
   }
 
   date.setUTCDate(date.getUTCDate() + (frequency === "every_two_weeks" ? 14 : 7));
 
   if (typeof dayOfWeek === "number" && dayOfWeek >= 0 && dayOfWeek <= 6 && date.getUTCDay() !== dayOfWeek) {
-    const offset = (dayOfWeek - date.getUTCDay() + 7) % 7;
-    date.setUTCDate(date.getUTCDate() + offset);
+    /* The rhythm's own day, and the NEAREST one.
+     *
+     * Always snapping forward cost a whole cycle whenever a check-in was
+     * recorded late: a Thursday rhythm answered on Friday landed a week and
+     * a half out, because Friday plus seven days is a Friday and the next
+     * Thursday after that is six days further on. Answering late already
+     * means falling behind; it should not also mean skipping a week.
+     *
+     * Four days or more forward is therefore taken backwards instead, which
+     * is the same weekday in the week the cadence actually lands in. The
+     * result is never sooner than four days (weekly) or eleven (fortnightly)
+     * after the check-in, so an early answer cannot make the rhythm fire
+     * again the next morning. */
+    const forward = (dayOfWeek - date.getUTCDay() + 7) % 7;
+
+    date.setUTCDate(date.getUTCDate() + (forward > 3 ? forward - 7 : forward));
   }
 
   return keyFromDate(date);

@@ -382,6 +382,127 @@ npm run test:dos:visual -- --update
 
 then review that only those three files changed.
 
+## Consistent actions, Stop, and one current reminder (founder review, third pass)
+
+Approved by the founder on 2026-09-25. The pass before this one left three
+different sets of actions depending on which kind of record a leader had
+opened, no way to end a Journey-generated reminder at all, and a notification
+that counted the whole backlog on a line about today.
+
+### The same two actions, everywhere
+
+**Check in** and **Stop** sit together on every item — a one-time goal, a
+weekly rhythm, a Journey milestone — in the person's list and inside the item.
+Check in is named for what the item records (`Check in`, `Add person`,
+`Add progress`), from `accountabilityCheckInActionLabel`, so the row and the
+item can never disagree about what pressing it does.
+
+**Edit** is secondary, and it is where a date or a cadence changes: Reschedule
+is gone as a separate action and the Edit sheet gained a **Next check-in**
+field. **Delete** moved into the item's own `…` menu. **Pause** has left the
+primary action area entirely; existing paused rows are untouched and the
+Journey sync still uses that state as before.
+
+`Add` starts another reminder from inside the person, and `Stopped (n)` opens
+the ones already ended, each offering **Start again**.
+
+### Stop means "stop reminding me about this"
+
+Nothing is deleted, no goal is recorded as achieved, and no Journey,
+assignment or milestone is completed or ended.
+
+* A rhythm moves to a new `stopped` status
+  (`20260925120000_usa_282_stopped_accountability_schedules.sql` widens the
+  check constraint). `paused` would not do: the Journey sync owns that state
+  and sets paused rows back to `active`, so a stop expressed as a pause would
+  be undone by the next edit to the assignment.
+* A one-time goal is `cancelled`, and the commitments route writes
+  `completed_date = null` for anything that is not `completed`.
+* `syncResourceAssignmentFollowUpSchedules` now skips a kind whose row is
+  stopped rather than reactivating it or inserting a replacement, never
+  re-labels a stopped row as paused, and leaves stopped rows alone when
+  retiring a kind it no longer wants.
+* Answering a one-time reminder (a Journey milestone) stops it for the same
+  reason, rather than pausing it as before.
+
+It is reversible: the confirmation carries **Undo**, and afterwards the
+person's own **Stopped** list carries **Start again**. Every check-in ever
+recorded under the reminder stays on the record.
+
+### One current reminder per rhythm
+
+A weekly rhythm due September 3, read on September 25 with nothing recorded,
+is **one** reminder — the 24th, past due — not four tasks for the 3rd, 10th,
+17th and 24th.
+
+`accountabilityOccurrenceOnOrBefore` derives the latest occurrence on or
+before today and is applied in the one eligibility module, so Home, the
+notification, the person's list and the item itself all read the same date.
+Nothing is written: the stored `next_check_in` is untouched until a real
+check-in moves it, and no check-in is invented for a week that did not
+happen. The current occurrence stays past due until the next one replaces it.
+One-time reminders and Journey milestones keep their own dates — they have no
+cadence to roll — and two rhythms for one person stay two reminders.
+
+Two date rules were corrected while the rhythm rules were being stated:
+
+* **Month ends.** `addCalendarMonth` clamps to the last day of a shorter
+  month, so the 31st of January is followed by the 28th of February rather
+  than the 3rd of March, and the 31st returns the next month that has one.
+  Catch-up counts months from the anchor rather than from each result, so a
+  rhythm on the 31st does not end up on the 28th for good.
+* **Late check-ins.** The next date snaps to the **nearest** occurrence of the
+  rhythm's own weekday rather than always forward. A Thursday rhythm answered
+  on Friday is now due the following Thursday; it used to land thirteen days
+  out, charging a leader an extra week for answering late. An early answer
+  still cannot make the rhythm fire the next morning.
+
+Dates are `date` columns throughout and the day key comes from the workspace's
+display timezone, read once from the server render's instant.
+
+### Today's notification counts today
+
+The founder's screenshot: Lyf Nimmo's notification said "3 check-ins" while
+the opened list showed one due today and two overdue. `AccountabilityPerson`
+now carries `dueTodayCount` / `dueTodayCountLabel`, and the notification line
+uses that. The Accountability section below still shows all three items.
+Home's structure, wording and discretion are otherwise unchanged; Reports,
+Calendar, Top Time Investments and Meeting Activity were not touched.
+
+### Verified
+
+`npm run typecheck`, `npm run test:dos` (all suites), `npm run build`.
+
+Behavioural coverage in `scripts/dos-accountability-check-ins-regression.mjs`:
+the founder's September 3 / September 25 example, every cadence's catch-up,
+one-time reminders left alone, separate topics kept separate, month-end and
+month-boundary arithmetic, late and early check-in dates, stopped items
+excluded from every list and count, today-only counts, and the action labels.
+
+Against a real Postgres carrying this repository's migrations
+(`npm run test:dos-accountability-e2e`, 24/24): stop persists and removes only
+the selected reminder; history survives it and Undo restores the date, cadence
+and topic exactly; a Journey synchronisation does not resurrect a stopped
+reminder or insert a replacement; stopping a Journey follow-up leaves the
+assignment in progress and its goal active; a one-time check-in clears its
+reminder without completing the goal or the Journey; a month away produces one
+current reminder; a late check-in produces the corrected next date; a monthly
+rhythm stays on the last day of its month; a day is stored as the day chosen;
+and the existing delete behaviour and authorization protections all still
+pass. The harness also stopped applying `*_rollback.sql` files, which had been
+undoing each migration immediately after applying it.
+
+Screenshots (synthetic preview fixture, no database):
+`screenshots/mobile-390--home-accountability.png`,
+`mobile-390--person-items.png`, `mobile-390--person-stopped.png`,
+`mobile-390--item-actions.png`, `mobile-390--item-edit.png`,
+`mobile-390--journey-item.png`, `desktop-1440--home-accountability.png`,
+`desktop-1440--person-items.png`, `desktop-1440--item-actions.png`.
+
+macOS visual baselines need re-recording again for this pass
+(`npm run test:dos:visual -- --update` on a Mac); Linux has no baselines, so
+CI stays green either way.
+
 ## Open, for Ryan
 
 1. **Two Home rows for one person on one date read identically.** The

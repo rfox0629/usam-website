@@ -2649,6 +2649,60 @@ function buildDosPreviewDemoData(options: DosPreviewDemoOptions = {}): DosAppDat
         updatedAt: null,
         workspaceId: demoWorkspaceId,
       },
+      /* USA-282: George's third rhythm is due TODAY, and it is the founder's
+         reported case -- one check-in due today beside two that are late.
+         Today's notification must say one; the Accountability list still
+         shows all three. */
+      {
+        createdAt: demoTimestamp,
+        createdByUserId: null,
+        dayOfWeek: null,
+        frequency: "weekly",
+        id: "demo-accountability-schedule-george-marriage",
+        nextCheckIn: daysAgoIso(0).slice(0, 10),
+        personId: "demo-person-george-jenko",
+        scheduledTime: null,
+        startDate: daysAgoIso(28).slice(0, 10),
+        status: "active",
+        title: "Marriage",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      /* A reminder George stopped. It is out of every list and every count,
+         and it is still on his record -- the person's own Stopped section
+         offers it back. */
+      {
+        createdAt: demoTimestamp,
+        createdByUserId: null,
+        dayOfWeek: 1,
+        frequency: "weekly",
+        id: "demo-accountability-schedule-george-stopped",
+        nextCheckIn: "2026-08-24",
+        personId: "demo-person-george-jenko",
+        scheduledTime: null,
+        startDate: "2026-06-01",
+        status: "stopped",
+        title: "Weekly phone call",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
+      /* A monthly rhythm anchored on the 31st: the month-end case, on a
+         screen rather than only in a test. */
+      {
+        createdAt: demoTimestamp,
+        createdByUserId: null,
+        dayOfWeek: null,
+        frequency: "monthly",
+        id: "demo-accountability-schedule-dirk-monthly",
+        nextCheckIn: "2026-01-31",
+        personId: "demo-person-dirk-bond",
+        scheduledTime: null,
+        startDate: "2026-01-31",
+        status: "active",
+        title: "Monthly finances",
+        updatedAt: null,
+        workspaceId: demoWorkspaceId,
+      },
       /* USA-282 follow-up: Tim Tran already carries an overdue Journey
          milestone; this rhythm is due TODAY. He is therefore classified Past
          due on Home and still belongs in today's agenda. */

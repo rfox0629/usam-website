@@ -59,6 +59,11 @@ insert into dos_accountability_check_ins (id, workspace_id, schedule_id, person_
   ('00000000-0000-4282-8000-000000000121', '00000000-0000-4282-8000-0000000000a1', '00000000-0000-4282-8000-000000000104', '00000000-0000-4282-8000-0000000000a2', '2026-08-10', 'Before the gap'),
   ('00000000-0000-4282-8000-000000000122', '00000000-0000-4282-8000-0000000000a1', '00000000-0000-4282-8000-000000000104', '00000000-0000-4282-8000-0000000000a2', '2026-08-17', 'Also before the gap');
 
+-- A monthly rhythm anchored on the 31st. February has no 31st, so this is the
+-- fixture that proves the month-end rule against the real recurrence code.
+insert into dos_accountability_schedules (id, workspace_id, person_id, title, frequency, day_of_week, start_date, next_check_in, status) values
+  ('00000000-0000-4282-8000-000000000105', '00000000-0000-4282-8000-0000000000a1', '00000000-0000-4282-8000-0000000000a2', 'Monthly with Derek', 'monthly', null, '2026-01-31', '2026-01-31', 'active');
+
 -- Workspace B's own rhythm: a delete asked for against workspace A must not
 -- find it.
 insert into dos_accountability_schedules (id, workspace_id, person_id, title, frequency, day_of_week, start_date, next_check_in, status) values

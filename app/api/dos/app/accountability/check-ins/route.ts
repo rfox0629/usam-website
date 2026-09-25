@@ -22,7 +22,7 @@ import {
   resolveAuthorizedCommitmentsWorkspace,
   todayDateKey,
 } from "@/src/lib/dos/commitments-accountability-api";
-import { nextAccountabilityCheckInDate, type DosAccountabilityFrequency, type DosCommitmentProgressState } from "@/src/lib/dos/commitments-accountability";
+import { accountabilityOccurrenceOnOrAfter, nextAccountabilityCheckInDate, type DosAccountabilityFrequency, type DosCommitmentProgressState } from "@/src/lib/dos/commitments-accountability";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
 const checkInSelect = "id, workspace_id, schedule_id, person_id, check_in_date, duration_minutes, general_update, wins, struggles, prayer_needs, follow_up, created_by_user_id, created_at, updated_at";
@@ -323,7 +323,7 @@ export async function POST(request: Request) {
 
     /* USA-282 follow-up: a rhythm must never be left cycling through dates
        that have already gone by.
-   
+
        The next date is computed from the date the check-in actually happened,
        which is right for the ordinary case. But the date is the leader's to
        set, and a back-dated check-in -- "we met three weeks ago" -- would
@@ -333,18 +333,25 @@ export async function POST(request: Request) {
        the weekday, and touches nothing about an on-time check-in. */
     const todayKey = todayDateKey();
 
-    for (let step = 0; step < 520 && nextCheckIn && nextCheckIn < todayKey; step += 1) {
-      const advanced = nextAccountabilityCheckInDate(nextCheckIn, frequency, scheduleDayOfWeek);
-
-      if (!advanced || advanced === nextCheckIn) {
-        break;
-      }
-
-      nextCheckIn = advanced;
+    if (nextCheckIn && nextCheckIn < todayKey) {
+      /* Counted from an anchor rather than one step at a time, so the rhythm
+         keeps its own date across the catch-up. A monthly rhythm on the 31st
+         counts months from the check-in itself and returns to the 31st; a
+         weekly or fortnightly one counts from its first occurrence, which
+         already carries the rhythm's weekday. */
+      nextCheckIn = frequency === "monthly"
+        ? accountabilityOccurrenceOnOrAfter(checkInDate, frequency, todayKey)
+        : accountabilityOccurrenceOnOrAfter(nextCheckIn, frequency, todayKey);
     }
+    /* A one-time reminder has no next date: answering it is the end of it.
+       It is marked stopped rather than paused because paused is the Journey
+       sync's own working state -- the sync sets paused rows back to active,
+       which would ask for a milestone check-in that has already happened.
+       Nothing about the milestone, assignment or goal is completed here; the
+       reminder simply stops. */
     const schedulePatch = nextCheckIn
       ? { next_check_in: nextCheckIn }
-      : { next_check_in: checkInDate, status: "paused" };
+      : { next_check_in: checkInDate, status: "stopped" };
     const { data: updatedSchedule, error: scheduleError } = await supabase
       .from("dos_accountability_schedules")
       .update(schedulePatch)
