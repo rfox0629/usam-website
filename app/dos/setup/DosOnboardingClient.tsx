@@ -67,12 +67,12 @@ type LegacyNotice =
   | { kind: "missionary_submitted"; submittedAt: string | null }
   | { kind: "organization_imported"; wasOnlyLocal: boolean };
 
-const stepMeta: Record<DosAccessRequestStepId, { eyebrow: string; label: string; title: string }> = {
-  contact: { eyebrow: "About you", label: "About you", title: "Who should we contact?" },
-  details: { eyebrow: "Your context", label: "Context", title: "Tell us where you serve." },
-  path: { eyebrow: "Getting started", label: "Who it's for", title: "Who is DOS for?" },
-  review: { eyebrow: "Review", label: "Review", title: "Review and send your request." },
-  use: { eyebrow: "How you'll use it", label: "Use", title: "How do you plan to use DOS?" },
+const stepMeta: Record<DosAccessRequestStepId, { label: string; title: string }> = {
+  contact: { label: "About you", title: "Who should we contact?" },
+  details: { label: "Where you serve", title: "Tell us where you serve." },
+  path: { label: "Who it's for", title: "Who is DOS for?" },
+  review: { label: "Review", title: "Review and send your request." },
+  use: { label: "How you'll use it", title: "How do you plan to use DOS?" },
 };
 
 const setupCss = `
@@ -86,7 +86,9 @@ const setupCss = `
 .dsr *{box-sizing:border-box}
 .dsr a{color:inherit}
 .dsr :focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-.dsr .wrap{width:100%;max-width:760px;margin:0 auto;padding:0 1.25rem}
+/* Headings take focus on each screen change for screen readers; they are not controls. */
+.dsr h1[tabindex="-1"]:focus{outline:none}
+.dsr .wrap{width:100%;max-width:720px;margin:0 auto;padding:0 1.25rem}
 @media (min-width:768px){.dsr .wrap{padding:0 2rem}}
 .dsr .eyebrow{display:inline-flex;align-items:center;gap:.7rem;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:.28em;text-transform:uppercase;color:var(--blue-ink)}
 .dsr .eyebrow::before{content:"";height:1px;width:1.75rem;background:currentColor;opacity:.55;flex:none}
@@ -101,14 +103,16 @@ const setupCss = `
 
 /* Header, matching the public DOS page */
 .dsr .top{background:#000;border-bottom:1px solid rgba(255,255,255,.12)}
-.dsr .top .wrap{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding-top:.9rem;padding-bottom:.9rem;max-width:1120px}
-.dsr .ident{display:flex;align-items:center;gap:.7rem;min-width:0;text-decoration:none}
+.dsr .top .wrap{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding-top:.9rem;padding-bottom:.9rem}
+.dsr .ident{display:flex;align-items:center;gap:.7rem;min-width:0}
+.dsr .ident svg{flex:none}
 .dsr .ident .word{font-family:'Oswald',sans-serif;font-weight:700;color:#fff;font-size:.95rem;letter-spacing:.06em;text-transform:uppercase;line-height:1.1}
 .dsr .ident .attrib{display:block;font-family:'Rajdhani',sans-serif;font-size:10px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:#8FA3B6}
 .dsr .ident .short{display:none}
 @media (max-width:479px){.dsr .ident .word{display:none}.dsr .ident .short{display:block;font-family:'Oswald',sans-serif;font-weight:700;color:#fff;font-size:1.1rem;letter-spacing:.08em;line-height:1.1}}
 @media (min-width:640px){.dsr .ident .word{font-size:1.15rem}}
-.dsr .signin{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:#fff;text-decoration:none;border:1px solid rgba(55,138,221,.55);padding:.5rem .85rem;white-space:nowrap}
+.dsr .signin{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#fff;text-decoration:none;border:1px solid rgba(55,138,221,.55);padding:.5rem .8rem;white-space:nowrap;text-align:center}
+@media (max-width:479px){.dsr .signin{font-size:11px;letter-spacing:.1em;padding:.45rem .6rem;white-space:normal;max-width:9.5rem;line-height:1.25}}
 .dsr .signin:hover{background:rgba(55,138,221,.14);border-color:var(--blue)}
 
 /* Buttons: square, Rajdhani, uppercase */
@@ -125,12 +129,13 @@ const setupCss = `
 
 /* Welcome hero */
 .dsr .hero{background:var(--navy);color:#fff;padding:3rem 0 3.25rem}
-.dsr .hero h1{font-size:clamp(2.3rem,7vw,3.4rem);margin-top:1rem;max-width:15ch}
-.dsr .hero .lede{margin-top:1.1rem;color:#C3D0DC;font-size:1.08rem;max-width:34rem}
+.dsr .hero h1{font-size:clamp(2.2rem,6.4vw,3.25rem);margin-top:1rem;max-width:20ch;line-height:1.05}
+.dsr .hero .lede{margin-top:1.1rem;color:#C3D0DC;font-size:1.08rem;max-width:36rem}
 .dsr .hero .actions{margin-top:1.75rem;display:flex;flex-wrap:wrap;gap:.75rem}
 .dsr .hero .micro{margin-top:1.1rem;font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:600;letter-spacing:.14em;text-transform:uppercase;color:#8FA3B6}
 .dsr .steps3{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);margin-top:2rem}
 @media (min-width:640px){.dsr .steps3{grid-template-columns:repeat(3,1fr)}}
+.dsr .steps3{padding:0}
 .dsr .steps3 li{list-style:none;background:#fff;padding:1.1rem 1.1rem 1.2rem}
 .dsr .steps3 .n{font-family:'Oswald',sans-serif;font-size:1.6rem;color:var(--blue-ink);line-height:1}
 .dsr .steps3 h3{margin:.5rem 0 .25rem;font-size:1rem;font-weight:600;color:var(--ink)}
@@ -158,8 +163,8 @@ const setupCss = `
 .dsr .bars span.on{background:var(--blue-ink)}
 
 /* Step */
-.dsr .step{padding:1.75rem 0 8.5rem}
-.dsr .step h1{font-size:clamp(1.85rem,6vw,2.5rem);margin-top:.6rem;color:var(--ink)}
+.dsr .step{padding:2rem 0 8.5rem}
+.dsr .step h1{font-size:clamp(1.85rem,6vw,2.4rem);color:var(--ink)}
 .dsr .step .intro{margin-top:.6rem;max-width:38rem}
 .dsr .fields{display:grid;gap:1.1rem;margin-top:1.6rem}
 @media (min-width:640px){.dsr .fields.two{grid-template-columns:1fr 1fr}.dsr .fields .full{grid-column:1/-1}}
@@ -169,30 +174,37 @@ const setupCss = `
 .dsr .control{width:100%;min-height:50px;border:1px solid var(--field);border-radius:0;background:#fff;padding:.7rem .85rem;font:inherit;font-size:1rem;color:var(--ink);outline:none;transition:border-color .15s,box-shadow .15s}
 .dsr textarea.control{min-height:120px;resize:vertical;line-height:1.5}
 .dsr select.control{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 20px) 50%,calc(100% - 14px) 50%;background-size:6px 6px;background-repeat:no-repeat;padding-right:2.4rem}
+.dsr select.control.placeholder{color:var(--muted)}
+.dsr select.control option{color:var(--ink)}
 .dsr .control:focus{border-color:var(--blue-ink);box-shadow:0 0 0 3px rgba(55,138,221,.22)}
 .dsr .control[aria-invalid="true"]{border-color:var(--red);box-shadow:0 0 0 3px rgba(180,35,24,.12)}
 .dsr .help{margin-top:.35rem;font-size:.84rem;color:var(--muted)}
 .dsr .err{margin-top:.35rem;font-size:.86rem;font-weight:600;color:var(--red)}
 .dsr .choices{display:grid;gap:.75rem;margin-top:1.6rem}
 @media (min-width:640px){.dsr .choices.two{grid-template-columns:1fr 1fr}}
-.dsr .choice{display:block;width:100%;text-align:left;border:1px solid var(--field);background:#fff;padding:1.1rem 1.15rem 1.15rem;cursor:pointer;font:inherit;color:inherit;position:relative;transition:border-color .15s,background .15s}
+.dsr .choice{display:flex;flex-direction:column;justify-content:flex-start;align-items:flex-start;width:100%;text-align:left;border:1px solid var(--field);background:#fff;padding:1.1rem 1.15rem 1.15rem;cursor:pointer;font:inherit;color:inherit;position:relative;transition:border-color .15s,background .15s}
 .dsr .choice:hover{border-color:var(--blue-ink)}
 .dsr .choice[aria-pressed="true"]{border-color:var(--blue-ink);background:var(--blue-tint);box-shadow:inset 0 0 0 1px var(--blue-ink)}
 .dsr .choice .t{display:block;font-weight:700;font-size:1.05rem;padding-right:2rem}
 .dsr .choice .d{display:block;margin-top:.3rem;color:var(--muted);font-size:.93rem}
 .dsr .choice .dot{position:absolute;top:1.1rem;right:1.1rem;width:20px;height:20px;border:1.5px solid var(--field);border-radius:50%;background:#fff}
 .dsr .choice[aria-pressed="true"] .dot{border-color:var(--blue-ink);background:radial-gradient(circle,var(--blue-ink) 0 5px,#fff 6px)}
-.dsr .chips{display:flex;flex-wrap:wrap;gap:.55rem}
-.dsr .chip{min-height:44px;border:1px solid var(--field);background:#fff;padding:.55rem .9rem;font:inherit;font-size:.95rem;color:var(--ink);cursor:pointer;text-align:left}
-.dsr .chip:hover{border-color:var(--blue-ink)}
-.dsr .chip[aria-pressed="true"]{border-color:var(--blue-ink);background:var(--blue-tint);color:var(--blue-ink);font-weight:600}
+.dsr .checks{display:grid;gap:.5rem}
+@media (min-width:640px){.dsr .checks{grid-template-columns:1fr 1fr}}
+.dsr .check{display:flex;align-items:center;gap:.75rem;width:100%;min-height:52px;border:1px solid var(--field);background:#fff;padding:.7rem .9rem;font:inherit;font-size:.97rem;color:var(--ink);cursor:pointer;text-align:left;line-height:1.35}
+.dsr .check:hover{border-color:var(--blue-ink)}
+.dsr .check .box{flex:none;width:20px;height:20px;border:1.5px solid var(--field);background:#fff;display:grid;place-items:center}
+.dsr .check[aria-pressed="true"]{border-color:var(--blue-ink);background:var(--blue-tint);box-shadow:inset 0 0 0 1px var(--blue-ink)}
+.dsr .check[aria-pressed="true"] .box{border-color:var(--blue-ink);background:var(--blue-ink)}
+.dsr .check[aria-pressed="true"] .box::after{content:"";width:6px;height:11px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg) translate(-1px,-1px)}
 .dsr .aside{margin-top:1.4rem;border-top:1px solid var(--line);padding-top:1.1rem;font-size:.95rem;color:var(--muted)}
 .dsr .review{margin-top:1.6rem;border:1px solid var(--line)}
 .dsr .review section{padding:1rem 1.1rem;border-bottom:1px solid var(--line)}
 .dsr .review section:last-child{border-bottom:0}
 .dsr .review header{display:flex;justify-content:space-between;align-items:center;gap:1rem}
 .dsr .review h2{font-family:'Rajdhani',sans-serif;font-size:13px;letter-spacing:.2em;text-transform:uppercase;color:var(--blue-ink)}
-.dsr .review .edit{border:0;background:none;color:var(--blue-ink);font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:.35rem 0;min-height:36px}
+.dsr .review .edit{border:1px solid var(--field);background:#fff;color:var(--blue-ink);font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;padding:.35rem .75rem;min-height:36px}
+.dsr .review .edit:hover{border-color:var(--blue-ink)}
 .dsr .review dl{margin:.5rem 0 0;display:grid;gap:.35rem}
 @media (min-width:640px){.dsr .review dl{grid-template-columns:170px 1fr;column-gap:1rem}}
 .dsr .review dt{font-size:.86rem;color:var(--muted)}
@@ -201,13 +213,15 @@ const setupCss = `
 .dsr .ack input{width:22px;height:22px;margin-top:.1rem;accent-color:var(--blue-ink);flex:none}
 .dsr .ack[data-invalid="true"]{border-color:var(--red)}
 .dsr .next-steps{margin-top:1.25rem;background:var(--blue-tint);padding:1rem 1.1rem;font-size:.95rem}
-.dsr .next-steps ol{margin:.4rem 0 0;padding-left:1.2rem}
+.dsr .next-steps ol{margin:.5rem 0 0;padding-left:1.1rem}
+.dsr .next-steps strong{display:block;font-weight:700}
 .dsr .next-steps li{margin:.2rem 0}
 
 /* Action bar */
 .dsr .bar{position:fixed;left:0;right:0;bottom:0;z-index:30;background:#fff;border-top:1px solid var(--line);padding:.75rem 0 calc(env(safe-area-inset-bottom) + .75rem)}
 .dsr .bar .wrap{display:grid;grid-template-columns:1fr 1.6fr;gap:.75rem}
 @media (min-width:640px){.dsr .bar .wrap{display:flex;justify-content:space-between}.dsr .bar .btn{min-width:180px}}
+.dsr .aside{line-height:1.6}
 
 /* Confirmation */
 .dsr .done{padding:2.5rem 0 4rem}
@@ -216,7 +230,8 @@ const setupCss = `
 .dsr .status::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--blue-ink)}
 .dsr .ref{margin-top:1.25rem;border:1px solid var(--line);padding:1rem 1.1rem;display:grid;gap:.3rem}
 .dsr .ref .code{font-family:'Oswald',sans-serif;font-size:1.6rem;letter-spacing:.06em}
-.dsr .foot{margin-top:auto;border-top:1px solid var(--line);padding:1.25rem 0;font-size:.85rem;color:var(--muted);text-align:center}
+.dsr .foot{margin-top:auto;background:var(--navy);border-top:1px solid rgba(255,255,255,.12);padding:1.25rem 0}
+.dsr .foot .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:.4rem 1.5rem;font-family:'Rajdhani',sans-serif;font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:#8FA3B6}
 .dsr .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .dsr .hp{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
 `;
@@ -454,7 +469,7 @@ function SelectField({
       <select
         aria-describedby={error ? `${fieldId}-error` : undefined}
         aria-invalid={error ? "true" : undefined}
-        className="control"
+        className={`control${value ? "" : " placeholder"}`}
         id={fieldId}
         onChange={(event) => onChange(event.target.value)}
         value={value}
@@ -479,11 +494,16 @@ function ReviewBlock({ children, onEdit, title }: { children: ReactNode; onEdit:
   );
 }
 
+/** Optional answers left blank are omitted, so the review lists only what will be sent. */
 function ReviewRow({ label, value }: { label: string; value: string }) {
+  if (!value.trim()) {
+    return null;
+  }
+
   return (
     <>
       <dt>{label}</dt>
-      <dd>{value || "—"}</dd>
+      <dd>{value}</dd>
     </>
   );
 }
@@ -876,8 +896,7 @@ export function DosOnboardingClient({ supportEmail }: { supportEmail: string }) 
           </div>
           {errors.requestType ? <p className="err" role="alert">{errors.requestType}</p> : null}
           <p className="aside">
-            Applying to serve as a USA Missionaries missionary? That is a separate application with its own review.{" "}
-            <Link className="textlink" href="/join">Go to the USA Missionaries application</Link>
+            Applying to serve as a USA Missionaries missionary? That is a separate, invitation-only application with its own review. Use the link in your invitation instead of this form.
           </p>
         </>
       );
@@ -935,14 +954,14 @@ export function DosOnboardingClient({ supportEmail }: { supportEmail: string }) 
               <p className="legend" id="dsr-primaryUses-legend">
                 <span>I want DOS to help with<span aria-hidden="true" className="req">*</span></span>
               </p>
-              <div aria-labelledby="dsr-primaryUses-legend" className="chips" role="group">
+              <div aria-labelledby="dsr-primaryUses-legend" className="checks" role="group">
                 {primaryUseOptions.map((option) => {
                   const selected = answers.primaryUses.includes(option);
 
                   return (
                     <button
                       aria-pressed={selected}
-                      className="chip"
+                      className="check"
                       key={option}
                       onClick={() => update({
                         primaryUses: selected
@@ -951,7 +970,8 @@ export function DosOnboardingClient({ supportEmail }: { supportEmail: string }) 
                       })}
                       type="button"
                     >
-                      {option}
+                      <span aria-hidden="true" className="box" />
+                      <span>{option}</span>
                     </button>
                   );
                 })}
@@ -1039,15 +1059,17 @@ export function DosOnboardingClient({ supportEmail }: { supportEmail: string }) 
       />
       <header className="top">
         <div className="wrap">
-          <Link className="ident" href="/dos/setup">
+          <div className="ident">
             <DosMark />
             <span>
               <span className="word">Discipleship Operating System</span>
               <span className="short">DOS</span>
               <span className="attrib">An initiative of USA Missionaries</span>
             </span>
-          </Link>
-          <Link className="signin" href="/login?next=%2Fdos">Sign in</Link>
+          </div>
+          {stage === "welcome" ? (
+            <Link className="signin" href="/login?next=%2Fdos">Already have DOS? Sign in</Link>
+          ) : null}
         </div>
       </header>
 
@@ -1093,10 +1115,7 @@ export function DosOnboardingClient({ supportEmail }: { supportEmail: string }) 
               </ol>
               {legacyNoticeElements}
               <p className="aside">
-                Applying to serve as a USA Missionaries missionary? That is a separate application.{" "}
-                <Link className="textlink" href="/join">Go to the USA Missionaries application</Link>
-                <br />
-                Already have DOS? <Link className="textlink" href="/login?next=%2Fdos">Sign in</Link>
+                Applying to serve as a USA Missionaries missionary? That is a separate, invitation-only application. Use the link in your invitation instead of this form.
               </p>
             </div>
           </section>
@@ -1118,7 +1137,6 @@ export function DosOnboardingClient({ supportEmail }: { supportEmail: string }) 
           </div>
           <main className="step">
             <div className="wrap">
-              <p className="eyebrow">{meta.eyebrow}</p>
               <h1 ref={headingRef} tabIndex={-1}>{meta.title}</h1>
               {renderStep()}
               <div aria-hidden="true" className="hp">
@@ -1172,17 +1190,20 @@ export function DosOnboardingClient({ supportEmail }: { supportEmail: string }) 
               </ol>
             </div>
             <p className="aside">
-              Questions? Email <a className="textlink" href={`mailto:${supportEmail}`}>{supportEmail}</a>.
-              <br />
-              Need to send a different request? <button className="textlink" onClick={startNewRequest} style={{ background: "none", border: 0, padding: 0, cursor: "pointer", font: "inherit" }} type="button">Start a new request</button>
+              Questions, or need to change something? Email <a className="textlink" href={`mailto:${supportEmail}`}>{supportEmail}</a> and include your reference.
             </p>
           </div>
         </main>
       ) : null}
 
-      <footer className="foot">
-        <div className="wrap">DOS · An initiative of USA Missionaries</div>
-      </footer>
+      {stage === "flow" ? null : (
+        <footer className="foot">
+          <div className="wrap">
+            <span>Discipleship Operating System</span>
+            <span>An initiative of USA Missionaries</span>
+          </div>
+        </footer>
+      )}
     </div>
   );
 }
