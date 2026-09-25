@@ -209,6 +209,18 @@ const dosV4Css = `
 .dos-v4 .promise p{font-size:.94rem;color:#93A5B6;margin-top:.55rem;line-height:1.6}
 .dos-v4 .system .guard{margin-top:2rem;font-size:.9rem;color:#7E92A5;max-width:40rem}
 
+/* ---------- BUMPER VIDEO ---------- */
+.dos-v4 .bumper{margin:clamp(2.25rem,5vh,3rem) 0 0;position:relative}
+.dos-v4 .bumper-frame{position:relative;aspect-ratio:16/9;background:#0A1622 center/cover no-repeat;border:1px solid var(--dline);overflow:hidden}
+.dos-v4 .bumper video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+.dos-v4 .bumper-toggle{position:absolute;right:.9rem;bottom:.9rem;display:inline-flex;align-items:center;gap:.5rem;min-height:44px;padding:.55rem .95rem;border:1px solid rgba(111,178,240,.55);background:rgba(7,13,20,.72);color:#fff;cursor:pointer;
+  font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;backdrop-filter:blur(4px)}
+.dos-v4 .bumper-toggle:hover{border-color:var(--blue-hi);background:rgba(7,13,20,.85)}
+.dos-v4 .bumper-toggle:focus-visible{outline:2px solid var(--blue-hi);outline-offset:2px}
+.dos-v4 .bumper-toggle svg{flex:none}
+.dos-v4 .bumper figcaption{margin-top:.85rem;font-size:.9rem;color:#93A5B6;max-width:44rem;line-height:1.6}
+.dos-v4 .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+
 /* ---------- FRUIT ---------- */
 .dos-v4 .fruit{padding:clamp(4rem,9vh,6.5rem) 0;background:#fff;border-bottom:1px solid var(--line)}
 .dos-v4 .fruit-grid{display:grid;grid-template-columns:minmax(0,5fr) minmax(280px,4fr);gap:clamp(2.5rem,6vw,5rem);align-items:center}
@@ -432,6 +444,127 @@ function DosSelect({
   );
 }
 
+/* USA-289: the approved 22-second DOS bumper (real app, synthetic demo
+ * workspace, no sound). It costs nothing until it is near the screen: no
+ * source is set before then, so only the 34 KB poster loads. Phones and
+ * data-saver connections get the 720p file. It plays muted when in view,
+ * pauses when scrolled away, never autoplays for reduced motion, stops on
+ * its end card, and always has a visible Pause / Play control. */
+const bumperVideo = {
+  large: "/videos/dos/dos-bumper-v1-1080p.mp4",
+  poster: "/videos/dos/dos-bumper-v1-poster.jpg",
+  small: "/videos/dos/dos-bumper-v1-720p.mp4",
+};
+
+function DosBumperVideo() {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const pausedByViewer = useRef(false);
+  const [state, setState] = useState<"ended" | "paused" | "playing">("paused");
+
+  useEffect(() => {
+    const video = videoRef.current;
+
+    if (!video) {
+      return;
+    }
+
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+    const source = window.matchMedia("(max-width: 900px)").matches || connection?.saveData ? bumperVideo.small : bumperVideo.large;
+    const load = () => {
+      if (!video.getAttribute("src")) {
+        video.src = source;
+      }
+    };
+
+    if (typeof IntersectionObserver === "undefined") {
+      load();
+      return;
+    }
+
+    const observer = new IntersectionObserver(([entry]) => {
+      if (!entry) {
+        return;
+      }
+
+      if (entry.isIntersecting) {
+        load();
+
+        if (!reduceMotion && !pausedByViewer.current && !video.ended) {
+          void video.play().catch(() => undefined);
+        }
+      } else if (!video.paused) {
+        video.pause();
+      }
+    }, { rootMargin: "200px 0px", threshold: 0.4 });
+
+    observer.observe(video);
+    return () => observer.disconnect();
+  }, []);
+
+  function toggle() {
+    const video = videoRef.current;
+
+    if (!video) {
+      return;
+    }
+
+    if (!video.getAttribute("src")) {
+      video.src = window.matchMedia("(max-width: 900px)").matches ? bumperVideo.small : bumperVideo.large;
+    }
+
+    if (video.paused || video.ended) {
+      pausedByViewer.current = false;
+      if (video.ended) {
+        video.currentTime = 0;
+      }
+      void video.play().catch(() => undefined);
+    } else {
+      pausedByViewer.current = true;
+      video.pause();
+    }
+  }
+
+  const label = state === "playing" ? "Pause" : state === "ended" ? "Replay" : "Play";
+
+  return (
+    <figure className="bumper reveal">
+      <div className="bumper-frame" style={{ backgroundImage: `url(${bumperVideo.poster})` }}>
+        <video
+          aria-describedby="dos-bumper-description"
+          aria-label="DOS in 22 seconds, silent"
+          disablePictureInPicture
+          disableRemotePlayback
+          height={1080}
+          muted
+          onEnded={() => setState("ended")}
+          onPause={() => setState((current) => (current === "ended" ? current : "paused"))}
+          onPlay={() => setState("playing")}
+          playsInline
+          poster={bumperVideo.poster}
+          preload="none"
+          ref={videoRef}
+          width={1920}
+        />
+        <button aria-label={`${label} the DOS video`} className="bumper-toggle" onClick={toggle} type="button">
+          {state === "playing" ? (
+            <svg aria-hidden="true" fill="currentColor" height="14" viewBox="0 0 14 14" width="14"><rect height="12" width="4" x="2" y="1" /><rect height="12" width="4" x="8" y="1" /></svg>
+          ) : (
+            <svg aria-hidden="true" fill="currentColor" height="14" viewBox="0 0 14 14" width="14"><path d="M3 1.5v11l9-5.5z" /></svg>
+          )}
+          {label}
+        </button>
+      </div>
+      <figcaption>
+        A 22-second look at the DOS app, with no sound. The people shown are a made-up demo workspace.
+        <span className="sr-only" id="dos-bumper-description">
+          {" "}The video opens on the DOS title, then shows the app on a phone: Home with the 3, 12, 70 and 120 circles and the day&apos;s notifications; the People list; one person&apos;s record with their last and next meeting, a Journey two of seven weeks complete, and accountability; the Meetings calendar with meetings that need logging; and the Prayer list. It ends with the words Meet. Minister. Multiply. and the Discipleship Operating System logo.
+        </span>
+      </figcaption>
+    </figure>
+  );
+}
+
 export function DosLandingPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [isRequestOpen, setIsRequestOpen] = useState(false);
@@ -625,6 +758,7 @@ export function DosLandingPage() {
             <p className="eyebrow reveal">More than reminders</p>
             <h2 className="reveal">A memory and an accountability partner, in one system.</h2>
             <p className="lede reveal">DOS quietly holds every person, promise, prayer, and shared rhythm, and brings the right one back to you at the right time. You stay present with people. DOS keeps the record.</p>
+            <DosBumperVideo />
             <div className="promise-grid">
               <div className="promise reveal">
                 <p className="n">Remember</p>

@@ -12,7 +12,7 @@
  * POST-only route, and the handler ends the Supabase session.
  */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
   answersForRequestType,
   emptyDosAccessRequestAnswers,
@@ -142,5 +142,15 @@ check((dosApp.match(/action="\/api\/access\/logout" method="post"|formAction="\/
 console.log("\nEntry points");
 check(read("app/domain-sites/discipleship-operating-system/DosLandingPage.tsx").includes("/dos/setup"), "the public DOS page's Get Started opens /dos/setup");
 check(read("app/dos/DosPortalClient.tsx").includes('href="/dos/setup"'), "the /dos Get Started opens /dos/setup");
+
+console.log("\nBumper video (public DOS page)");
+const landing = read("app/domain-sites/discipleship-operating-system/DosLandingPage.tsx");
+const bumperFiles = ["dos-bumper-v1-1080p.mp4", "dos-bumper-v1-720p.mp4", "dos-bumper-v1-poster.jpg"];
+check(bumperFiles.every((file) => landing.includes(`/videos/dos/${file}`) && existsSync(new URL(`../public/videos/dos/${file}`, import.meta.url))), "the page uses the 1080p and 720p MP4s and the poster, and all three are in public/videos/dos");
+check(/<video[\s\S]*?\bmuted\b[\s\S]*?\bplaysInline\b[\s\S]*?preload="none"/.test(landing) && !/<video[^>]*\bcontrols\b/.test(landing) && !/<video[^>]*\bloop\b/.test(landing), "the video is muted, inline, loads nothing up front, and does not loop");
+check(landing.includes("prefers-reduced-motion: reduce") && landing.includes("pausedByViewer") && landing.includes('className="bumper-toggle"'), "the video never autoplays for reduced motion, keeps a viewer's pause, and has a visible Pause/Play control");
+check(landing.includes('aria-describedby="dos-bumper-description"') && landing.includes('id="dos-bumper-description"') && landing.includes("made-up demo workspace"), "the video has a text description and says the people shown are made up");
+check(landing.includes('"(max-width: 900px)"') && landing.includes("saveData"), "phones and data-saver connections get the 720p file");
+check(read("next.config.js").includes('source: "/videos/:path*"') && read("next.config.js").includes("immutable"), "versioned videos are cached for good");
 
 console.log(`\n${passed} checks passed. dos-access-request regression passed.`);
