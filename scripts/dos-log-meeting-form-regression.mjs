@@ -330,7 +330,7 @@ assert(
 assert(
   appClient.includes("function AccountabilityFields({")
     && (appClient.match(/<AccountabilityFields/g) ?? []).length >= 2
-    && appClient.includes("function accountabilitySchedulePayload(formData: FormData, prefix: string)"),
+    && appClient.includes("function accountabilitySchedulePayload(formData: FormData, prefix: string, isEdit = false)"),
   "Person and Log Meeting must share one canonical Accountability component and payload.",
 );
 
