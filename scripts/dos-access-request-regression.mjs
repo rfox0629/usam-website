@@ -126,7 +126,18 @@ check(sendWelcome.includes('.eq("welcome_email_status", "sending")') && sendWelc
 console.log("\nWelcome email");
 const email = read("src/lib/dos/access-request-email.ts");
 check(email.includes("Add to Home Screen") && email.includes("Install app") && email.includes("Add to Home screen"), "the email has iPhone and Android home screen steps");
-check(email.includes("dosWalkthroughVideoUrl") && email.includes("A short walkthrough video is on the way"), "the video link appears only when configured");
+check(!email.includes("video is on the way") && email.includes('dosWalkthroughPath = "/dos/walkthrough"'), "the email links the hosted walkthrough and no longer promises a video");
+const v2 = email.slice(email.indexOf("export function buildDosWelcomeEmailV2"), email.indexOf("export function buildDosAccessRequestAdminNotification"));
+check((v2.match(/"primary"\)/g) ?? []).length === 1 && v2.includes('"Open my DOS workspace"') && v2.includes("dosWelcomeEmailWorkspaceUrl(input.workspaceSlug)"), "the new email has one main action, opening the recipient's own verified workspace (or /dos)");
+check(!v2.includes("/login") && !v2.includes("<svg") && !v2.includes("mailto:") && !/App Store|app store/.test(v2), "the new email repeats no sign-in URL, uses no SVG, names no second support address, and implies no app store");
+check(v2.includes("Email me a sign-in link") && v2.includes("Sign in the way you usually do.") && v2.includes("right where you left it"), "new accounts are told to choose Email me a sign-in link; existing users sign in as usual; an existing workspace is said to be intact");
+check(v2.includes("Watch the 2-minute walkthrough") && v2.includes("dos-walkthrough-v1-email-thumb.jpg") && v2.includes('alt="Watch the 2-minute DOS walkthrough"') && v2.includes("Reply to this email"), "the new email has the walkthrough thumbnail and button, and help by replying");
+check(email.includes("export const dosWelcomeEmailV2Live = false"), "approvals keep the earlier email until the new one is reviewed and switched on");
+const testSend = store.slice(store.indexOf("export async function sendDosWelcomeEmailTest"), store.indexOf("export async function listDosWelcomeEmailPreviewRequests"));
+check(testSend.includes("sendResendEmail(authorization.email") && !testSend.includes("attemptTable") && !testSend.includes(".update(") && testSend.includes("canDecideDosAccessRequests"), "a test send goes only to the signed-in admin and records nothing on the request");
+const walkthrough = read("app/dos/walkthrough/DosWalkthroughClient.tsx");
+check(["dos-walkthrough-v1-1080p.mp4", "dos-walkthrough-v1-720p.mp4", "dos-walkthrough-v1-poster.jpg", "dos-walkthrough-v1-email-thumb.jpg"].every((file) => existsSync(new URL(`../public/videos/dos/${file}`, import.meta.url))) && existsSync(new URL("../public/images/email/dos-mark-v1.png", import.meta.url)), "the walkthrough videos, poster, email thumbnail, and email logo are hosted");
+check(walkthrough.includes('media="(max-width: 900px)"') && walkthrough.includes('preload="none"') && ["Sign in", "Home", "People", "Meetings", "Prayer", "Add DOS to your phone"].every((title) => walkthrough.includes(`title: "${title}"`)), "the walkthrough page serves 720p to phones, loads nothing up front, and lists all six steps as text");
 check(!/access_token|token_hash|magiclink|generateLink/i.test(email), "the email carries no sign-in token");
 check(email.includes("dosSupportEmail"), "the email names a support contact");
 

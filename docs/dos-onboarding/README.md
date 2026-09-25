@@ -72,7 +72,7 @@ The DOS sign-in page (`/login?next=/dos…`) now offers **Email me a sign-in lin
 | `DOS_EMAIL_FROM` | From address for DOS emails | falls back to `JOIN_EMAIL_FROM` → `PRAYER_EMAIL_FROM` → `EMAIL_FROM` |
 | `DOS_SUPPORT_EMAIL` | support contact and Reply-To | `ADMIN_APPLICATION_EMAIL` → `ryan@usamissionaries.org` |
 | `DOS_ACCESS_REQUEST_ADMIN_EMAIL` | new-request notice | `ADMIN_APPLICATION_EMAIL` |
-| `DOS_WALKTHROUGH_VIDEO_URL` | set **only** after the video is published and verified | unset |
+| `DOS_WALKTHROUGH_VIDEO_URL` | optional override for the walkthrough link (https only) | the hosted `/dos/walkthrough` page |
 
 ## Deploying
 
@@ -102,3 +102,33 @@ The form's four dropdowns ("Which best describes you?", "How did you hear about 
 - **Unchanged behavior:** answers still save to the device, and a missing required answer still focuses the field and marks it invalid.
 
 `evidence/select-menus/` holds Chrome screenshots of each menu open and closed at 1440×900 and 390×844, taken from a production build.
+
+## Videos
+
+There are two videos, and they are separate deliverables.
+
+| Video | Where | Length | Purpose |
+|---|---|---|---|
+| **Bumper** | public DOS page, "A memory and an accountability partner" section | 22 s, silent | promotional |
+| **Instructional walkthrough** | `https://usamissionaries.org/dos/walkthrough`, linked from the welcome email | 1:52, silent, steps written on screen | how to start |
+
+- **What they show:** real DOS screens from the demo route, with every person's name replaced by a synthetic cast for the capture build only.
+- **Walkthrough steps:** Sign in ("Email me a sign-in link"), Home, People and a person's record, Meetings, Prayer, and adding DOS to a phone. The page lists the same steps as text, with buttons that jump to each one.
+- **Files:** `public/videos/dos/*-v1-*`. Each video has a 1080p and a 720p MP4 (H.264, index at the front, no audio track) and a poster. The walkthrough also has the email thumbnail.
+- **Delivery:** phones get the 720p file. Nothing but the poster loads until the video is needed. `/videos/*` is cached `immutable`, so a new cut needs a new filename.
+
+## Welcome email, new design
+
+`buildDosWelcomeEmailV2` in `src/lib/dos/access-request-email.ts`:
+1. **Header:** DOS logo and "Welcome to DOS."
+2. **Personal line:** "{Name}, your DOS workspace is ready," then one line saying their existing workspace is intact, or that it is new.
+3. **One main button:** "Open my DOS workspace," to their verified workspace (or `/dos`).
+4. **Sign-in line:** new accounts are told to choose **Email me a sign-in link**; existing users sign in as usual.
+5. **Walkthrough:** the thumbnail and a "Watch the 2-minute walkthrough" button.
+6. **Phone setup:** compact iPhone and Android steps.
+7. **Help:** "Need help? Reply to this email," using the `DOS_SUPPORT_EMAIL` reply-to.
+
+It contains no login URL, no second address, no password, and no token. The markup is Gmail-safe: tables and inline styles, no SVG, absolute images with alt text, 600px wide, and it stacks on phones.
+
+**Not live until reviewed.** `dosWelcomeEmailV2Live` is `false`, so approvals keep the earlier email, which now links the walkthrough instead of promising it. Operations → a ready request → **Preview the new welcome email** (`/operations/submissions/dos-access/welcome-email`) shows both variants at 600px and 375px, plus the plain text. **Send a test** sends it, marked [Test], only to the signed-in admin. It records nothing on the request and never emails the applicant. Switch the constant on after the founder approves the test.
+
