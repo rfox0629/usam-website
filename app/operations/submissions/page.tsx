@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { dosAccessRequestStatusLabel } from "@/src/lib/dos/access-request-model";
+import { loadDosAccessRequestsForOperations, type DosAccessRequestListItem } from "@/src/lib/dos/access-requests";
 import { canAccessOperationsModule, getOperationsAuthorization } from "@/src/lib/operations/auth";
 import {
   loadOperationsSubmissions,
@@ -70,6 +72,85 @@ function toneForSource(submission: OperationsSubmissionListItem): OperationsTone
   return "muted";
 }
 
+// USA-289: DOS access requests are their own record type (dos_access_requests),
+// listed here alongside form submissions so the inbox stays the one queue.
+const dosAccessSourceKey = "dos_access_request";
+
+type InboxRow = {
+  detail: string;
+  followUp: string;
+  href: string;
+  id: string;
+  isSensitive: boolean;
+  isTestRecord: boolean;
+  sourceKey: string;
+  sourceLabel: string;
+  sourceTone: OperationsTone;
+  statusLabel: string;
+  statusTone: OperationsTone;
+  submittedAt: string;
+  submitter: string;
+};
+
+function inboxRowFromSubmission(submission: OperationsSubmissionListItem): InboxRow {
+  return {
+    detail: submission.reviewSummary ?? submission.detail,
+    followUp: submission.nextAction ?? submission.followUpState ?? "Needs review",
+    href: submission.href,
+    id: submission.id,
+    isSensitive: submission.isSensitive,
+    isTestRecord: submission.isTestRecord,
+    sourceKey: submission.sourceKey,
+    sourceLabel: sourceLabelForSubmission(submission),
+    sourceTone: toneForSource(submission),
+    statusLabel: operationsSubmissionStatusLabel(submission.status),
+    statusTone: toneForStatus(submission.status),
+    submittedAt: submission.submittedAt,
+    submitter: submission.submitter,
+  };
+}
+
+function dosAccessFollowUp(request: DosAccessRequestListItem) {
+  if (request.status === "submitted") {
+    return "Approve or decline";
+  }
+
+  if (request.status === "declined") {
+    return "Declined · no access";
+  }
+
+  if (request.accessStatus !== "ready") {
+    return request.accessStatus === "failed" ? "Access setup failed · retry" : "Access setup in progress";
+  }
+
+  if (request.welcomeEmailStatus === "failed") {
+    return "Welcome email failed · retry";
+  }
+
+  return request.welcomeEmailStatus === "sent" ? "Access ready · email accepted" : "Access ready · email not sent";
+}
+
+function inboxRowFromDosAccessRequest(request: DosAccessRequestListItem): InboxRow {
+  const needsAttention = request.status === "approved"
+    && (request.accessStatus === "failed" || request.welcomeEmailStatus === "failed");
+
+  return {
+    detail: `${request.referenceCode} · ${request.requestType === "organization" ? `Organization: ${request.organizationName ?? ""}` : "Individual"} · ${request.email}`,
+    followUp: dosAccessFollowUp(request),
+    href: request.href,
+    id: `dos-access-${request.id}`,
+    isSensitive: false,
+    isTestRecord: request.isTestRecord,
+    sourceKey: dosAccessSourceKey,
+    sourceLabel: "DOS Access Request",
+    sourceTone: "blue",
+    statusLabel: needsAttention ? "Needs Attention" : dosAccessRequestStatusLabel(request.status),
+    statusTone: needsAttention ? "red" : request.status === "submitted" ? "blue" : request.status === "approved" ? "green" : "muted",
+    submittedAt: request.submittedAt,
+    submitter: request.name,
+  };
+}
+
 export default async function OperationsSubmissionsPage({
   searchParams,
 }: {
@@ -88,17 +169,36 @@ export default async function OperationsSubmissionsPage({
     return <OperationsAccessDenied active="submissions" authorization={authorization} />;
   }
 
-  const { error, submissions } = await loadOperationsSubmissions({ authorization });
-  const sourceOptions = operationsSubmissionSourceOptions(submissions);
+  const [{ error, submissions }, dosAccess] = await Promise.all([
+    loadOperationsSubmissions({ authorization }),
+    loadDosAccessRequestsForOperations({ authorization }),
+  ]);
+  const rows: InboxRow[] = [
+    ...submissions.map(inboxRowFromSubmission),
+    ...dosAccess.requests.map(inboxRowFromDosAccessRequest),
+  ].sort((first, second) => second.submittedAt.localeCompare(first.submittedAt));
+  const sourceOptions = [
+    ...operationsSubmissionSourceOptions(submissions),
+    ...(dosAccess.requests.length > 0
+      ? [{ count: dosAccess.requests.length, key: dosAccessSourceKey, label: "DOS Access Request" }]
+      : []),
+  ].sort((first, second) => first.label.localeCompare(second.label));
   const selectedSource = sourceOptions.some((option) => option.key === query.type)
     ? query.type ?? null
     : null;
   const visibleSubmissions = selectedSource
-    ? submissions.filter((submission) => submission.sourceKey === selectedSource)
-    : submissions;
-  const newCount = submissions.filter((submission) => submission.status === "new").length;
-  const followUpCount = submissions.filter((submission) => submission.status === "needs_follow_up" || submission.status === "follow_up").length;
+    ? rows.filter((row) => row.sourceKey === selectedSource)
+    : rows;
+  const newCount = submissions.filter((submission) => submission.status === "new").length
+    + dosAccess.requests.filter((request) => request.status === "submitted").length;
+  const followUpCount = submissions.filter((submission) => submission.status === "needs_follow_up" || submission.status === "follow_up").length
+    + dosAccess.requests.filter((request) => request.status === "approved" && (request.accessStatus !== "ready" || request.welcomeEmailStatus !== "sent")).length;
   const restrictedCount = submissions.filter((submission) => submission.isSensitive).length;
+  const dosAccessError = dosAccess.error
+    ? `DOS access requests could not be loaded: ${dosAccess.error}`
+    : dosAccess.migrationPending
+      ? "DOS access requests are being saved as DOS Walkthrough submissions until the dos_access_requests migration (USA-289) is applied."
+      : null;
 
   return (
     <OperationsShell
@@ -120,8 +220,14 @@ export default async function OperationsSubmissionsPage({
           </section>
         ) : null}
 
+        {dosAccessError ? (
+          <section className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-900">
+            {dosAccessError}
+          </section>
+        ) : null}
+
         <OperationsPanel title="Submission Queue">
-          {submissions.length > 0 ? (
+          {rows.length > 0 ? (
             <div className="space-y-3">
               <form action="/operations/submissions" className="flex flex-col gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 sm:flex-row sm:items-center sm:justify-between">
                 <label className="flex min-w-0 flex-1 flex-col gap-1 sm:max-w-xs">
@@ -163,24 +269,24 @@ export default async function OperationsSubmissionsPage({
                       key={submission.id}
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        <OperationsBadge tone={toneForSource(submission)}>
-                          {sourceLabelForSubmission(submission)}
+                        <OperationsBadge tone={submission.sourceTone}>
+                          {submission.sourceLabel}
                         </OperationsBadge>
                         {submission.isSensitive ? <OperationsBadge tone="red">Restricted</OperationsBadge> : null}
                       </div>
                       <div className="min-w-0">
                         <p className="truncate text-sm font-semibold text-slate-950">{submission.submitter}</p>
                         <p className="mt-1 truncate text-sm text-slate-500">
-                          {submission.reviewSummary ?? submission.detail}
+                          {submission.detail}
                         </p>
                       </div>
                       <div>
-                        <OperationsBadge tone={toneForStatus(submission.status)}>
-                          {operationsSubmissionStatusLabel(submission.status)}
+                        <OperationsBadge tone={submission.statusTone}>
+                          {submission.statusLabel}
                         </OperationsBadge>
                       </div>
                       <p className="truncate text-sm text-slate-700">
-                        {submission.nextAction ?? submission.followUpState ?? "Needs review"}
+                        {submission.followUp}
                       </p>
                       <p className="text-sm text-slate-500">{formatOperationsDate(submission.submittedAt)}</p>
                     </Link>

@@ -2,14 +2,16 @@ import "server-only";
 
 import { getConfiguredSiteUrl } from "@/src/lib/site-url";
 
-type EmailTemplate = {
+export type EmailTemplate = {
   html: string;
   subject: string;
   text: string;
 };
 
-type EmailResult = {
+export type EmailResult = {
   error?: string;
+  /** HTTP status and Resend's short error text, for Operations to show. Never contains credentials. */
+  errorDetail?: string;
   id?: string;
   provider: "resend";
   sent: boolean;
@@ -17,8 +19,12 @@ type EmailResult = {
 };
 
 type EmailSendOptions = {
+  /** Overrides the configured From address (for example the DOS sender). */
+  from?: string;
   /** Resend retains idempotency keys for 24 hours and returns the original send. */
   idempotencyKey?: string;
+  /** Reply-To address, for example the DOS support contact. */
+  replyTo?: string;
 };
 
 type JoinResumeEmailInput = {
@@ -38,7 +44,7 @@ type JoinApplicationEmailInput = {
   submittedAt: string;
 };
 
-function escapeHtml(value: string) {
+export function escapeHtml(value: string) {
   return value
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
@@ -84,7 +90,7 @@ function emailShell(title: string, body: string) {
   `;
 }
 
-async function sendResendEmail(
+export async function sendResendEmail(
   to: string,
   template: EmailTemplate,
   options: EmailSendOptions = {},
@@ -112,8 +118,9 @@ async function sendResendEmail(
 
     const response = await fetch("https://api.resend.com/emails", {
       body: JSON.stringify({
-        from: configuredFromEmail(),
+        from: options.from || configuredFromEmail(),
         html: template.html,
+        ...(options.replyTo ? { reply_to: options.replyTo } : {}),
         subject: template.subject,
         text: template.text,
         to,
@@ -129,6 +136,7 @@ async function sendResendEmail(
 
       return {
         error: "resend_request_failed",
+        errorDetail: `HTTP ${response.status}${message ? `: ${message.slice(0, 300)}` : ""}`,
         provider: "resend",
         sent: false,
       };
@@ -146,6 +154,7 @@ async function sendResendEmail(
 
     return {
       error: "resend_network_failed",
+      errorDetail: error instanceof Error ? error.message.slice(0, 300) : "unknown error",
       provider: "resend",
       sent: false,
     };

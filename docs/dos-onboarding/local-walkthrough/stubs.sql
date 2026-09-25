@@ -1,0 +1,15 @@
+create role anon nologin; create role authenticated nologin; create role service_role nologin bypassrls;
+create role authenticator login noinherit password 'pw'; grant anon, authenticated, service_role to authenticator;
+create schema auth; create schema storage; create schema extensions;
+create extension if not exists pgcrypto; create extension if not exists "uuid-ossp";
+create table auth.users(id uuid primary key default gen_random_uuid(), email text unique, raw_user_meta_data jsonb, created_at timestamptz default now());
+create function auth.uid() returns uuid language sql stable as $$ select nullif(coalesce(current_setting('request.jwt.claims', true)::jsonb->>'sub',''),'')::uuid $$;
+create function auth.jwt() returns jsonb language sql stable as $$ select coalesce(nullif(current_setting('request.jwt.claims', true),''),'{}')::jsonb $$;
+create function auth.role() returns text language sql stable as $$ select auth.jwt()->>'role' $$;
+create function auth.email() returns text language sql stable as $$ select auth.jwt()->>'email' $$;
+create table storage.buckets(id text primary key, name text, public boolean default false, file_size_limit bigint, allowed_mime_types text[], created_at timestamptz default now(), updated_at timestamptz default now());
+create table storage.objects(id uuid primary key default gen_random_uuid(), bucket_id text, name text, owner uuid, metadata jsonb, created_at timestamptz default now());
+grant usage on schema public, auth, storage to anon, authenticated, service_role;
+alter default privileges in schema public grant all on tables to service_role;
+alter default privileges in schema public grant all on sequences to service_role;
+alter default privileges in schema public grant execute on functions to service_role;
