@@ -27,7 +27,7 @@ Drafts saved by the earlier page (`dos-unified-setup-draft-v1`, `dos-unified-set
 
 ## Lifecycle
 
-1. **Visitor starts.** "Get Started" on the public DOS page (discipleshipoperatingsystem.com) or on `/dos` opens `https://usamissionaries.org/dos/setup`. No account is needed.
+1. **Visitor starts.** "Get Started" on the public DOS page (discipleshipoperatingsystem.com) or "Request DOS access" on the DOS sign-in page opens `https://usamissionaries.org/dos/setup`. No account is needed, and submitting grants nothing.
 2. **Five steps.**
    - Who it's for
    - About you: name, email, optional phone and location
@@ -52,17 +52,49 @@ Drafts saved by the earlier page (`dos-unified-setup-draft-v1`, `dos-unified-set
    - **Individual who already has a DOS workspace:** linked, not recreated. People, groups, Journeys, and reading plans stay where they are.
    - **Otherwise:** a workspace is created with the same record shape as the admin DOS portal provisioner (organization, `missionary_households`, collective with the same slug, profile, memberships, owner team member), plus the owner's own People record.
    - **Readiness check:** `getDosWorkspaceAccess`, the app's own resolver, must allow this email into the workspace before `access_status = ready`.
-7. **Welcome email** through the existing Resend helper, sent only when access is ready. It covers:
-   - sign-in: an email link for new accounts, or the existing way for existing accounts; never a password or a token
-   - where DOS lives
-   - iPhone steps: Safari → Share → Add to Home Screen
-   - Android steps: Chrome → ⋮ → Install app / Add to Home screen
-   - the support contact
-   - the walkthrough video, only when `DOS_WALKTHROUGH_VIDEO_URL` is set
+7. **Welcome email** through the existing Resend helper, sent only when access is ready. See [Welcome email](#welcome-email). Every attempt is logged in `dos_access_request_email_attempts`. Failures show in Operations with **Retry welcome email**. "Accepted by Resend" is not proof of delivery.
 
-   Every attempt is logged in `dos_access_request_email_attempts`. Failures show in Operations with **Retry welcome email**. "Accepted by Resend" is not proof of delivery.
+## Signing in and entry points
 
-The DOS sign-in page (`/login?next=/dos…`) now offers **Email me a sign-in link** and **Set or reset password**, so accounts created without a password can sign in.
+There is one way to ask for DOS and one way to sign in:
+
+| Who | Where | What it does |
+|---|---|---|
+| Wants DOS | `/dos/setup` | Sends a request. Creates no account and grants nothing. |
+| Approved, or already has DOS | `/dos/sign-in` | The DOS sign-in page. Then `/dos` opens their workspace. |
+| Applying to serve with USA Missionaries | `/join` | The missionary application. Separate from DOS. |
+| Staff | `/login?next=/operations` ("Operations Sign In") | Not linked from DOS pages or DOS emails. |
+
+**DOS sign-in page (`/dos/sign-in`).**
+- One email field, a password, **Sign in**, and **Email me a sign-in link**. Enter signs in with the password.
+- **Forgot or set password** and **Request DOS access** sit below as secondary links.
+- The link never creates an account (`shouldCreateUser: false`), and its notice doesn't reveal whether the address has DOS.
+- After sign-in the person goes to `/dos`, or to a `next` DOS page that passes `safeDosNextPath`. Sign-in, signup and setup URLs are never used as destinations.
+- The 2-minute walkthrough is on the page before sign-in: a poster with a centered play button, captions (`dos-walkthrough-v1.en.vtt`), and the steps as text.
+
+**`/dos`.** Signed out → `/dos/sign-in`. Signed in with exactly one real (non-test) workspace → that workspace. Several → a chooser. None → "Your DOS access isn't set up yet", with Request DOS access and Sign out. The old signed-out "Start your DOS field" form is gone; it created nothing and only forwarded to sign-in.
+
+**Old links.**
+
+| URL | Now |
+|---|---|
+| `/dos/signup`, `/dos/sign-up`, `/dos/register` | `/dos/setup` (HTTP 307) |
+| `/dos/login`, `/dos/signin` | `/dos/sign-in`, keeping `next` (HTTP 307) |
+| `/login?next=/dos…` | `/dos/sign-in`, keeping `next`, errors and notices |
+| `/dos/onboarding` | `/dos/setup` |
+
+Before this change, `/dos/signup` had no route, so it opened the workspace page for a workspace named "signup" and offered "Create a personal DOS workspace".
+
+**Routes that can create accounts or workspaces.**
+
+| Route | Who can use it |
+|---|---|
+| Approving a request in Operations (`src/lib/dos/access-requests.ts`) | Operations admin or editor |
+| `POST /api/dos/portal/workspaces` | admin or editor (staff provisioning tool) |
+| `POST /api/admin/organizations` | editor |
+| `POST /api/join/submit` | **Closed (410).** It was public, took a password, and created a confirmed account plus a workspace without review. Nothing calls it; `/join` uses `/api/join/application`. `JOIN_LEGACY_SUBMIT_ENABLED=true` reopens it for an emergency only. |
+
+Sign-in never creates users, and no route calls `signUp`. Existing accounts, workspaces and saved drafts are untouched.
 
 ## Configuration
 
@@ -86,7 +118,7 @@ The DOS sign-in page (`/login?next=/dos…`) now offers **Email me a sign-in lin
 - **Before:** DOS "Sign out" was a GET link to the POST-only `/api/access/logout` (HTTP 405), and that handler only cleared the System `usam_access` cookie, never the Supabase session DOS uses.
 - **Now:**
   - The route ends the Supabase session and clears `usam_access`.
-  - A real GET navigation redirects to `/login?next=/dos&signedOut=1`; prefetches are ignored.
+  - A real GET navigation redirects to `/dos/sign-in?signedOut=1`; prefetches are ignored.
   - Both DOS Sign out controls POST a form.
 
 ## Evidence
@@ -110,25 +142,26 @@ There are two videos, and they are separate deliverables.
 | Video | Where | Length | Purpose |
 |---|---|---|---|
 | **Bumper** | public DOS page, "A memory and an accountability partner" section | 22 s, silent | promotional |
-| **Instructional walkthrough** | `https://usamissionaries.org/dos/walkthrough`, linked from the welcome email | 1:52, silent, steps written on screen | how to start |
+| **Instructional walkthrough** | the DOS sign-in page and `https://usamissionaries.org/dos/walkthrough` | 1:52, silent, captions, steps written on screen | how to start |
 
 - **What they show:** real DOS screens from the demo route, with every person's name replaced by a synthetic cast for the capture build only.
 - **Walkthrough steps:** Sign in ("Email me a sign-in link"), Home, People and a person's record, Meetings, Prayer, and adding DOS to a phone. The page lists the same steps as text, with buttons that jump to each one.
-- **Files:** `public/videos/dos/*-v1-*`. Each video has a 1080p and a 720p MP4 (H.264, index at the front, no audio track) and a poster. The walkthrough also has the email thumbnail.
+- **Files:** `public/videos/dos/*-v1-*`. Each video has a 1080p and a 720p MP4 (H.264, index at the front, no audio track) and a poster. The walkthrough also has VP9 WebM copies (listed first, so browsers without H.264 still play it) and English captions. Its sources live in `src/lib/dos/walkthrough.ts`.
 - **Delivery:** phones get the 720p file. Nothing but the poster loads until the video is needed. `/videos/*` is cached `immutable`, so a new cut needs a new filename.
 
-## Welcome email, new design
+## Welcome email
 
-`buildDosWelcomeEmailV2` in `src/lib/dos/access-request-email.ts`:
-1. **Header:** DOS logo and "Welcome to DOS."
-2. **Personal line:** "{Name}, your DOS workspace is ready," then one line saying their existing workspace is intact, or that it is new.
-3. **One main button:** "Open my DOS workspace," to their verified workspace (or `/dos`).
-4. **Sign-in line:** new accounts are told to choose **Email me a sign-in link**; existing users sign in as usual.
-5. **Walkthrough:** the thumbnail and a "Watch the 2-minute walkthrough" button.
-6. **Phone setup:** compact iPhone and Android steps.
-7. **Help:** "Need help? Reply to this email," using the `DOS_SUPPORT_EMAIL` reply-to.
+`buildDosWelcomeEmail` in `src/lib/dos/access-request-email.ts` is the one email approvals send. Subject: "Your DOS workspace is ready."
 
-It contains no login URL, no second address, no password, and no token. The markup is Gmail-safe: tables and inline styles, no SVG, absolute images with alt text, 600px wide, and it stacks on phones.
+1. **Header:** DOS logo, "DOS / Discipleship Operating System".
+2. **Message:** "{Name}, your workspace is ready.", then one line: existing workspace kept as it was, the organization's workspace, or a new one.
+3. **One button, Open DOS,** to `{site}/dos`. It is the only link. `/dos` sends each person to sign-in and then to their own workspace, so no workspace slug is in the email.
+4. **Sign-in line:** new accounts: "On the sign-in screen, choose Email me a sign-in link." Existing accounts: "Sign in the way you usually do."
+5. **Keep DOS on your phone:** iPhone (Safari → Share → Add to Home Screen) and Android (Chrome → ⋮ → Install app).
+6. **Help:** "Just reply to this email." Replies go to `DOS_SUPPORT_EMAIL`.
 
-**Not live until reviewed.** `dosWelcomeEmailV2Live` is `false`, so approvals keep the earlier email, which now links the walkthrough instead of promising it. Operations → a ready request → **Preview the new welcome email** (`/operations/submissions/dos-access/welcome-email`) shows both variants at 600px and 375px, plus the plain text. **Send a test** sends it, marked [Test], only to the signed-in admin. It records nothing on the request and never emails the applicant. Switch the constant on after the founder approves the test.
+No video image, walkthrough button, login URL, password or token. Gmail-safe markup: tables, inline styles, 560px wide, one absolute PNG with alt text. A plain-text version is sent with it.
 
+**Preview:** Operations → a request → **Preview the welcome email for this request** (`/operations/submissions/dos-access/welcome-email`) shows the new-account and existing-account versions at desktop and phone widths, plus the plain text. **Send a test** sends it, marked [Test], only to the signed-in admin; it records nothing and never emails the applicant.
+
+Evidence: `evidence/entry-flow/` (sign-in page, video, `/dos` states, Operations sign-in, email at 700px and 375px). The harness is `local-walkthrough/entry-flow.mjs`.

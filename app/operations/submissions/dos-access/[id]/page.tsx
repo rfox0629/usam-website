@@ -202,10 +202,10 @@ export default async function DosAccessRequestDetailPage({
                 <OperationsPanel title="Welcome Email Attempts">
                   <p className="mb-3 text-xs leading-5 text-slate-500">
                     &quot;Accepted by Resend&quot; means Resend took the message for delivery. It does not confirm the person received it.
-                    Walkthrough video: <a className="text-blue-700 underline" href={videoUrl}>{videoUrl}</a>.
+                    The email&apos;s button opens /dos; the <a className="text-blue-700 underline" href={videoUrl}>2-minute walkthrough</a> is on the DOS sign-in page.
                     {request.access_status === "ready" ? (
                       <>
-                        {" "}<a className="text-blue-700 underline" href={`/operations/submissions/dos-access/welcome-email?request=${request.id}`}>Preview the new welcome email for this request</a>.
+                        {" "}<a className="text-blue-700 underline" href={`/operations/submissions/dos-access/welcome-email?request=${request.id}`}>Preview the welcome email for this request</a>.
                       </>
                     ) : null}
                   </p>

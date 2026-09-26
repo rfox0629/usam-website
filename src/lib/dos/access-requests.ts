@@ -6,7 +6,6 @@ import { getDosLaunchWorkspaces, getDosWorkspaceAccess, type DosAuthorization } 
 import {
   buildDosAccessRequestAdminNotification,
   buildDosWelcomeEmail,
-  buildDosWelcomeEmailV2,
   dosEmailFrom,
   dosSupportEmail,
   type DosWelcomeEmailInput,
@@ -1452,10 +1451,10 @@ export function dosWelcomeEmailInputFor(row: DosAccessRequestRow | null, variant
 }
 
 /**
- * Sends the redesigned welcome email to the signed-in reviewer only, marked
- * [Test]. It uses an approved request's details when one is given, so the
- * button opens that real workspace, but it writes nothing to the request or
- * its email attempts and never emails the applicant.
+ * Sends the welcome email to the signed-in reviewer only, marked [Test]. It
+ * uses an approved request's details (name, new or existing account) when one
+ * is given, but it writes nothing to the request or its email attempts and
+ * never emails the applicant.
  */
 export async function sendDosWelcomeEmailTest({
   authorization,
@@ -1491,7 +1490,7 @@ export async function sendDosWelcomeEmailTest({
     }
   }
 
-  const template = buildDosWelcomeEmailV2(dosWelcomeEmailInputFor(row, variant));
+  const template = buildDosWelcomeEmail(dosWelcomeEmailInputFor(row, variant));
   const result = await sendResendEmail(authorization.email, { ...template, subject: `[Test] ${template.subject}` }, {
     from: dosEmailFrom(),
     idempotencyKey: `dos-welcome-test-${randomUUID()}`,

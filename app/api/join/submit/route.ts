@@ -627,7 +627,27 @@ function friendlyAuthError(message: string) {
   return "Unable to create the account right now. Please try again.";
 }
 
+/*
+ * USA-289: closed. This was the original public /join submit: with no sign-in
+ * it created a confirmed account with a password and a DOS workspace, which
+ * bypassed review. Nothing in the app calls it now. USA Missionaries
+ * applications go through /join (/api/join/application) and DOS access is a
+ * reviewed request at /dos/setup. The provisioning code below stays for the
+ * Workspace V2 extraction (scripts/join-provisioner-contract-regression.mjs)
+ * and runs only where JOIN_LEGACY_SUBMIT_ENABLED is explicitly "true".
+ */
+function legacySubmitClosed() {
+  return NextResponse.json({
+    error: "This form has moved. To apply to serve with USA Missionaries, use the link in your invitation. To ask for DOS, request access at /dos/setup.",
+    moved: { dos: "/dos/setup", usaMissionaries: "/join" },
+  }, { status: 410 });
+}
+
 export async function POST(request: Request) {
+  if (process.env.JOIN_LEGACY_SUBMIT_ENABLED !== "true") {
+    return legacySubmitClosed();
+  }
+
   if (!isSupabaseAdminConfigured()) {
     return NextResponse.json({ error: "Supabase admin environment variables are not configured." }, { status: 500 });
   }

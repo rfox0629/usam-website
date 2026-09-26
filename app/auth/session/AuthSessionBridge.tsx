@@ -16,8 +16,13 @@ function safeNextPath(value: string | null) {
   return value?.startsWith("/") && !value.startsWith("//") ? value : "/admin";
 }
 
+// Keep the destination so a failed DOS link returns to the DOS sign-in page
+// (the /login page forwards DOS destinations there), not the admin login.
 function redirectWithError(message = "auth-link") {
-  window.location.replace(`/login?error=${encodeURIComponent(message)}`);
+  const next = new URLSearchParams(window.location.search).get("next");
+  const nextQuery = next?.startsWith("/") && !next.startsWith("//") ? `&next=${encodeURIComponent(next)}` : "";
+
+  window.location.replace(`/login?error=${encodeURIComponent(message)}${nextQuery}`);
 }
 
 function isEmailOtpType(value: string | null): value is EmailOtpType {

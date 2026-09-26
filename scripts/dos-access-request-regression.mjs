@@ -125,21 +125,45 @@ check(sendWelcome.includes('.eq("welcome_email_status", "sending")') && sendWelc
 
 console.log("\nWelcome email");
 const email = read("src/lib/dos/access-request-email.ts");
-check(email.includes("Add to Home Screen") && email.includes("Install app") && email.includes("Add to Home screen"), "the email has iPhone and Android home screen steps");
-check(!email.includes("video is on the way") && email.includes('dosWalkthroughPath = "/dos/walkthrough"'), "the email links the hosted walkthrough and no longer promises a video");
-const v2 = email.slice(email.indexOf("export function buildDosWelcomeEmailV2"), email.indexOf("export function buildDosAccessRequestAdminNotification"));
-check((v2.match(/"primary"\)/g) ?? []).length === 1 && v2.includes('"Open my DOS workspace"') && v2.includes("dosWelcomeEmailWorkspaceUrl(input.workspaceSlug)"), "the new email has one main action, opening the recipient's own verified workspace (or /dos)");
-check(!v2.includes("/login") && !v2.includes("<svg") && !v2.includes("mailto:") && !/App Store|app store/.test(v2), "the new email repeats no sign-in URL, uses no SVG, names no second support address, and implies no app store");
-check(v2.includes("Email me a sign-in link") && v2.includes("Sign in the way you usually do.") && v2.includes("right where you left it"), "new accounts are told to choose Email me a sign-in link; existing users sign in as usual; an existing workspace is said to be intact");
-check(v2.includes("Watch the 2-minute walkthrough") && v2.includes("dos-walkthrough-v1-email-thumb.jpg") && v2.includes('alt="Watch the 2-minute DOS walkthrough"') && v2.includes("Reply to this email"), "the new email has the walkthrough thumbnail and button, and help by replying");
-check(email.includes("export const dosWelcomeEmailV2Live = false"), "approvals keep the earlier email until the new one is reviewed and switched on");
+const welcome = email.slice(email.indexOf("export function buildDosWelcomeEmail"), email.indexOf("export function buildDosAccessRequestAdminNotification"));
+check(welcome.includes("const openUrl = dosWelcomeEmailEntryUrl()") && email.includes("return `${getCanonicalSiteUrl()}/dos`;") && !welcome.includes("workspaceSlug"), "every welcome email's button opens /dos, never a workspace slug");
+check((welcome.match(/<a href=/g) ?? []).length === 1 && welcome.includes(">Open DOS</a>"), "the email has exactly one link, the Open DOS button");
+check(!/walkthrough|thumb|<svg|mailto:|\/login|App Store|app store/i.test(welcome), "no video image, walkthrough button, SVG, mailto, sign-in URL, or app store");
+check(welcome.includes("Email me a sign-in link") && welcome.includes("Sign in the way you usually do.") && welcome.includes("right where you left it"), "brief sign-in guidance for new and existing accounts; an existing workspace is said to be intact");
+check(welcome.includes("Add to Home Screen") && welcome.includes("Install app") && welcome.includes("nothing to download"), "a compact iPhone and Android home screen note for the web app");
+check(welcome.includes("Just reply to this email") && welcome.includes("text: ["), "one help contact (reply; the reply-to is DOS_SUPPORT_EMAIL) and a plain-text version");
+check(!email.includes("dosWelcomeEmailV2Live") && !email.includes("buildDosWelcomeEmailV1") && !email.includes("video is on the way"), "there is one welcome email design, and it is the one sent");
 const testSend = store.slice(store.indexOf("export async function sendDosWelcomeEmailTest"), store.indexOf("export async function listDosWelcomeEmailPreviewRequests"));
 check(testSend.includes("sendResendEmail(authorization.email") && !testSend.includes("attemptTable") && !testSend.includes(".update(") && testSend.includes("canDecideDosAccessRequests"), "a test send goes only to the signed-in admin and records nothing on the request");
-const walkthrough = read("app/dos/walkthrough/DosWalkthroughClient.tsx");
-check(["dos-walkthrough-v1-1080p.mp4", "dos-walkthrough-v1-720p.mp4", "dos-walkthrough-v1-poster.jpg", "dos-walkthrough-v1-email-thumb.jpg"].every((file) => existsSync(new URL(`../public/videos/dos/${file}`, import.meta.url))) && existsSync(new URL("../public/images/email/dos-mark-v1.png", import.meta.url)), "the walkthrough videos, poster, email thumbnail, and email logo are hosted");
-check(walkthrough.includes('media="(max-width: 900px)"') && walkthrough.includes('preload="none"') && ["Sign in", "Home", "People", "Meetings", "Prayer", "Add DOS to your phone"].every((title) => walkthrough.includes(`title: "${title}"`)), "the walkthrough page serves 720p to phones, loads nothing up front, and lists all six steps as text");
 check(!/access_token|token_hash|magiclink|generateLink/i.test(email), "the email carries no sign-in token");
-check(email.includes("dosSupportEmail"), "the email names a support contact");
+check(store.includes("replyTo: dosSupportEmail()"), "replies go to the DOS support address");
+
+console.log("\nWalkthrough video");
+const walkthroughData = read("src/lib/dos/walkthrough.ts");
+const walkthroughPage = read("app/dos/walkthrough/DosWalkthroughClient.tsx");
+check(["dos-walkthrough-v1-1080p.mp4", "dos-walkthrough-v1-720p.mp4", "dos-walkthrough-v1-1080p.webm", "dos-walkthrough-v1-720p.webm", "dos-walkthrough-v1-poster.jpg", "dos-walkthrough-v1.en.vtt"].every((file) => existsSync(new URL(`../public/videos/dos/${file}`, import.meta.url)) && walkthroughData.includes(file)), "the walkthrough has WebM and MP4 at 1080p and 720p, a poster, and English captions");
+check(read("public/videos/dos/dos-walkthrough-v1.en.vtt").startsWith("WEBVTT") && ["Sign in", "Home", "People", "Meetings", "Prayer", "Add DOS to your phone"].every((title) => walkthroughData.includes(`title: "${title}"`)), "captions are WebVTT and the six steps are listed as text");
+check(walkthroughPage.includes("video.sources.map") && walkthroughPage.includes('kind="captions"') && walkthroughPage.includes('preload="none"'), "the walkthrough page uses the shared sources and captions, and loads nothing up front");
+
+console.log("\nDOS sign-in and entry points");
+const signIn = read("app/dos/sign-in/page.tsx");
+const signInActions = read("app/dos/sign-in/actions.ts");
+const signInVideo = read("app/dos/sign-in/DosSignInVideo.tsx");
+check((signIn.match(/name="email"/g) ?? []).length === 1 && signIn.includes('value="password"') && signIn.includes('value="link"') && signIn.includes('value="reset"'), "the DOS sign-in page has one email field with password, sign-in link, and reset choices");
+check(signIn.indexOf('value="password"') < signIn.indexOf('value="link"') && signIn.indexOf('value="link"') < signIn.indexOf('value="reset"'), "Sign in is the first submit button, so Enter signs in");
+check(signIn.includes('href="/dos/setup">Request DOS access') && !/operations|\/admin/i.test(signIn.replace(/\/\/.*$/gm, "")), "the page offers Request DOS access and has no Operations or admin link");
+check(signInActions.includes("shouldCreateUser: false") && !/createUser|signUp\(/.test(signInActions), "signing in never creates an account");
+check(signInActions.includes("safeDosNextPath") && read("src/lib/auth/reset-next.ts").includes('"/dos/signup"') && read("src/lib/auth/reset-next.ts").includes('return "/dos";'), "the destination is a validated DOS page, /dos by default, never /dos/signup or setup");
+check(signIn.includes("<DosSignInVideo />") && signInVideo.includes('preload="none"') && signInVideo.includes('className="play"') && signInVideo.includes('kind="captions"') && signInVideo.includes("made-up demo workspace"), "the walkthrough is on the sign-in page: poster with a centered play button, captions, steps, demo data only");
+const loginPage = read("app/login/page.tsx");
+check(loginPage.includes("redirect(dosSignInHref(nextPath, carry))") && loginPage.includes('"Operations Sign In"'), "/login forwards DOS destinations to the DOS sign-in page and is the Operations sign-in");
+check(read("app/dos/page.tsx").includes('redirect(dosSignInHref("/dos"))') && !read("app/dos/DosPortalClient.tsx").includes("Create your personal workspace") && !read("app/dos/DosPortalClient.tsx").includes("<form className"), "/dos sends signed-out visitors to sign in; the old Start your DOS field form is gone");
+check(["signup", "sign-up", "register"].every((route) => read(`app/dos/${route}/page.tsx`).includes('redirect("/dos/setup")')) && ["login", "signin"].every((route) => read(`app/dos/${route}/page.tsx`).includes("dosSignInHref(next)")), "retired /dos/signup, /dos/sign-up, /dos/register, /dos/login, /dos/signin links redirect");
+check(["app/dos/[collectiveSlug]/page.tsx", "app/dos/app/page.tsx"].every((file) => read(file).includes("redirect(dosSignInHref(nextPath))") && !read(file).includes("Create a personal DOS workspace")), "workspaces send signed-out visitors to DOS sign-in and never suggest self-setup");
+check(read("app/auth/session/AuthSessionBridge.tsx").includes("const next = new URLSearchParams(window.location.search).get(\"next\")"), "a failed DOS sign-in link returns to the DOS sign-in page");
+const joinSubmit = read("app/api/join/submit/route.ts");
+check(joinSubmit.indexOf('process.env.JOIN_LEGACY_SUBMIT_ENABLED !== "true"') > 0 && joinSubmit.indexOf("legacySubmitClosed()") < joinSubmit.indexOf("auth.admin.createUser"), "the old public /api/join/submit (account + workspace without review) is closed");
+check(!read("app/dos/setup/DosOnboardingClient.tsx").includes("/login?next"), "the request form's Sign in link is the DOS sign-in page");
 
 console.log("\nSign out");
 const logout = read("app/api/access/logout/route.ts");
@@ -147,11 +171,13 @@ const dosApp = read("app/dos/app/DosMvpAppClient.tsx");
 check(/export async function GET/.test(logout) && /export async function POST/.test(logout), "logout answers GET and POST (no more 405)");
 check(logout.includes("auth.signOut"), "logout ends the Supabase session DOS uses");
 check(logout.includes("isPrefetchOrDataRequest"), "a prefetch never signs anyone out");
+check(logout.includes('"/dos/sign-in?signedOut=1"'), "signing out lands on the DOS sign-in page");
 check(!dosApp.includes('href="/api/access/logout"'), "DOS Sign out is no longer a GET link");
 check((dosApp.match(/action="\/api\/access\/logout" method="post"|formAction="\/api\/access\/logout"/g) ?? []).length >= 2, "both DOS Sign out controls POST a form");
 
 console.log("\nEntry points");
 check(read("app/domain-sites/discipleship-operating-system/DosLandingPage.tsx").includes("/dos/setup"), "the public DOS page's Get Started opens /dos/setup");
+check(read("app/domain-sites/discipleship-operating-system/DosLandingPage.tsx").includes("`${USAM_URL}/dos/sign-in`") && !/operations|\/admin|\/login/.test(read("app/domain-sites/discipleship-operating-system/DosLandingPage.tsx")), "the public DOS page links Sign in to the DOS sign-in page and has no staff links");
 check(read("app/dos/DosPortalClient.tsx").includes('href="/dos/setup"'), "the /dos Get Started opens /dos/setup");
 
 console.log("\nBumper video (public DOS page)");

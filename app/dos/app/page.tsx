@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { dosSignInHref } from "@/src/lib/auth/reset-next";
 import { getDosAuthorization, getDosWorkspaceAccess } from "@/src/lib/dos/auth";
 import { DosMobileMessageScreen } from "./DosMobileMessageScreen";
 
@@ -75,7 +76,7 @@ export default async function DosAppCompatibilityRedirect({
   const authorization = await getDosAuthorization();
 
   if (authorization.status === "unauthenticated") {
-    redirect(`/login?next=${encodeURIComponent(nextPath)}`);
+    redirect(dosSignInHref(nextPath));
   }
 
   if (authorization.status === "configuration_error") {
@@ -101,7 +102,7 @@ export default async function DosAppCompatibilityRedirect({
   }
 
   if (workspaceAccess.status === "not_found") {
-    return <BlockedState detail="Create a personal DOS workspace before opening the app." title="No workspace found" />;
+    return <BlockedState detail="This account isn't connected to a DOS workspace yet. If you've requested access, it opens here once your request is approved." title="DOS isn't set up yet" />;
   }
 
   if (workspaceAccess.status !== "allowed") {

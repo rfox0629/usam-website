@@ -1,4 +1,4 @@
-import { buildDosWelcomeEmailV2, dosSupportEmail, dosWelcomeEmailV2Live } from "@/src/lib/dos/access-request-email";
+import { buildDosWelcomeEmail, dosSupportEmail } from "@/src/lib/dos/access-request-email";
 import {
   canDecideDosAccessRequests,
   canViewDosAccessRequests,
@@ -13,9 +13,8 @@ import { sendDosWelcomeEmailTestAction } from "./actions";
 
 export const dynamic = "force-dynamic";
 
-// USA-289: preview of the redesigned DOS welcome email, and a test send to
-// the signed-in reviewer. Real approvals keep the earlier email until
-// dosWelcomeEmailV2Live is switched on after the founder reviews a test.
+// USA-289: preview of the DOS welcome email that approved requests receive,
+// and a test send to the signed-in reviewer.
 export default async function DosWelcomeEmailPreviewPage({
   searchParams,
 }: {
@@ -34,7 +33,7 @@ export default async function DosWelcomeEmailPreviewPage({
   const requests = await listDosWelcomeEmailPreviewRequests(authorization);
   const selected = requests.find((row) => row.id === query.request) ?? null;
   const variant: DosWelcomeEmailPreviewVariant = query.variant === "new" ? "new" : "existing";
-  const template = buildDosWelcomeEmailV2(dosWelcomeEmailInputFor(selected, variant));
+  const template = buildDosWelcomeEmail(dosWelcomeEmailInputFor(selected, variant));
   const canSend = canDecideDosAccessRequests(authorization);
   const field = "mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900";
 
@@ -49,17 +48,15 @@ export default async function DosWelcomeEmailPreviewPage({
       <div className="space-y-4">
         {query.saved ? <section className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800" role="status">{query.saved}</section> : null}
         {query.error ? <section className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800" role="alert">{query.error}</section> : null}
-        <OperationsPanel title="New design">
+        <OperationsPanel title="Welcome email">
           <p className="text-sm leading-6 text-slate-600">
-            {dosWelcomeEmailV2Live
-              ? "Approved requests now receive this email."
-              : "Not live yet: approved requests still receive the earlier welcome email. This page previews the new one and sends a test to you."}
+            Approved requests receive this email once their access is ready. Every recipient&apos;s button opens {"/dos"}, which takes them to their own workspace after sign-in.
             {" "}Replies go to {dosSupportEmail()}.
           </p>
           <form className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] md:items-end" method="get">
             <label className="text-sm text-slate-700">Recipient details
               <select className={field} defaultValue={selected?.id ?? ""} name="request">
-                <option value="">Sample (Jordan, no workspace link)</option>
+                <option value="">Sample recipient (Jordan)</option>
                 {requests.map((row) => (
                   <option key={row.id} value={row.id}>{row.reference_code} · {row.first_name} {row.last_name} · /dos/{row.provisioned_workspace_slug}</option>
                 ))}
@@ -85,10 +82,10 @@ export default async function DosWelcomeEmailPreviewPage({
         </OperationsPanel>
         <div className="grid gap-4 xl:grid-cols-[640px_420px]">
           <OperationsPanel title="Desktop (600px)">
-            <iframe className="h-[1500px] w-full rounded border border-slate-200 bg-white" sandbox="" srcDoc={template.html} title="Welcome email, desktop width" />
+            <iframe className="h-[1000px] w-full rounded border border-slate-200 bg-white" sandbox="" srcDoc={template.html} title="Welcome email, desktop width" />
           </OperationsPanel>
           <OperationsPanel title="Phone (375px)">
-            <iframe className="mx-auto block h-[1700px] w-[375px] max-w-full rounded border border-slate-200 bg-white" sandbox="" srcDoc={template.html} title="Welcome email, phone width" />
+            <iframe className="mx-auto block h-[1150px] w-[375px] max-w-full rounded border border-slate-200 bg-white" sandbox="" srcDoc={template.html} title="Welcome email, phone width" />
           </OperationsPanel>
         </div>
         <OperationsPanel title="Plain-text version">
