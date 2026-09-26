@@ -1,5 +1,7 @@
 # `/join` provisioner — extraction boundary
 
+> **USA-289 update:** the live `POST /api/join/submit` is permanently closed (always 410, no provisioning). The implementation described below is kept, uncompiled, at `docs/architecture/legacy-join-submit/route.ts.reference`; line numbers refer to that copy minus its header comment.
+
 **USA-110 Stage 0.** Specification only. **No behaviour change in this issue.**
 Executed in **Stage 2** (USA-109), which must be a **pure refactor**.
 

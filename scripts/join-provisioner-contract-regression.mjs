@@ -3,6 +3,11 @@
  * USA-110 — /join provisioner behaviour-parity contract.
  *
  * WHY THIS EXISTS
+ * USA-289: the live POST /api/join/submit is permanently closed (410) and can
+ * no longer provision. The historical implementation this contract pins lives,
+ * uncompiled, at docs/architecture/legacy-join-submit/route.ts.reference. The
+ * last check below pins that the live route stays closed.
+ *
  * The `/join` provisioning sequence in app/api/join/submit/route.ts is about to be
  * extracted into a reusable service (Workspace V2, Stage 2). Extraction must be a
  * PURE REFACTOR: identical writes, identical order, identical rollback, identical
@@ -27,8 +32,10 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import assert from "node:assert/strict";
 
-const ROUTE = path.join(process.cwd(), "app", "api", "join", "submit", "route.ts");
+const ROUTE = path.join(process.cwd(), "docs", "architecture", "legacy-join-submit", "route.ts.reference");
 const src = readFileSync(ROUTE, "utf8");
+const LIVE_ROUTE = path.join(process.cwd(), "app", "api", "join", "submit", "route.ts");
+const liveSrc = readFileSync(LIVE_ROUTE, "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 
 const results = [];
 function check(name, fn) {
@@ -250,6 +257,15 @@ check("extraction boundary: rollback tracks exactly the six known resource ids",
 
 check("extraction boundary: provisioner still uses the admin client", () => {
   assert.match(src, /createSupabaseAdminClient/);
+});
+
+check("USA-289: the live POST /api/join/submit always returns 410 and cannot provision", () => {
+  assert.match(liveSrc, /status: 410/);
+  for (const forbidden of [/supabase/i, /createUser/, /\.from\(/, /\.insert\(/, /process\.env/, /request\.json/, /import\(/]) {
+    assert.doesNotMatch(liveSrc, forbidden, `live route must not contain ${forbidden}`);
+  }
+  const imports = liveSrc.match(/^import .*$/gm) ?? [];
+  assert.deepEqual(imports, ['import { NextResponse } from "next/server";']);
 });
 
 // ---------------------------------------------------------------------------

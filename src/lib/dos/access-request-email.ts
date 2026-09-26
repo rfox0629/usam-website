@@ -61,11 +61,177 @@ export function dosWalkthroughVideoUrl() {
   }
 }
 
-/* ------------------------------------------------------------ welcome email */
+/* ---------------------------------------------------------- welcome email */
 
 /**
- * USA-289 welcome email, sent once access is verified ready. Short on
- * purpose: DOS header, "your workspace is ready", one Open DOS button, a
+ * Which welcome email approvals send. The redesign below goes to real
+ * applicants only after the founder reviews a real Gmail test of it
+ * (USA-289). Until then approvals keep the current production email, and
+ * Operations → Welcome Email Preview → "Send a test" sends the redesign to
+ * the signed-in reviewer only. Turning this on is a code change, not an
+ * environment setting.
+ */
+export const dosWelcomeEmailRedesignLive = false;
+
+export function buildDosWelcomeEmail(input: DosWelcomeEmailInput): EmailTemplate {
+  return dosWelcomeEmailRedesignLive ? buildDosWelcomeEmailRedesign(input) : buildDosWelcomeEmailCurrent(input);
+}
+
+/* ------------------------------------------- current production email */
+
+/**
+ * The welcome email approvals send today (unchanged from production). Its
+ * sign-in link, /login?next=/dos/<workspace>, now forwards to /dos/sign-in.
+ */
+function paragraph(html: string) {
+  return `<p style="margin:0 0 16px;color:#1e293b;font-size:15px;">${html}</p>`;
+}
+
+function heading(text: string) {
+  return `<h2 style="margin:28px 0 10px;font-size:17px;line-height:1.3;color:#020617;">${escapeHtml(text)}</h2>`;
+}
+
+function list(items: string[], ordered = true) {
+  const tag = ordered ? "ol" : "ul";
+
+  return `<${tag} style="margin:0 0 16px;padding-left:22px;color:#1e293b;font-size:15px;">${items
+    .map((item) => `<li style="margin:0 0 6px;">${item}</li>`)
+    .join("")}</${tag}>`;
+}
+
+function button(href: string, label: string) {
+  return `<p style="margin:8px 0 20px;"><a href="${escapeHtml(href)}" style="display:inline-block;background:#1E6FBF;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 22px;border-radius:0;">${escapeHtml(label)}</a></p>`;
+}
+
+export function buildDosWelcomeEmailCurrent(input: DosWelcomeEmailInput): EmailTemplate {
+  const siteUrl = getCanonicalSiteUrl();
+  const dosUrl = `${siteUrl}/dos`;
+  const workspaceUrl = `${siteUrl}/dos/${encodeURIComponent(input.workspaceSlug)}`;
+  const signInUrl = `${siteUrl}/login?next=${encodeURIComponent(`/dos/${input.workspaceSlug}`)}`;
+  const supportEmail = dosSupportEmail();
+  const videoUrl = dosWalkthroughVideoUrl();
+  const name = input.firstName.trim() || "there";
+  const forOrganization = input.requestType === "organization" && input.organizationName
+    ? ` for ${input.organizationName}`
+    : "";
+
+  const signInSteps = input.accountState === "existing"
+    ? [
+      `Open <a href="${escapeHtml(signInUrl)}">${escapeHtml(`${siteUrl.replace(/^https?:\/\//, "")}/login`)}</a>.`,
+      "Sign in with this email address the way you already do (password or email link).",
+      "Your existing people, groups, Journeys, and reading plans are unchanged.",
+    ]
+    : [
+      `Open <a href="${escapeHtml(signInUrl)}">${escapeHtml(`${siteUrl.replace(/^https?:\/\//, "")}/login`)}</a>.`,
+      "Under <strong>Email me a sign-in link</strong>, enter this email address and send the link.",
+      "Open the link on the same phone or computer. It signs you straight in to DOS.",
+      "Prefer a password? On the same page choose <strong>Set or reset password</strong> at any time.",
+    ];
+  const signInStepsText = input.accountState === "existing"
+    ? [
+      `1. Open ${signInUrl}`,
+      "2. Sign in with this email address the way you already do (password or email link).",
+      "3. Your existing people, groups, Journeys, and reading plans are unchanged.",
+    ]
+    : [
+      `1. Open ${signInUrl}`,
+      "2. Under \"Email me a sign-in link\", enter this email address and send the link.",
+      "3. Open the link on the same phone or computer. It signs you straight in to DOS.",
+      "4. Prefer a password? On the same page choose \"Set or reset password\" at any time.",
+    ];
+
+  const iphoneSteps = [
+    `Open <a href="${escapeHtml(dosUrl)}">${escapeHtml(dosUrl.replace(/^https?:\/\//, ""))}</a> in <strong>Safari</strong> and sign in.`,
+    "Tap the <strong>Share</strong> button (the square with an arrow).",
+    "Scroll down and tap <strong>Add to Home Screen</strong>. If you see <strong>Open as Web App</strong>, leave it on.",
+    "Tap <strong>Add</strong>. DOS now opens from its own icon.",
+  ];
+  const androidSteps = [
+    `Open <a href="${escapeHtml(dosUrl)}">${escapeHtml(dosUrl.replace(/^https?:\/\//, ""))}</a> in <strong>Chrome</strong> and sign in.`,
+    "Tap the <strong>⋮</strong> menu in the top right.",
+    "Tap <strong>Install app</strong> or <strong>Add to Home screen</strong>, whichever your phone shows.",
+    "Confirm. DOS now opens from its own icon.",
+  ];
+
+  const videoHtml = paragraph(`Watch the 2-minute walkthrough: <a href="${escapeHtml(videoUrl)}">${escapeHtml(videoUrl)}</a>`);
+  const videoText = `Watch the 2-minute walkthrough: ${videoUrl}`;
+
+  const html = `
+    <div style="margin:0;background:#EDF5FC;padding:32px 16px;font-family:Inter,Arial,sans-serif;color:#0E1822;line-height:1.6;">
+      <div style="margin:0 auto;max-width:620px;border:1px solid #E6EAEE;background:#ffffff;">
+        <div style="background:#0A1622;padding:22px 28px;">
+          <p style="margin:0;color:#6FB2F0;font-size:12px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;">Discipleship Operating System</p>
+        </div>
+        <div style="padding:28px;">
+          <h1 style="margin:0 0 16px;font-size:28px;line-height:1.15;color:#0E1822;">Your DOS access is ready</h1>
+          ${paragraph(`Hi ${escapeHtml(name)},`)}
+          ${paragraph(`Your request to use DOS${escapeHtml(forOrganization)} has been approved, and your workspace, <strong>${escapeHtml(input.workspaceName)}</strong>, is ready.`)}
+          ${button(signInUrl, "Sign in to DOS")}
+          ${heading("Signing in")}
+          ${list(signInSteps)}
+          ${paragraph("We never send passwords by email, and no one from our team will ask for yours.")}
+          ${heading("Where DOS lives")}
+          ${paragraph(`DOS is a web app. Your workspace is at <a href="${escapeHtml(workspaceUrl)}">${escapeHtml(workspaceUrl.replace(/^https?:\/\//, ""))}</a>. There is nothing to download from an app store.`)}
+          ${heading("Add DOS to your iPhone home screen")}
+          ${list(iphoneSteps)}
+          ${heading("Add DOS to your Android home screen")}
+          ${list(androidSteps)}
+          ${heading("Walkthrough video")}
+          ${videoHtml}
+          ${heading("Need help?")}
+          ${paragraph(`Reply to this email or write to <a href="mailto:${escapeHtml(supportEmail)}">${escapeHtml(supportEmail)}</a>.`)}
+          <p style="margin:28px 0 0;color:#5E6B78;font-size:13px;">DOS · An initiative of USA Missionaries</p>
+        </div>
+      </div>
+    </div>
+  `;
+
+  const text = [
+    `Hi ${name},`,
+    "",
+    `Your request to use DOS${forOrganization} has been approved, and your workspace, ${input.workspaceName}, is ready.`,
+    "",
+    "SIGNING IN",
+    ...signInStepsText,
+    "",
+    "We never send passwords by email, and no one from our team will ask for yours.",
+    "",
+    "WHERE DOS LIVES",
+    `DOS is a web app. Your workspace is at ${workspaceUrl}. There is nothing to download from an app store.`,
+    "",
+    "ADD DOS TO YOUR IPHONE HOME SCREEN",
+    `1. Open ${dosUrl} in Safari and sign in.`,
+    "2. Tap the Share button (the square with an arrow).",
+    "3. Scroll down and tap Add to Home Screen. If you see Open as Web App, leave it on.",
+    "4. Tap Add. DOS now opens from its own icon.",
+    "",
+    "ADD DOS TO YOUR ANDROID HOME SCREEN",
+    `1. Open ${dosUrl} in Chrome and sign in.`,
+    "2. Tap the ⋮ menu in the top right.",
+    "3. Tap Install app or Add to Home screen, whichever your phone shows.",
+    "4. Confirm. DOS now opens from its own icon.",
+    "",
+    "WALKTHROUGH VIDEO",
+    videoText,
+    "",
+    "NEED HELP?",
+    `Reply to this email or write to ${supportEmail}.`,
+    "",
+    "DOS · An initiative of USA Missionaries",
+  ].join("\n");
+
+  return {
+    html,
+    subject: "Your DOS access is ready",
+    text,
+  };
+}
+
+/* -------------------------------------------------- redesign, in review */
+
+/**
+ * USA-289 redesigned welcome email, not live until reviewed (see
+ * dosWelcomeEmailRedesignLive). Short on purpose: DOS header, "your workspace is ready", one Open DOS button, a
  * brief sign-in line, a compact home screen note, and help by replying.
  *
  * The button goes to /dos for every recipient. After sign-in, /dos opens the
@@ -95,7 +261,7 @@ export function dosWelcomeEmailEntryUrl() {
   return `${getCanonicalSiteUrl()}/dos`;
 }
 
-export function buildDosWelcomeEmail(input: DosWelcomeEmailInput): EmailTemplate {
+export function buildDosWelcomeEmailRedesign(input: DosWelcomeEmailInput): EmailTemplate {
   const siteUrl = getCanonicalSiteUrl();
   const openUrl = dosWelcomeEmailEntryUrl();
   const logoUrl = `${siteUrl}/images/email/dos-mark-v1.png`;

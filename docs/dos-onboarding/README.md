@@ -92,7 +92,7 @@ Before this change, `/dos/signup` had no route, so it opened the workspace page 
 | Approving a request in Operations (`src/lib/dos/access-requests.ts`) | Operations admin or editor |
 | `POST /api/dos/portal/workspaces` | admin or editor (staff provisioning tool) |
 | `POST /api/admin/organizations` | editor |
-| `POST /api/join/submit` | **Closed (410).** It was public, took a password, and created a confirmed account plus a workspace without review. Nothing calls it; `/join` uses `/api/join/application`. `JOIN_LEGACY_SUBMIT_ENABLED=true` reopens it for an emergency only. |
+| `POST /api/join/submit` | **Closed (410).** It was public, took a password, and created a confirmed account plus a workspace without review. Nothing calls it; `/join` uses `/api/join/application`. The live route now only returns 410: it imports no database client and no setting reopens it. The old code is kept, uncompiled, at `docs/architecture/legacy-join-submit/route.ts.reference` for the provisioner contract test. |
 
 Sign-in never creates users, and no route calls `signUp`. Existing accounts, workspaces and saved drafts are untouched.
 
@@ -151,7 +151,14 @@ There are two videos, and they are separate deliverables.
 
 ## Welcome email
 
-`buildDosWelcomeEmail` in `src/lib/dos/access-request-email.ts` is the one email approvals send. Subject: "Your DOS workspace is ready."
+Approvals send the email built by `buildDosWelcomeEmail` in `src/lib/dos/access-request-email.ts`. It is gated in code by `dosWelcomeEmailRedesignLive`:
+
+| Design | Builder | Sent to approvals |
+|---|---|---|
+| **Current** ("Your DOS access is ready") | `buildDosWelcomeEmailCurrent`, unchanged from production | **Yes**, while `dosWelcomeEmailRedesignLive = false` |
+| **Redesign** ("Your DOS workspace is ready") | `buildDosWelcomeEmailRedesign` | Not yet. It goes live only after the founder reviews a real Gmail test and the constant is switched to `true` in a reviewed PR. There is no environment switch. |
+
+The redesign:
 
 1. **Header:** DOS logo, "DOS / Discipleship Operating System".
 2. **Message:** "{Name}, your workspace is ready.", then one line: existing workspace kept as it was, the organization's workspace, or a new one.
@@ -162,6 +169,6 @@ There are two videos, and they are separate deliverables.
 
 No video image, walkthrough button, login URL, password or token. Gmail-safe markup: tables, inline styles, 560px wide, one absolute PNG with alt text. A plain-text version is sent with it.
 
-**Preview:** Operations → a request → **Preview the welcome email for this request** (`/operations/submissions/dos-access/welcome-email`) shows the new-account and existing-account versions at desktop and phone widths, plus the plain text. **Send a test** sends it, marked [Test], only to the signed-in admin; it records nothing and never emails the applicant.
+**Preview and test:** Operations → Submissions → a ready DOS request → **Preview the redesigned welcome email** (`/operations/submissions/dos-access/welcome-email`). The **Design** menu switches between the redesign and the current email; both show at desktop and phone widths with the plain text. **Send a test of the redesign** sends the redesign, marked [Test], only to the signed-in admin. It never emails an applicant, never resends a request's welcome email, and writes nothing to any request or `dos_access_request_email_attempts`.
 
-Evidence: `evidence/entry-flow/` (sign-in page, video, `/dos` states, Operations sign-in, email at 700px and 375px). The harness is `local-walkthrough/entry-flow.mjs`.
+Evidence: `evidence/entry-flow/` (sign-in page, video, `/dos` states, Operations sign-in, redesigned email at 700px and 375px). The harness is `local-walkthrough/entry-flow.mjs`.

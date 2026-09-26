@@ -173,7 +173,7 @@ console.log("Accounts");
 
   console.log("Welcome email");
   for (const variant of ["new", "existing"]) {
-    await page.goto(`${BASE}/operations/submissions/dos-access/welcome-email?variant=${variant}`, { waitUntil: "networkidle" });
+    await page.goto(`${BASE}/operations/submissions/dos-access/welcome-email?variant=${variant}`, { waitUntil: "domcontentloaded" });
     const html = await page.locator("iframe").first().getAttribute("srcdoc");
     const text = await page.locator("pre").innerText();
     const links = [...new Set([...html.matchAll(/href="([^"]+)"/g)].map((m) => m[1]))];
@@ -197,6 +197,25 @@ console.log("Accounts");
     }
     ok(`${variant} account: one link (Open DOS → /dos), one image (logo), no walkthrough or login links, plain text kept; renders at 700px and 375px`);
   }
+  await page.goto(`${BASE}/operations/submissions/dos-access/welcome-email`, { waitUntil: "domcontentloaded" });
+  await page.getByText("The redesign is in review and not live.").waitFor();
+  assert.equal(await page.locator('select[name="design"]').inputValue(), "redesign");
+  await page.getByRole("button", { name: "Send a test of the redesign to reviewer.usa289@localtest.dev" }).waitFor();
+  ok("the preview says the redesign is not live; Send a test names only the signed-in reviewer");
+  await page.goto(`${BASE}/operations/submissions/dos-access/welcome-email?design=current&variant=new`, { waitUntil: "domcontentloaded" });
+  const currentHtml = await page.locator("iframe").first().getAttribute("srcdoc");
+  assert.ok(currentHtml.includes("Your DOS access is ready") && currentHtml.includes("Walkthrough video") && !currentHtml.includes("Your DOS workspace is ready"));
+  await page.waitForTimeout(2000);
+  await page.screenshot({ fullPage: true, path: `${OUT}/preview-current-design.png` });
+  ok("the current production email (still sent to approvals) is shown unchanged under Design → Current");
+  await page.goto(`${BASE}/operations/submissions/dos-access/welcome-email?variant=new`, { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /Send a test of the redesign/ }).click();
+  await page.waitForURL(/welcome-email\?/);
+  const outcome = (await page.locator('section[role="status"], section[role="alert"]').first().innerText()).trim();
+  assert.ok(/RESEND_API_KEY is not configured|^Test sent to reviewer\.usa289@localtest\.dev/.test(outcome), outcome);
+  await page.waitForTimeout(2000);
+  await page.screenshot({ fullPage: true, path: `${OUT}/preview-send-test.png` });
+  ok(`Send a test goes only to the reviewer (local result: ${outcome.slice(0, 60)})`);
   await ctx.close();
 }
 await browser.close();

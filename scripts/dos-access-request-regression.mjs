@@ -125,16 +125,22 @@ check(sendWelcome.includes('.eq("welcome_email_status", "sending")') && sendWelc
 
 console.log("\nWelcome email");
 const email = read("src/lib/dos/access-request-email.ts");
-const welcome = email.slice(email.indexOf("export function buildDosWelcomeEmail"), email.indexOf("export function buildDosAccessRequestAdminNotification"));
-check(welcome.includes("const openUrl = dosWelcomeEmailEntryUrl()") && email.includes("return `${getCanonicalSiteUrl()}/dos`;") && !welcome.includes("workspaceSlug"), "every welcome email's button opens /dos, never a workspace slug");
-check((welcome.match(/<a href=/g) ?? []).length === 1 && welcome.includes(">Open DOS</a>"), "the email has exactly one link, the Open DOS button");
-check(!/walkthrough|thumb|<svg|mailto:|\/login|App Store|app store/i.test(welcome), "no video image, walkthrough button, SVG, mailto, sign-in URL, or app store");
+const welcome = email.slice(email.indexOf("export function buildDosWelcomeEmailRedesign"), email.indexOf("export function buildDosAccessRequestAdminNotification"));
+const current = email.slice(email.indexOf("export function buildDosWelcomeEmailCurrent"), email.indexOf("/* -------------------------------------------------- redesign"));
+const gate = email.slice(email.indexOf("export const dosWelcomeEmailRedesignLive"), email.indexOf("/* ------------------------------------------- current production email"));
+check(/export const dosWelcomeEmailRedesignLive = false;/.test(email) && gate.includes("dosWelcomeEmailRedesignLive ? buildDosWelcomeEmailRedesign(input) : buildDosWelcomeEmailCurrent(input)") && !/process\.env/.test(gate), "the redesign is gated off in code (no environment switch); approvals send the current production email");
+check(current.includes('subject: "Your DOS access is ready"') && current.includes("Walkthrough video") && current.includes("/login?next="), "the current production email is kept as it was");
+check(store.includes("const template = buildDosWelcomeEmail({") && !/buildDosWelcomeEmailRedesign\(\{/.test(store), "approvals build the email through the gate, not the redesign directly");
+check(welcome.includes("const openUrl = dosWelcomeEmailEntryUrl()") && email.includes("return `${getCanonicalSiteUrl()}/dos`;") && !welcome.includes("workspaceSlug"), "redesign: every button opens /dos, never a workspace slug");
+check((welcome.match(/<a href=/g) ?? []).length === 1 && welcome.includes(">Open DOS</a>"), "redesign: exactly one link, the Open DOS button");
+check(!/walkthrough|thumb|<svg|mailto:|\/login|App Store|app store/i.test(welcome), "redesign: no video image, walkthrough button, SVG, mailto, sign-in URL, or app store");
 check(welcome.includes("Email me a sign-in link") && welcome.includes("Sign in the way you usually do.") && welcome.includes("right where you left it"), "brief sign-in guidance for new and existing accounts; an existing workspace is said to be intact");
 check(welcome.includes("Add to Home Screen") && welcome.includes("Install app") && welcome.includes("nothing to download"), "a compact iPhone and Android home screen note for the web app");
 check(welcome.includes("Just reply to this email") && welcome.includes("text: ["), "one help contact (reply; the reply-to is DOS_SUPPORT_EMAIL) and a plain-text version");
-check(!email.includes("dosWelcomeEmailV2Live") && !email.includes("buildDosWelcomeEmailV1") && !email.includes("video is on the way"), "there is one welcome email design, and it is the one sent");
 const testSend = store.slice(store.indexOf("export async function sendDosWelcomeEmailTest"), store.indexOf("export async function listDosWelcomeEmailPreviewRequests"));
-check(testSend.includes("sendResendEmail(authorization.email") && !testSend.includes("attemptTable") && !testSend.includes(".update(") && testSend.includes("canDecideDosAccessRequests"), "a test send goes only to the signed-in admin and records nothing on the request");
+check(testSend.includes("buildDosWelcomeEmailRedesign(") && testSend.includes("sendResendEmail(authorization.email") && (testSend.match(/sendResendEmail\(/g) ?? []).length === 1 && !testSend.includes("row.email") && !testSend.includes("attemptTable") && !/\.(update|insert|upsert|delete)\(/.test(testSend) && testSend.includes("canDecideDosAccessRequests"), "Send a test sends the redesign only to the signed-in admin; it never emails an applicant or writes to a request or its delivery record");
+const preview = read("app/operations/submissions/dos-access/welcome-email/page.tsx");
+check(preview.includes("dosWelcomeEmailRedesignLive") && preview.includes("Send a test of the redesign to"), "the preview page says the redesign is not live and what Send a test sends");
 check(!/access_token|token_hash|magiclink|generateLink/i.test(email), "the email carries no sign-in token");
 check(store.includes("replyTo: dosSupportEmail()"), "replies go to the DOS support address");
 
@@ -161,8 +167,8 @@ check(read("app/dos/page.tsx").includes('redirect(dosSignInHref("/dos"))') && !r
 check(["signup", "sign-up", "register"].every((route) => read(`app/dos/${route}/page.tsx`).includes('redirect("/dos/setup")')) && ["login", "signin"].every((route) => read(`app/dos/${route}/page.tsx`).includes("dosSignInHref(next)")), "retired /dos/signup, /dos/sign-up, /dos/register, /dos/login, /dos/signin links redirect");
 check(["app/dos/[collectiveSlug]/page.tsx", "app/dos/app/page.tsx"].every((file) => read(file).includes("redirect(dosSignInHref(nextPath))") && !read(file).includes("Create a personal DOS workspace")), "workspaces send signed-out visitors to DOS sign-in and never suggest self-setup");
 check(read("app/auth/session/AuthSessionBridge.tsx").includes("const next = new URLSearchParams(window.location.search).get(\"next\")"), "a failed DOS sign-in link returns to the DOS sign-in page");
-const joinSubmit = read("app/api/join/submit/route.ts");
-check(joinSubmit.indexOf('process.env.JOIN_LEGACY_SUBMIT_ENABLED !== "true"') > 0 && joinSubmit.indexOf("legacySubmitClosed()") < joinSubmit.indexOf("auth.admin.createUser"), "the old public /api/join/submit (account + workspace without review) is closed");
+const joinSubmit = read("app/api/join/submit/route.ts").replace(/\/\*[\s\S]*?\*\//g, "");
+check(/status: 410/.test(joinSubmit) && !/supabase|createUser|process\.env|request\.json/i.test(joinSubmit), "the old public /api/join/submit (account + workspace without review) always returns 410, with no setting that reopens it");
 check(!read("app/dos/setup/DosOnboardingClient.tsx").includes("/login?next"), "the request form's Sign in link is the DOS sign-in page");
 
 console.log("\nSign out");
