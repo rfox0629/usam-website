@@ -1302,7 +1302,7 @@ export function DosOnboardingClient({ supportEmail }: { supportEmail: string }) 
             </span>
           </div>
           {stage === "welcome" ? (
-            <Link className="signin" href="/login?next=%2Fdos">Already have DOS? Sign in</Link>
+            <Link className="signin" href="/dos/sign-in">Already have DOS? Sign in</Link>
           ) : null}
         </div>
       </header>

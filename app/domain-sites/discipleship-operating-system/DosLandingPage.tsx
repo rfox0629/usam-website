@@ -8,6 +8,8 @@ const USAM_URL = "https://usamissionaries.org";
 // app and its sign-in are hosted. Absolute, because this page is served from
 // discipleshipoperatingsystem.com.
 const DOS_SETUP_URL = `${USAM_URL}/dos/setup`;
+// Approved users sign in on the one DOS sign-in page.
+const DOS_SIGN_IN_URL = `${USAM_URL}/dos/sign-in`;
 const DOS_MARKETING_SOURCE = "dos_marketing";
 
 const interestOptions = [
@@ -102,6 +104,10 @@ const dosV4Css = `
   padding:1rem var(--gut-s);
 }
 @media (min-width:768px){.dos-v4 .nav{padding:1rem var(--gut-l)}}
+.dos-v4 .nav-actions{display:flex;align-items:center;gap:1.1rem;flex:none}
+.dos-v4 .signin-link{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#C3D0DC;text-decoration:none;white-space:nowrap}
+.dos-v4 .signin-link:hover{color:#fff}
+.dos-v4 .signin-link:focus-visible{outline:2px solid var(--blue-hi);outline-offset:3px}
 .dos-v4 .ident-row{display:flex;align-items:center;gap:.75rem;min-width:0}
 .dos-v4 .ident-row .mark{flex:none;display:block}
 .dos-v4 .ident{display:flex;flex-direction:column;line-height:1;gap:.35rem;min-width:0}
@@ -695,7 +701,10 @@ export function DosLandingPage() {
               <span className="attrib">An initiative of <a href={USAM_URL}>USA Missionaries</a></span>
             </div>
           </div>
-          <a className="btn btn-primary sm" href={DOS_SETUP_URL}>Get Started</a>
+          <div className="nav-actions">
+            <a className="signin-link" href={DOS_SIGN_IN_URL}>Sign in</a>
+            <a className="btn btn-primary sm" href={DOS_SETUP_URL}>Get Started</a>
+          </div>
         </div>
       </header>
 

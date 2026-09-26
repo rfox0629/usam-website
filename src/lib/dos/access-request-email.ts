@@ -61,13 +61,28 @@ export function dosWalkthroughVideoUrl() {
   }
 }
 
-/**
- * The redesigned welcome email goes to real applicants only after the founder
- * has reviewed a test send (USA-289). Until then approvals keep the earlier
- * email, and Operations can send the new one to the signed-in reviewer.
- */
-export const dosWelcomeEmailV2Live = false;
+/* ---------------------------------------------------------- welcome email */
 
+/**
+ * Which welcome email approvals send. The redesign below goes to real
+ * applicants only after the founder reviews a real Gmail test of it
+ * (USA-289). Until then approvals keep the current production email, and
+ * Operations → Welcome Email Preview → "Send a test" sends the redesign to
+ * the signed-in reviewer only. Turning this on is a code change, not an
+ * environment setting.
+ */
+export const dosWelcomeEmailRedesignLive = false;
+
+export function buildDosWelcomeEmail(input: DosWelcomeEmailInput): EmailTemplate {
+  return dosWelcomeEmailRedesignLive ? buildDosWelcomeEmailRedesign(input) : buildDosWelcomeEmailCurrent(input);
+}
+
+/* ------------------------------------------- current production email */
+
+/**
+ * The welcome email approvals send today (unchanged from production). Its
+ * sign-in link, /login?next=/dos/<workspace>, now forwards to /dos/sign-in.
+ */
 function paragraph(html: string) {
   return `<p style="margin:0 0 16px;color:#1e293b;font-size:15px;">${html}</p>`;
 }
@@ -88,7 +103,7 @@ function button(href: string, label: string) {
   return `<p style="margin:8px 0 20px;"><a href="${escapeHtml(href)}" style="display:inline-block;background:#1E6FBF;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:13px 22px;border-radius:0;">${escapeHtml(label)}</a></p>`;
 }
 
-function buildDosWelcomeEmailV1(input: DosWelcomeEmailInput): EmailTemplate {
+export function buildDosWelcomeEmailCurrent(input: DosWelcomeEmailInput): EmailTemplate {
   const siteUrl = getCanonicalSiteUrl();
   const dosUrl = `${siteUrl}/dos`;
   const workspaceUrl = `${siteUrl}/dos/${encodeURIComponent(input.workspaceSlug)}`;
@@ -212,150 +227,124 @@ function buildDosWelcomeEmailV1(input: DosWelcomeEmailInput): EmailTemplate {
   };
 }
 
-export function buildDosWelcomeEmail(input: DosWelcomeEmailInput): EmailTemplate {
-  return dosWelcomeEmailV2Live ? buildDosWelcomeEmailV2(input) : buildDosWelcomeEmailV1(input);
-}
-
-/* ----------------------------------------------------- welcome email, v2 */
+/* -------------------------------------------------- redesign, in review */
 
 /**
- * The redesigned welcome (USA-289): DOS header, a personal line, one main
- * action, the walkthrough, compact phone setup, and "reply to this email" for
- * help. Built for Gmail and other clients: tables and inline styles only, no
- * SVG, absolute image URLs with alt text, 600px wide and fluid on phones.
- * It carries no password, token, or sign-in link; the button opens the
- * recipient's own verified workspace, and DOS asks them to sign in there.
+ * USA-289 redesigned welcome email, not live until reviewed (see
+ * dosWelcomeEmailRedesignLive). Short on purpose: DOS header, "your workspace is ready", one Open DOS button, a
+ * brief sign-in line, a compact home screen note, and help by replying.
+ *
+ * The button goes to /dos for every recipient. After sign-in, /dos opens the
+ * person's own workspace, so no workspace slug appears in the email, and
+ * there is no second sign-in or workspace link. No password, token, or
+ * sign-in link is ever included.
+ *
+ * Built for Gmail and other clients: tables and inline styles only, no SVG,
+ * one absolute image (the logo) with alt text, 560px wide and fluid on phones.
+ * The walkthrough video lives on the DOS sign-in page, not in this email.
  */
-const v2 = {
+const mail = {
   blue: "#1E6FBF",
   blueHi: "#6FB2F0",
   font: "Inter,'Helvetica Neue',Helvetica,Arial,sans-serif",
-  heading: "Oswald,'Arial Narrow','Helvetica Neue',Arial,sans-serif",
+  heading: "Oswald,'Helvetica Neue',Arial,sans-serif",
   ink: "#0E1822",
-  label: "Rajdhani,'Arial Narrow','Helvetica Neue',Arial,sans-serif",
+  label: "Rajdhani,'Helvetica Neue',Arial,sans-serif",
   line: "#E6EAEE",
   muted: "#5E6B78",
   navy: "#0A1622",
   tint: "#EDF5FC",
 };
 
-function v2Button(href: string, label: string, variant: "primary" | "secondary") {
-  const primary = variant === "primary";
-
-  return `<table role="presentation" border="0" cellpadding="0" cellspacing="0" style="border-collapse:separate;${primary ? "width:100%;" : ""}">
-    <tr><td align="center" bgcolor="${primary ? v2.blue : "#ffffff"}" style="background:${primary ? v2.blue : "#ffffff"};border:2px solid ${v2.blue};">
-      <a href="${escapeHtml(href)}" style="display:block;padding:${primary ? "16px 28px" : "11px 20px"};font-family:${v2.label};font-size:${primary ? "16px" : "14px"};font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:${primary ? "#ffffff" : v2.blue};text-decoration:none;">${escapeHtml(label)}</a>
-    </td></tr></table>`;
+/** Where every welcome email sends people: DOS, which opens their workspace after sign-in. */
+export function dosWelcomeEmailEntryUrl() {
+  return `${getCanonicalSiteUrl()}/dos`;
 }
 
-export function dosWelcomeEmailWorkspaceUrl(workspaceSlug: string | null | undefined) {
+export function buildDosWelcomeEmailRedesign(input: DosWelcomeEmailInput): EmailTemplate {
   const siteUrl = getCanonicalSiteUrl();
-
-  return workspaceSlug ? `${siteUrl}/dos/${encodeURIComponent(workspaceSlug)}` : `${siteUrl}/dos`;
-}
-
-export function buildDosWelcomeEmailV2(input: DosWelcomeEmailInput): EmailTemplate {
-  const siteUrl = getCanonicalSiteUrl();
-  const workspaceUrl = dosWelcomeEmailWorkspaceUrl(input.workspaceSlug);
-  const videoUrl = dosWalkthroughVideoUrl();
+  const openUrl = dosWelcomeEmailEntryUrl();
   const logoUrl = `${siteUrl}/images/email/dos-mark-v1.png`;
-  const thumbUrl = `${siteUrl}/videos/dos/dos-walkthrough-v1-email-thumb.jpg`;
   const name = input.firstName.trim();
-  const greeting = name ? `${name}, your DOS workspace is ready.` : "Your DOS workspace is ready.";
-  const existing = input.linkedExistingWorkspace
-    ? "Everyone and everything already in your workspace is right where you left it."
+  const title = name ? `${name}, your workspace is ready.` : "Your workspace is ready.";
+  const detail = input.linkedExistingWorkspace
+    ? "Your DOS access is approved, and everything already in your workspace is right where you left it."
     : input.requestType === "organization" && input.organizationName
-      ? `${input.organizationName} is set up in DOS and ready for you.`
-      : "It's set up and ready for the people you're discipling.";
+      ? `Your DOS access is approved, and the workspace for ${input.organizationName} is set up.`
+      : "Your DOS access is approved, and your workspace is set up.";
   const signIn = input.accountState === "created"
-    ? "When DOS asks you to sign in, choose <strong>Email me a sign-in link</strong> and use this email address."
+    ? "New to DOS? On the sign-in screen, choose <strong>Email me a sign-in link</strong>."
     : "Sign in the way you usually do.";
   const signInText = input.accountState === "created"
-    ? "When DOS asks you to sign in, choose \"Email me a sign-in link\" and use this email address."
+    ? "New to DOS? On the sign-in screen, choose \"Email me a sign-in link\"."
     : "Sign in the way you usually do.";
-  const p = (html: string, extra = "") => `<p style="margin:0;font-family:${v2.font};font-size:16px;line-height:1.6;color:${v2.ink};${extra}">${html}</p>`;
-  const eyebrow = (text: string, color = v2.blue) => `<p style="margin:0 0 10px;font-family:${v2.label};font-size:13px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:${color};">${escapeHtml(text)}</p>`;
-  const phoneCell = (title: string, html: string) => `<td class="stack" valign="top" width="50%" style="padding:0 6px 12px;">
-      <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border:1px solid ${v2.line};background:#ffffff;"><tr><td style="padding:16px 18px;">
-        <p style="margin:0 0 6px;font-family:${v2.label};font-size:13px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:${v2.blue};">${escapeHtml(title)}</p>
-        <p style="margin:0;font-family:${v2.font};font-size:15px;line-height:1.55;color:${v2.ink};">${html}</p>
-      </td></tr></table></td>`;
+  const text = (html: string, style = "") => `<p style="margin:0;font-family:${mail.font};font-size:16px;line-height:1.6;color:${mail.ink};${style}">${html}</p>`;
 
   const html = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light only"><meta name="supported-color-schemes" content="light">
-<title>Welcome to DOS</title>
-<style>@media only screen and (max-width:620px){.px{padding-left:22px!important;padding-right:22px!important}.stack{display:block!important;width:100%!important;padding:0 0 12px!important}.h1{font-size:30px!important}}</style>
+<title>Your DOS workspace is ready</title>
+<style>@media only screen and (max-width:600px){.px{padding-left:24px!important;padding-right:24px!important}.h1{font-size:28px!important}}</style>
 </head>
-<body style="margin:0;padding:0;background:${v2.tint};">
-<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${v2.tint};">${escapeHtml(greeting)} Open it, watch the 2-minute walkthrough, and add DOS to your phone.</div>
-<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="${v2.tint}" style="background:${v2.tint};"><tr><td align="center" style="padding:28px 12px;">
-<table role="presentation" width="600" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:600px;background:#ffffff;border:1px solid ${v2.line};">
-  <tr><td bgcolor="${v2.navy}" class="px" style="background:${v2.navy};padding:26px 36px;">
+<body style="margin:0;padding:0;background:${mail.tint};">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:${mail.tint};">${escapeHtml(title)} Open DOS to get started.</div>
+<table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="${mail.tint}" style="background:${mail.tint};"><tr><td align="center" style="padding:28px 12px;">
+<table role="presentation" width="560" border="0" cellpadding="0" cellspacing="0" style="width:100%;max-width:560px;background:#ffffff;border:1px solid ${mail.line};">
+  <tr><td bgcolor="${mail.navy}" class="px" style="background:${mail.navy};padding:22px 36px;">
     <table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr>
-      <td valign="middle" style="padding-right:14px;"><img src="${escapeHtml(logoUrl)}" width="40" height="40" alt="DOS" style="display:block;border:0;width:40px;height:40px;"></td>
-      <td valign="middle"><p style="margin:0;font-family:${v2.label};font-size:18px;font-weight:700;letter-spacing:0.24em;text-transform:uppercase;color:#ffffff;">Welcome to DOS.</p>
-        <p style="margin:2px 0 0;font-family:${v2.label};font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:${v2.blueHi};">Discipleship Operating System</p></td>
+      <td valign="middle" style="padding-right:12px;"><img src="${escapeHtml(logoUrl)}" width="34" height="34" alt="DOS" style="display:block;border:0;width:34px;height:34px;"></td>
+      <td valign="middle"><p style="margin:0;font-family:${mail.label};font-size:15px;font-weight:700;letter-spacing:0.22em;text-transform:uppercase;color:#ffffff;">DOS</p>
+        <p style="margin:1px 0 0;font-family:${mail.label};font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:${mail.blueHi};">Discipleship Operating System</p></td>
     </tr></table>
   </td></tr>
-  <tr><td class="px" style="padding:40px 36px 8px;">
-    <h1 class="h1" style="margin:0 0 14px;font-family:${v2.heading};font-size:34px;line-height:1.15;font-weight:700;color:${v2.ink};">${escapeHtml(greeting)}</h1>
-    ${p(escapeHtml(existing))}
+  <tr><td class="px" style="padding:36px 36px 0;">
+    <h1 class="h1" style="margin:0 0 12px;font-family:${mail.heading};font-size:32px;line-height:1.15;font-weight:700;color:${mail.ink};">${escapeHtml(title)}</h1>
+    ${text(escapeHtml(detail), `color:${mail.muted};`)}
   </td></tr>
-  <tr><td class="px" style="padding:28px 36px 8px;">
-    ${v2Button(workspaceUrl, "Open my DOS workspace", "primary")}
-    ${p(signIn, `margin-top:14px;font-size:15px;color:${v2.muted};`)}
-  </td></tr>
-  <tr><td class="px" style="padding:36px 36px 8px;">
-    ${eyebrow("Get started in two minutes")}
-    <a href="${escapeHtml(videoUrl)}" style="display:block;text-decoration:none;border:0;"><img src="${escapeHtml(thumbUrl)}" width="528" alt="Watch the 2-minute DOS walkthrough" style="display:block;width:100%;max-width:528px;height:auto;border:0;"></a>
-    <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin-top:16px;"><tr><td>${v2Button(videoUrl, "Watch the 2-minute walkthrough", "secondary")}</td></tr></table>
-    ${p("Sign in, Home, People, Meetings, Prayer, and adding DOS to your phone.", `margin-top:12px;font-size:14px;color:${v2.muted};`)}
-  </td></tr>
-  <tr><td class="px" style="padding:36px 30px 8px;">
-    <div style="padding:0 6px;">${eyebrow("Add DOS to your phone")}${p("DOS is a web app, so there's nothing to download. Open it from the button above, then:", "font-size:15px;margin-bottom:14px;")}</div>
-    <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0"><tr>
-      ${phoneCell("iPhone · Safari", "Tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>, then <strong>Add</strong>.")}
-      ${phoneCell("Android · Chrome", "Tap <strong>&#8942;</strong>, then <strong>Install app</strong> or <strong>Add to Home screen</strong>.")}
+  <tr><td class="px" style="padding:28px 36px 0;">
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0"><tr>
+      <td align="center" bgcolor="${mail.blue}" style="background:${mail.blue};">
+        <a href="${escapeHtml(openUrl)}" style="display:inline-block;padding:15px 40px;font-family:${mail.label};font-size:16px;font-weight:700;letter-spacing:0.16em;text-transform:uppercase;color:#ffffff;text-decoration:none;">Open DOS</a>
+      </td>
     </tr></table>
+    ${text(signIn, `margin-top:14px;font-size:15px;color:${mail.muted};`)}
   </td></tr>
-  <tr><td class="px" style="padding:26px 36px 36px;">
-    <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" bgcolor="${v2.tint}" style="background:${v2.tint};"><tr><td style="padding:18px 20px;">
-      ${p("<strong>Need help?</strong> Reply to this email and a person on the DOS team will get back to you.", "font-size:15px;")}
+  <tr><td class="px" style="padding:28px 36px 0;">
+    <table role="presentation" width="100%" border="0" cellpadding="0" cellspacing="0" style="border-top:1px solid ${mail.line};"><tr><td style="padding-top:20px;">
+      <p style="margin:0 0 6px;font-family:${mail.label};font-size:12px;font-weight:700;letter-spacing:0.2em;text-transform:uppercase;color:${mail.blue};">Keep DOS on your phone</p>
+      ${text("<strong>iPhone:</strong> in Safari, tap Share, then Add to Home Screen.<br><strong>Android:</strong> in Chrome, tap &#8942;, then Install app.", "font-size:15px;")}
+      ${text("DOS is a web app, so there's nothing to download.", `margin-top:6px;font-size:14px;color:${mail.muted};`)}
     </td></tr></table>
   </td></tr>
-  <tr><td bgcolor="${v2.navy}" class="px" style="background:${v2.navy};padding:18px 36px;">
-    <p style="margin:0;font-family:${v2.label};font-size:11px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;color:#8FA3B6;">Meet. Minister. Multiply. &middot; An initiative of USA Missionaries</p>
+  <tr><td class="px" style="padding:24px 36px 32px;">
+    ${text("<strong>Need help?</strong> Just reply to this email.", "font-size:15px;")}
+  </td></tr>
+  <tr><td class="px" style="padding:16px 36px;border-top:1px solid ${mail.line};">
+    <p style="margin:0;font-family:${mail.label};font-size:11px;font-weight:600;letter-spacing:0.18em;text-transform:uppercase;color:${mail.muted};">Meet. Minister. Multiply. &middot; An initiative of USA Missionaries</p>
   </td></tr>
 </table>
 </td></tr></table>
 </body></html>`;
 
-  const text = [
-    "WELCOME TO DOS.",
-    "",
-    greeting,
-    existing,
-    "",
-    `Open my DOS workspace: ${workspaceUrl}`,
-    signInText,
-    "",
-    `Watch the 2-minute walkthrough: ${videoUrl}`,
-    "(Sign in, Home, People, Meetings, Prayer, and adding DOS to your phone.)",
-    "",
-    "ADD DOS TO YOUR PHONE",
-    "DOS is a web app, so there's nothing to download. Open it from the link above, then:",
-    "- iPhone (Safari): tap Share, then Add to Home Screen, then Add.",
-    "- Android (Chrome): tap the ⋮ menu, then Install app or Add to Home screen.",
-    "",
-    "Need help? Reply to this email and a person on the DOS team will get back to you.",
-    "",
-    "Meet. Minister. Multiply. · An initiative of USA Missionaries",
-  ].join("\n");
-
   return {
     html,
-    subject: name ? `Welcome to DOS, ${name}. Your workspace is ready.` : "Welcome to DOS. Your workspace is ready.",
-    text,
+    subject: "Your DOS workspace is ready",
+    text: [
+      title,
+      "",
+      detail,
+      "",
+      `Open DOS: ${openUrl}`,
+      signInText,
+      "",
+      "KEEP DOS ON YOUR PHONE",
+      "iPhone: in Safari, tap Share, then Add to Home Screen.",
+      "Android: in Chrome, tap the ⋮ menu, then Install app.",
+      "DOS is a web app, so there's nothing to download.",
+      "",
+      "Need help? Just reply to this email.",
+      "",
+      "Meet. Minister. Multiply. · DOS, an initiative of USA Missionaries",
+    ].join("\n"),
   };
 }
 

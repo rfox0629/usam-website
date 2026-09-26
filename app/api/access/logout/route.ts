@@ -16,7 +16,7 @@ import { createSupabaseServerClient, isSupabaseServerConfigured } from "@/src/li
  *   is merely rendered cannot end a session.
  */
 
-const defaultRedirect = "/login?next=%2Fdos&signedOut=1";
+const defaultRedirect = "/dos/sign-in?signedOut=1";
 
 function safeRedirectTarget(value: string | null) {
   if (!value || !value.startsWith("/") || value.startsWith("//") || value.startsWith("/\\")) {
