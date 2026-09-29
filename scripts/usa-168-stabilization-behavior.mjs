@@ -821,7 +821,7 @@ await check("A refused row is never reported as an unbuilt feature", async () =>
   assert.equal(isMissingCommitmentsSchema(null), false, "No error is not a missing table.");
 
   // The database now enforces exactly what the route enforces.
-  const migration = readFileSync(new URL("../supabase/migrations/20260903180000_usa_168_subject_only_progress_updates.sql", import.meta.url), "utf8");
+  const migration = readFileSync(new URL("../supabase/migrations/20260903171158_usa_168_subject_only_progress_updates.sql", import.meta.url), "utf8");
   assert(migration.includes("drop constraint if exists dos_commitment_updates_note_check"), "The note-only constraint must be gone.");
   assert(
     migration.includes("length(btrim(progress_note)) > 0")

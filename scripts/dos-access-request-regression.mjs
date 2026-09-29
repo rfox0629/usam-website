@@ -99,7 +99,7 @@ check(/submission_key text not null unique/.test(migration), "the submission key
 check(/one_open_per_email_idx[\s\S]*where status = 'submitted'/.test(migration), "one open request per email is enforced in the database");
 check(/enable row level security/.test(migration) && /revoke all on public\.dos_access_requests from anon, authenticated/.test(migration), "the tables are RLS-enabled and service-role only");
 check(/access_requires_approval_check/.test(migration) && /welcome_requires_access_check/.test(migration), "the database refuses access before approval and email before access");
-check(read("supabase/migrations/20260925174009_usa_289_dos_access_requests_rollback.sql").includes("drop table if exists public.dos_access_requests"), "a rollback migration exists");
+check(read("supabase/rollbacks/20260925174009_usa_289_dos_access_requests_rollback.sql").includes("drop table if exists public.dos_access_requests"), "a rollback migration exists");
 
 console.log("\nReview and approval");
 const actions = read("app/operations/submissions/dos-access/[id]/actions.ts");

@@ -753,7 +753,7 @@ assert.match(
 }
 {
   const statuses = read("src/lib/dos/commitments-accountability.ts");
-  const migration = read("supabase/migrations/20260925120000_usa_282_stopped_accountability_schedules.sql");
+  const migration = read("supabase/migrations/20260925173335_usa_282_stopped_accountability_schedules.sql");
 
   assert.match(statuses, /dosAccountabilityScheduleStatuses = \["active", "paused", "stopped"\] as const;/);
   assert.match(migration, /check \(status in \('active', 'paused', 'stopped'\)\)/, "The database allows the state the code writes.");

@@ -120,14 +120,14 @@ check("migration defaults to a dry run and reports zero files touched", () => {
 });
 
 check("re-running the import cannot create a twin", () => {
-  const sql = read("supabase", "migrations", "20260819210000_usa_182_canonical_operations_documents.sql");
+  const sql = read("supabase", "migrations", "20260819201847_usa_182_canonical_operations_documents.sql");
   assert.match(sql, /create unique index if not exists operations_documents_legacy_uidx/);
   const migration = read("src", "lib", "documents", "legacy-migration.ts");
   assert.match(migration, /already_imported/);
 });
 
 check("removing a reference can never reach the document or its file", () => {
-  const sql = read("supabase", "migrations", "20260819210000_usa_182_canonical_operations_documents.sql");
+  const sql = read("supabase", "migrations", "20260819201847_usa_182_canonical_operations_documents.sql");
   // The cascade runs document -> references, never references -> document.
   assert.match(sql, /document_id uuid not null references public\.operations_documents\(id\) on delete cascade/);
   const library = read("src", "lib", "documents", "library.ts");

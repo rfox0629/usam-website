@@ -40,10 +40,10 @@ const client = read("app/dos/app/DosMvpAppClient.tsx");
 const route = read("app/api/dos/app/meetings/route.ts");
 const loader = read("src/lib/dos/missionary-app.ts");
 const report = read("src/lib/dos/ministry-report.ts");
-const migration = read("supabase/migrations/20260916120000_dos_meeting_start_time.sql");
-const rollback = read("supabase/migrations/20260916120000_dos_meeting_start_time_rollback.sql");
-const repair = read("supabase/migrations/20260916121000_dos_meeting_start_time_repair.sql");
-const repairRollback = read("supabase/migrations/20260916121000_dos_meeting_start_time_repair_rollback.sql");
+const migration = read("supabase/migrations/20260916200613_dos_meeting_start_time.sql");
+const rollback = read("supabase/rollbacks/20260916200613_dos_meeting_start_time_rollback.sql");
+const repair = read("supabase/migrations/20260916203633_dos_meeting_start_time_repair.sql");
+const repairRollback = read("supabase/rollbacks/20260916203633_dos_meeting_start_time_repair_rollback.sql");
 
 /* ---------------------------------------------------------------- 1. the zone */
 

@@ -139,8 +139,8 @@ const stripComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, "").replac
 // ---------------------------------------------------------------------------
 // 5. Migration: additive, service-role only, rollback documented.
 {
-  const migration = read("supabase/migrations/20260913180000_usa_275_discipleship_connections.sql");
-  const rollback = read("supabase/migrations/20260913180000_usa_275_discipleship_connections_rollback.sql");
+  const migration = read("supabase/migrations/20260914183331_usa_275_discipleship_connections.sql");
+  const rollback = read("supabase/rollbacks/20260914183331_usa_275_discipleship_connections_rollback.sql");
   for (const table of ["dos_discipleship_connections", "dos_discipleship_account_connections", "dos_discipleship_identity_matches"]) {
     assert.ok(migration.includes(`alter table public.${table} enable row level security;`), `${table}: RLS on.`);
     assert.ok(migration.includes(`revoke all on public.${table} from anon, authenticated;`), `${table}: no anon or authenticated grant (new tables inherit anon by default).`);
@@ -149,6 +149,13 @@ const stripComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, "").replac
   assert.ok(migration.includes("grant execute on function public.dos_discipleship_readable_workspaces(uuid[], integer) to service_role;") && migration.includes("revoke all on function public.dos_discipleship_readable_workspaces(uuid[], integer) from public, anon, authenticated;"));
   assert.ok(migration.includes("security invoker") && migration.includes("not ac.disciple_workspace_id = any(w.path)") && migration.includes("l.verification_status = 'verified'"), "The database traversal is invoker-rights, cycle-safe and requires verified identity.");
   assert.ok(!/^\s*(alter|update|delete)\s+(table\s+)?public\.(missionary_field_people|fruit_events|dos_circle)/im.test(migration), "No existing table is altered or rewritten.");
+  /* The file carries the version production recorded (20260914183331, applied
+     2026-09-14 with apply_migration), and its rollback can never run as a
+     forward migration. */
+  const { readdirSync } = await import("node:fs");
+  const migrationFiles = readdirSync(new URL("../supabase/migrations/", import.meta.url));
+  assert.deepEqual(migrationFiles.filter((file) => file.includes("usa_275")), ["20260914183331_usa_275_discipleship_connections.sql"], "USA-275 has exactly one forward migration, under its production version.");
+  assert.ok(!migrationFiles.some((file) => file.startsWith("20260913180000")), "The pre-apply version is gone from the migrations directory.");
   assert.ok(migration.includes("dos_discipleship_connections_not_self") && migration.includes("dos_discipleship_account_connections_not_own_workspace"));
 }
 

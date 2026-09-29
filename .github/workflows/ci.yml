@@ -37,6 +37,9 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Supabase migration drift check (USA-279)
+        run: npm run check:migrations
+
       # Guards the /advisor privacy contract: the briefing payload must stay in
       # server-side environment configuration and out of this public repository.
       # Fast and offline — no build, no network.

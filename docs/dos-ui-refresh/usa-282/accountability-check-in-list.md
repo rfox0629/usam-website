@@ -413,7 +413,7 @@ Nothing is deleted, no goal is recorded as achieved, and no Journey,
 assignment or milestone is completed or ended.
 
 * A rhythm moves to a new `stopped` status
-  (`20260925120000_usa_282_stopped_accountability_schedules.sql` widens the
+  (`20260925173335_usa_282_stopped_accountability_schedules.sql` widens the
   check constraint). `paused` would not do: the Journey sync owns that state
   and sets paused rows back to `active`, so a stop expressed as a pause would
   be undone by the next edit to the assignment.

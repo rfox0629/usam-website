@@ -15,8 +15,8 @@ function read(path) {
 const client = read("app/dos/app/DosMvpAppClient.tsx");
 const route = read("app/api/dos/app/meetings/route.ts");
 const reader = read("src/lib/dos/missionary-app.ts");
-const migration = read("supabase/migrations/20260908180000_usa_246_planned_vs_actual_meeting_time.sql");
-const rollback = read("supabase/migrations/20260908180000_usa_246_planned_vs_actual_meeting_time_rollback.sql");
+const migration = read("supabase/migrations/20260908190059_usa_246_planned_vs_actual_meeting_time.sql");
+const rollback = read("supabase/rollbacks/20260908190059_usa_246_planned_vs_actual_meeting_time_rollback.sql");
 
 // 1. The migration is additive, constrained, and backfills only what is known.
 for (const column of ["planned_start_at", "planned_end_at", "planned_date", "planned_duration_minutes", "planned_timezone", "lifecycle_id", "logged_at", "log_operation_key"]) {

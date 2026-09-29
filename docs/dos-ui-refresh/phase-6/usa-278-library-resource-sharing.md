@@ -53,7 +53,7 @@ results. Assignment and completion reach the Timeline; draft answers do not.
 
 ## Data and access
 
-Additive migration `20260916120000_dos_resource_share_assignments.sql` (with a
+Additive migration `20260916190608_dos_resource_share_assignments.sql` (with a
 rollback beside it). Nothing existing is altered: `dos_resource_assignments`
 (Journey) is untouched and completed results still land in
 `dos_assessment_results`.

@@ -1,4 +1,4 @@
-/* Rollback for 20260625175625_dos_ministry_event_model.sql (USA-278).
+/* Rollback for 20260920103132_dos_ministry_event_model.sql (USA-278).
  *
  * Written when the migration was applied to production on 2026-09-20, three
  * months after it landed in the repo: production had never received it, so

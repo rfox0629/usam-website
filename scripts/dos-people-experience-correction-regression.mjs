@@ -15,8 +15,8 @@ const client = read("app/dos/app/DosMvpAppClient.tsx");
 const surfaces = read("src/components/dos/overlays/DosSurfaces.tsx");
 const loader = read("src/lib/dos/missionary-app.ts");
 const pillRail = read("src/components/dos/ui/PillRail.tsx");
-const migration = read("supabase/migrations/20260910150000_dos_person_feedback_import.sql");
-const rollback = read("supabase/migrations/20260910150000_dos_person_feedback_import_rollback.sql");
+const migration = read("supabase/migrations/20260910151053_dos_person_feedback_import.sql");
+const rollback = read("supabase/rollbacks/20260910151053_dos_person_feedback_import_rollback.sql");
 const slice = (start, end = "\nfunction ") => {
   const index = client.indexOf(start);
   assert.ok(index !== -1, `${start} must exist`);

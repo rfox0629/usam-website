@@ -1,6 +1,6 @@
 # USA-275 — Multiplication: connected People, profiles, upstream activity, Reports
 
-Status: implemented on branch `claude/dos-multiplication-people-profiles-dd4b09`, **not merged, migration not applied, nothing deployed to production.**
+Status: merged as `782036d` (#146). Migration **applied to production 2026-09-14** as version `20260914183331` (see `migration-history-audit.md` §5). Supabase *Deploy to production* remains off pending the broader migration-history reconciliation.
 
 Principle: *simple at the surface, powerful underneath.* One discipleship graph powers the People Multiplication section, the Multiplying indicator, the Reports Multiplication column and drill-down, and connected (upstream) activity.
 
@@ -56,11 +56,11 @@ Dirk → Ryan → Tanner → Aaron: a viewer reads workspace D when a path of ac
 
 ## 5. Migration and rollback
 
-`supabase/migrations/20260913180000_usa_275_discipleship_connections.sql` — additive only: three tables, a scope-guard trigger, `public.dos_discipleship_readable_workspaces(uuid[], integer)` (security invoker, service-role execute only). RLS enabled, all privileges revoked from `anon` and `authenticated` (new public tables inherit an anon grant — USA-247). No existing table is altered, backfilled or rewritten.
+`supabase/migrations/20260914183331_usa_275_discipleship_connections.sql`. This file was first committed as `20260913180000_…`. It was **applied to production on 2026-09-14** as version `20260914183331` through `apply_migration`; see `migration-history-audit.md` §5. Its rollback lives in `supabase/rollbacks/`. The migration is additive only: three tables, a scope-guard trigger, `public.dos_discipleship_readable_workspaces(uuid[], integer)` (security invoker, service-role execute only). RLS enabled, all privileges revoked from `anon` and `authenticated` (new public tables inherit an anon grant — USA-247). No existing table is altered, backfilled or rewritten.
 
 **Deploy order:** migration first, code second is not required — the loader probes the tables and, when absent, shows own records only and hides every add/connect action (“not available in this environment yet”). Applying requires founder authorization.
 
-**Rollback:** `…_rollback.sql` drops the function, trigger and three tables (snapshot statements included in its header). Access ends immediately; People, Discipling selections, Fruit, circles, journeys, notes, accountability and attendance are unaffected. Verified identity links written on acceptance stay and grant nothing without an accepted connection. The code can stay deployed after rollback.
+**Rollback:** `supabase/rollbacks/20260914183331_usa_275_discipleship_connections_rollback.sql` drops the function, trigger and three tables (snapshot statements included in its header). Access ends immediately; People, Discipling selections, Fruit, circles, journeys, notes, accountability and attendance are unaffected. Verified identity links written on acceptance stay and grant nothing without an accepted connection. The code can stay deployed after rollback.
 
 ## 6. In person → “Kitchen table” in Reports
 

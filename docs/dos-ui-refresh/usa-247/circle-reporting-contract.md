@@ -6,7 +6,7 @@
 |---|---|---|
 | Tiers, views, capacity, change sets | `src/lib/dos/circle-tiers.ts` | `scripts/dos-circle-tiers-regression.mjs` |
 | Alignment windows, states, evidence, dismissals | `src/lib/dos/circle-alignment.ts` | `scripts/dos-circle-alignment-regression.mjs` |
-| Confirmed placement, history, capacity transaction | `src/lib/dos/circle-placement-store.ts`, `supabase/migrations/20260909180000_usa_247_circle_placements.sql` | `scripts/dos-circle-placement-regression.mjs` |
+| Confirmed placement, history, capacity transaction | `src/lib/dos/circle-placement-store.ts`, `supabase/migrations/20260910010115_usa_247_circle_placements.sql` | `scripts/dos-circle-placement-regression.mjs` |
 | Normalized activity facts (meetings, minutes, tables, recency, Fruit, multiplication) | not built yet — owned by USA-251 | — |
 
 Both are dependency-free and importable directly under Node's type stripping. The alignment module restates the tier order; a cross-module assertion proves the two agree, so they cannot drift.

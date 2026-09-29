@@ -1,4 +1,4 @@
--- Rollback for 20260925120000_usa_282_stopped_accountability_schedules.sql.
+-- Rollback for 20260925173335_usa_282_stopped_accountability_schedules.sql.
 --
 -- Returns any stopped reminder to 'paused' first, so the narrower constraint
 -- can be restored without losing the row. A stopped reminder that comes back
