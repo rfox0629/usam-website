@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
+import { appendOnlyFactSnapshot } from "@/src/lib/finance/compliance";
 
 /**
  * Compliance-critical fact keys. Open text in the database so new facts need no
@@ -14,6 +15,7 @@ export const complianceFactKeys = [
   "formation_state",
   "formation_date",
   "exemption_effective_date",
+  "form_990_required",
   "accounting_method",
   "tax_year_type",
   "fiscal_year_end_month",
@@ -48,6 +50,7 @@ export const complianceFactLabels: Record<ComplianceFactKey, string> = {
   entity_type: "Entity type",
   exemption_classification: "Exemption classification",
   exemption_effective_date: "IRS exemption effective date",
+  form_990_required: "Form 990 / 990-EZ / 990-N required",
   first_period_end: "First tax period end",
   first_period_start: "First tax period start",
   formation_date: "Formation date",
@@ -64,16 +67,18 @@ export const complianceFactLabels: Record<ComplianceFactKey, string> = {
  */
 export const taxPeriodCriticalFacts: ComplianceFactKey[] = [
   "tax_year_type",
-  "first_period_end",
+  "fiscal_year_end_month",
 ];
 
 type FactRow = {
   operations_documents: { title: string } | null;
+  created_at?: string;
   fact_key: string;
   id: string;
   notes: string | null;
   source_document_id: string | null;
   source_reference: string | null;
+  superseded_at?: string | null;
   value_date: string | null;
   value_number: number | string | null;
   value_text: string | null;
@@ -119,26 +124,39 @@ function factFromRow(row: FactRow): ComplianceFact {
   };
 }
 
-/** Current (non-superseded) facts for an organization, keyed by fact_key. */
+/** Current facts plus version counts for visible append-only history. */
 export async function loadComplianceFacts(organizationId: string) {
   const supabase = createSupabaseAdminClient();
   const { data, error } = await supabase
     .from("compliance_facts")
-    .select("id, fact_key, value_text, value_date, value_number, verification_state, source_document_id, source_reference, verified_by, verified_at, notes, operations_documents:source_document_id(title)")
+    .select("id, fact_key, value_text, value_date, value_number, verification_state, source_document_id, source_reference, verified_by, verified_at, notes, superseded_at, created_at, operations_documents:source_document_id(title)")
     .eq("organization_id", organizationId)
-    .is("superseded_at", null);
+    .order("created_at", { ascending: false });
 
   if (error) {
-    return { error: error.message, facts: new Map<string, ComplianceFact>() };
+    return {
+      error: error.message,
+      facts: new Map<string, ComplianceFact>(),
+      historyCounts: new Map<string, number>(),
+    };
   }
 
+  const rows = ((data ?? []) as unknown as FactRow[]).map((row) => ({
+    factKey: row.fact_key,
+    id: row.id,
+    row,
+    supersededAt: row.superseded_at,
+  }));
+  const { currentIds, historyCounts } = appendOnlyFactSnapshot(rows);
   const facts = new Map<string, ComplianceFact>();
 
-  for (const row of (data ?? []) as unknown as FactRow[]) {
-    facts.set(row.fact_key, factFromRow(row));
+  for (const item of rows) {
+    if (currentIds.get(item.factKey) === item.id) {
+      facts.set(item.factKey, factFromRow(item.row));
+    }
   }
 
-  return { facts };
+  return { facts, historyCounts };
 }
 
 export function isFactVerified(fact: ComplianceFact | undefined) {
@@ -146,9 +164,9 @@ export function isFactVerified(fact: ComplianceFact | undefined) {
 }
 
 /**
- * Records a fact by superseding the current row and inserting a new one. There
- * is no code path that updates a live fact in place, which is what makes
- * "never silently change a verified value" structural rather than a convention.
+ * Records a fact through the USA-190 transactional database function. The
+ * supersede and insert happen atomically, so the one-current-fact index cannot
+ * reject corrections and a failed replacement cannot leave the fact missing.
  */
 export async function recordComplianceFact({
   actor,
@@ -173,44 +191,26 @@ export async function recordComplianceFact({
   const isDate = /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
   const verified = verificationState === "verified" || verificationState === "cpa_confirmed";
 
-  const { data: current } = await supabase
-    .from("compliance_facts")
-    .select("id")
-    .eq("organization_id", organizationId)
-    .eq("fact_key", factKey)
-    .is("superseded_at", null)
-    .maybeSingle();
+  const { data: insertedId, error } = await supabase.rpc("record_compliance_fact", {
+    p_created_by: actor,
+    p_fact_key: factKey,
+    p_notes: notes ?? null,
+    p_organization_id: organizationId,
+    p_source_document_id: sourceDocumentId ?? null,
+    p_source_reference: sourceReference ?? null,
+    p_value_date: isDate ? value.trim() : null,
+    p_value_number: null,
+    p_value_text: isDate ? null : value.trim(),
+    p_verification_state: verificationState,
+    p_verified_at: verified ? new Date().toISOString() : null,
+    p_verified_by: verified ? actor : null,
+  });
 
-  const { data: inserted, error } = await supabase
-    .from("compliance_facts")
-    .insert({
-      created_by: actor,
-      fact_key: factKey,
-      notes: notes ?? null,
-      organization_id: organizationId,
-      source_document_id: sourceDocumentId ?? null,
-      source_reference: sourceReference ?? null,
-      value_date: isDate ? value.trim() : null,
-      value_text: isDate ? null : value.trim(),
-      verification_state: verificationState,
-      verified_at: verified ? new Date().toISOString() : null,
-      verified_by: verified ? actor : null,
-    })
-    .select("id")
-    .single();
-
-  if (error || !inserted) {
+  if (error || !insertedId) {
     return { error: error?.message ?? "Could not record the fact." };
   }
 
-  if (current?.id) {
-    await supabase
-      .from("compliance_facts")
-      .update({ superseded_at: new Date().toISOString(), superseded_by_fact_id: inserted.id })
-      .eq("id", current.id);
-  }
-
-  return { id: inserted.id as string };
+  return { id: insertedId as string };
 }
 
 /** Full audit history for one fact, newest first. */

@@ -13,17 +13,14 @@ export const financeSections = [
 
 export type FinanceSection = typeof financeSections[number]["key"];
 
-/**
- * One quiet row of links under the page header. Scrolls horizontally on narrow
- * screens rather than wrapping into a block of chrome above the content.
- */
+/** One quiet row on desktop that wraps into compact rows on narrow screens. */
 export function FinanceSubnav({ active }: { active: FinanceSection }) {
   return (
     <nav
       aria-label="Finance sections"
-      className="-mx-4 mb-4 overflow-x-auto px-4 md:mx-0 md:px-0"
+      className="mb-4"
     >
-      <div className="flex min-w-max gap-1 border-b border-slate-200 pb-px">
+      <div className="flex flex-wrap gap-1 border-b border-slate-200 pb-px">
         {financeSections.map((section) => (
           <Link
             className={`inline-flex min-h-9 items-center rounded-t-md px-3 text-[11px] uppercase tracking-[0.12em] transition ${
