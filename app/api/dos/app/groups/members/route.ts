@@ -8,6 +8,7 @@ import { decideGroupMemberPerson, normalizeEmailForMatch, normalizePhoneForMatch
 
 type GroupMemberPayload = {
   action?: unknown;
+  confirmAddToGroup?: unknown;
   confirmNearDuplicate?: unknown;
   email?: unknown;
   groupId?: unknown;
@@ -296,6 +297,124 @@ async function createPerson(
   return { person: data as PersonRow };
 }
 
+/* Shared Leadership: give an existing Person a leadership role in this
+   group, or take it back to member. This is a role change on the one
+   membership row (group_id, person_id is unique), never a second membership.
+   Someone not yet in the group is added in the same write, but only when the
+   leader has confirmed that on screen (confirmAddToGroup). The primary leader
+   is changed in Edit Group, not here. Nothing is sent to anyone. */
+const leadershipRoles = ["co_leader", "helper", "member"] as const;
+type LeadershipRole = typeof leadershipRoles[number];
+
+async function setLeadershipRole(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  workspaceId: string,
+  groupId: string,
+  payload: GroupMemberPayload,
+) {
+  const role = asString(payload.role) as LeadershipRole;
+
+  if (!leadershipRoles.includes(role)) {
+    return NextResponse.json({ error: "Choose Co-leader or Helper." }, { status: 400 });
+  }
+
+  const personId = asString(payload.personId) || asString(payload.person_id);
+
+  if (!isUuid(personId)) {
+    return NextResponse.json({ error: "Choose a person from People." }, { status: 400 });
+  }
+
+  const personResult = await resolveExistingPerson(supabase, workspaceId, { personId });
+
+  if ("response" in personResult) {
+    return personResult.response;
+  }
+
+  const person = personResult.person as PersonRow;
+  const [groupResult, existingMemberResult] = await Promise.all([
+    supabase.from("dos_groups").select("id, leader_person_id").eq("id", groupId).maybeSingle(),
+    supabase
+      .from("dos_group_members")
+      .select("id, person_id, role, status, joined_at, notes")
+      .eq("group_id", groupId)
+      .eq("person_id", person.id)
+      .maybeSingle(),
+  ]);
+
+  if (groupResult.error || existingMemberResult.error) {
+    return NextResponse.json({ error: (groupResult.error ?? existingMemberResult.error)?.message }, { status: 500 });
+  }
+
+  const existing = existingMemberResult.data as MemberRow | null;
+
+  if (existing?.role === "leader" || groupResult.data?.leader_person_id === person.id) {
+    return NextResponse.json({ error: `${person.name} is the primary leader. Change the primary leader in Edit Group.` }, { status: 409 });
+  }
+
+  const inGroup = Boolean(existing && existing.status === "active");
+
+  if (!inGroup && role === "member") {
+    return NextResponse.json({ error: `${person.name} is not a leader in this group.` }, { status: 409 });
+  }
+
+  if (!inGroup && payload.confirmAddToGroup !== true) {
+    return NextResponse.json({
+      error: `${person.name} is not an active member of this group yet. Confirm adding them too.`,
+      needsMembership: true,
+    }, { status: 409 });
+  }
+
+  if (existing && inGroup && memberRole(existing) === role) {
+    return NextResponse.json({
+      addedToGroup: false,
+      member: { id: existing.id, personId: existing.person_id, personName: person.name, role, status: "active" },
+      ok: true,
+      unchanged: true,
+    });
+  }
+
+  const writeResult = existing
+    ? await supabase
+      .from("dos_group_members")
+      .update({ role, status: "active", updated_at: new Date().toISOString() })
+      .eq("id", existing.id)
+      .select("id, person_id, role, status, joined_at, notes")
+      .single()
+    : await supabase
+      .from("dos_group_members")
+      .insert({ group_id: groupId, joined_at: new Date().toISOString(), person_id: person.id, role, status: "active" })
+      .select("id, person_id, role, status, joined_at, notes")
+      .single();
+
+  if (writeResult.error) {
+    /* Another device added them a moment ago: ask again rather than guess. */
+    const conflict = writeResult.error.code === "23505";
+
+    return NextResponse.json(
+      { error: conflict ? `${person.name} was just added to this group. Try again.` : writeResult.error.message },
+      { status: conflict ? 409 : 500 },
+    );
+  }
+
+  const member = writeResult.data as MemberRow;
+
+  return NextResponse.json({
+    addedToGroup: !inGroup,
+    member: {
+      id: member.id,
+      joinedAt: member.joined_at,
+      notes: member.notes,
+      personId: member.person_id,
+      personName: person.name,
+      role: memberRole(member),
+      status: memberStatus(member),
+    },
+    ok: true,
+    person: { email: person.email, id: person.id, name: person.name, phone: person.phone ?? "" },
+    unchanged: false,
+  });
+}
+
 export async function POST(request: Request) {
   const authResult = await authorizeWrite();
 
@@ -333,6 +452,10 @@ export async function POST(request: Request) {
   }
 
   const action = asString(payload.action);
+
+  if (action === "set_leadership_role") {
+    return setLeadershipRole(supabase, workspaceId, groupId, payload);
+  }
 
   if (action === "send_member_access") {
     const personId = asString(payload.personId) || asString(payload.person_id);
@@ -424,7 +547,16 @@ export async function POST(request: Request) {
     role,
     status,
   };
-  const writeResult = existingMemberResult.data
+  /* Adding someone who is already in the group changes nothing: it used to
+     rewrite their role, so re-adding a co-leader as a member demoted them.
+     Role changes go through set_leadership_role. A removed membership is
+     restored with the chosen role and status. */
+  const currentMembership = existingMemberResult.data && existingMemberResult.data.status !== "removed"
+    ? existingMemberResult.data as MemberRow
+    : null;
+  const writeResult = currentMembership
+    ? { data: currentMembership, error: null }
+    : existingMemberResult.data
     ? await supabase
       .from("dos_group_members")
       .update({
