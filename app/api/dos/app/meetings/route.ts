@@ -14,6 +14,7 @@ import {
 } from "@/src/lib/dos/meeting-engine";
 import { deleteGoogleCalendarEventForSource, syncDosMeetingCalendarEvent } from "@/src/lib/dos/google-calendar";
 import { dosMeetingSaveResponse, type DosCalendarSyncState } from "@/src/lib/dos/meeting-calendar-sync";
+import { syncStoredMeetingCalendarEvent } from "@/src/lib/dos/meeting-calendar-stored";
 import { dosAppMeetingTypes, dosAppTableRoles, isMissingWorkspaceScopeColumn, resolveDosAppWorkspace, type DosAppMeetingType, type DosAppTableRole } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { isUsamWorkspaceById } from "@/src/lib/dos/usam-workspace";
@@ -1493,18 +1494,28 @@ export async function POST(request: Request) {
     });
   }
 
+  /* A replayed save keeps the first attempt's row, but this request may carry
+     edited values. Sync the calendar from the stored row so Google never shows
+     a different time from the meeting DOS saved (USA-273). */
+  const replayedCalendarSync = async (): Promise<DosCalendarSyncState> => {
+    const stored = await syncStoredMeetingCalendarEvent({ meetingId: String(data.id), supabase, workspaceId });
+
+    return "state" in stored ? stored.state : "failed";
+  };
   const calendarSync: DosCalendarSyncState = data?.id && googleSyncEnabled && meetingStatus === "scheduled"
-    ? await syncMeetingCalendarEvent({
-      meetingId: String(data.id),
-      notes,
-      participantNames,
-      scheduledEndAt,
-      scheduledStartAt,
-      supabase,
-      tableType,
-      timezone,
-      workspaceId,
-    })
+    ? replayedExistingMeeting
+      ? await replayedCalendarSync()
+      : await syncMeetingCalendarEvent({
+        meetingId: String(data.id),
+        notes,
+        participantNames,
+        scheduledEndAt,
+        scheduledStartAt,
+        supabase,
+        tableType,
+        timezone,
+        workspaceId,
+      })
     : "disabled";
 
   /* Always 200: the meeting is saved. The calendar outcome travels in the body

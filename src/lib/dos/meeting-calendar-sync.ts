@@ -67,6 +67,16 @@ export function dosCalendarSyncCanRetry(state: DosCalendarSyncState) {
   return state === "failed";
 }
 
+/* A failed Retry is about the calendar only. The meeting is already saved, so
+   the message must never say "Nothing was saved" -- that sends the user back to
+   schedule it again, which is the duplicate USA-273 exists to prevent. */
+export const dosCalendarRetryUnreachableMessage = "Could not reach the server. The meeting is saved. Try Retry again.";
+export const dosCalendarRetryFailedMessage = "Google Calendar sync failed. The meeting is saved. Try Retry again.";
+
+export function dosCalendarRetryFailureMessage(status: number | null) {
+  return status === null ? dosCalendarRetryUnreachableMessage : dosCalendarRetryFailedMessage;
+}
+
 /* The body every successful meeting write answers with. It exists as one
    function so there is a single place that can be shown to always report ok
    for a saved meeting, whatever Google did (USA-273). */

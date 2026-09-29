@@ -111,6 +111,8 @@ assert.equal(derivedEventId.length, 43);
 const meetingsRoute = read("app/api/dos/app/meetings/route.ts");
 const googleCalendar = read("src/lib/dos/google-calendar.ts");
 const eventSyncRoute = read("app/api/dos/app/calendar/google/event-sync/route.ts");
+const storedSync = read("src/lib/dos/meeting-calendar-stored.ts");
+const syncLib = read("src/lib/dos/meeting-calendar-sync.ts");
 const syncRoute = read("app/api/dos/app/calendar/google/sync/route.ts");
 const client = read("app/dos/app/DosMvpAppClient.tsx");
 const packageJson = JSON.parse(read("package.json"));
@@ -215,13 +217,14 @@ check(
 /* ---- Wiring: the calendar retries on its own ---------------------------- */
 
 check(
-  eventSyncRoute.includes("syncDosMeetingCalendarEvent")
+  eventSyncRoute.includes("syncStoredMeetingCalendarEvent")
+    && storedSync.includes("syncDosMeetingCalendarEvent")
     && eventSyncRoute.includes("dosCalendarSyncWarning")
     && eventSyncRoute.includes("requireDosWorkspaceRouteAccess"),
   "The calendar retry endpoint must re-run the shared sync under the same workspace authorization.",
 );
 check(
-  eventSyncRoute.includes('or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)'),
+  storedSync.includes('or(`workspace_id.eq.${workspaceId},household_id.eq.${workspaceId}`)'),
   "The retry endpoint must only sync a meeting inside the caller's workspace.",
 );
 check(
@@ -264,6 +267,35 @@ check(
   typeof packageJson.scripts["test:dos-scheduling-reliability"] === "string"
     && packageJson.scripts["test:dos"].includes("test:dos-scheduling-reliability"),
   "This suite must be registered and included in the test:dos chain.",
+);
+
+/* ---- Review fixes (PR #204, 2026-09-29) --------------------------------- */
+
+check(
+  meetingsRoute.includes("replayedExistingMeeting\n      ? await replayedCalendarSync()")
+    && meetingsRoute.includes("syncStoredMeetingCalendarEvent({ meetingId: String(data.id), supabase, workspaceId })"),
+  "A replayed schedule must sync Google from the stored meeting row, not from the retry's possibly edited payload.",
+);
+check(
+  eventSyncRoute.indexOf("getDosAuthorization()") > -1
+    && eventSyncRoute.indexOf("getDosAuthorization()") < eventSyncRoute.indexOf("resolveDosAppWorkspaceId("),
+  "The retry endpoint must authenticate before resolving the workspace, so it cannot reveal which workspaces exist.",
+);
+check(
+  !/retryMeetingCalendarSync[\s\S]{0,2500}dosSaveFailureMessage/.test(client)
+    && client.includes("dosCalendarRetryFailureMessage(null)")
+    && syncLib.includes("The meeting is saved.")
+    && !/dosCalendarRetry\w*Message = "[^"]*Nothing was saved/.test(syncLib),
+  "A failed calendar Retry must say the meeting is saved, never 'Nothing was saved'.",
+);
+check(
+  googleCalendar.includes("isGoogleCalendarEventGoneError(patchError)")
+    && /status === 404 \|\| status === 410/.test(googleCalendar),
+  "A linked Google event that was deleted (404/410) must be recreated, not patched forever.",
+);
+check(
+  googleCalendar.includes('const eventBody = { ...googleEventBody(input), status: "confirmed" };'),
+  "Every calendar write must set status confirmed so an adopted or re-linked cancelled event becomes visible.",
 );
 
 if (failures.length) {

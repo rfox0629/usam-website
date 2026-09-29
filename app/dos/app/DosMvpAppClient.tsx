@@ -54,7 +54,7 @@ import {
 } from "@/src/lib/dos/circle-tiers";
 import { DosConfirmDialog, DosDetailSection, DosDetailSheet, DosWorkflowPage, MobileBottomSheet, Sheet, useEditableSurface } from "@/src/components/dos/overlays/DosSurfaces";
 import { backdropMayDismiss, leaveWithoutSavingCopy, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
-import { dosCalendarSyncCanRetry, dosSaveFailureMessage, dosSaveGenericFailureMessage, isDosCalendarSyncState, type DosCalendarSyncState } from "@/src/lib/dos/meeting-calendar-sync";
+import { dosCalendarRetryFailureMessage, dosCalendarSyncCanRetry, dosSaveFailureMessage, dosSaveGenericFailureMessage, isDosCalendarSyncState, type DosCalendarSyncState } from "@/src/lib/dos/meeting-calendar-sync";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
 import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption, type StatusTone } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
@@ -41713,7 +41713,7 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
         };
 
         if (!response.ok) {
-          setMeetingCalendarAlert({ meetingId, message: result.error ?? dosSaveFailureMessage(response.status), state: "failed" });
+          setMeetingCalendarAlert({ meetingId, message: dosCalendarRetryFailureMessage(response.status), state: "failed" });
           return;
         }
 
@@ -41728,7 +41728,7 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
 
         setMeetingCalendarAlert({ meetingId, message: result.calendarWarning ?? "Google Calendar sync failed.", state });
       } catch {
-        setMeetingCalendarAlert({ meetingId, message: dosSaveFailureMessage(null), state: "failed" });
+        setMeetingCalendarAlert({ meetingId, message: dosCalendarRetryFailureMessage(null), state: "failed" });
       } finally {
         setIsRetryingCalendarSync(false);
       }

@@ -1341,6 +1341,16 @@ export function googleCalendarEventIdForSource(sourceType: CalendarSyncSourceTyp
   return `dos${createHash("sha256").update(`${sourceType}:${sourceId}`).digest("hex").slice(0, 40)}`;
 }
 
+export function isGoogleCalendarEventGoneError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const status = (error as Error & { status?: number }).status;
+
+  return status === 404 || status === 410;
+}
+
 export function isGoogleCalendarDuplicateEventError(error: unknown) {
   if (!(error instanceof Error)) {
     return false;
@@ -1379,12 +1389,17 @@ export async function syncGoogleCalendarEvent(input: DosCalendarEventInput, supa
      event with no link row; letting Google mint the id meant the next attempt
      created a SECOND event. With a derived id the retry either creates the one
      event or is told it already exists, and updates it. */
-  const targetEventId = existingLink?.external_event_id ?? googleCalendarEventIdForSource(input.sourceType, input.sourceId);
-  const eventBody = { ...googleEventBody(input), ...(existingLink?.external_event_id ? {} : { id: targetEventId }) };
-  const eventUrl = `${googleCalendarApiBase}/calendars/${encodedCalendarId}/events/${encodeURIComponent(targetEventId)}`;
-  const writeEvent = async (method: "PATCH" | "POST") => readGoogleResponse<{ id?: string }>(
-    await googleFetch(method === "POST" ? `${googleCalendarApiBase}/calendars/${encodedCalendarId}/events` : eventUrl, {
-      body: JSON.stringify(method === "POST" ? eventBody : googleEventBody(input)),
+  const derivedEventId = googleCalendarEventIdForSource(input.sourceType, input.sourceId);
+  const linkedEventId = existingLink?.external_event_id ?? null;
+  const eventsUrl = `${googleCalendarApiBase}/calendars/${encodedCalendarId}/events`;
+  const eventUrl = (eventId: string) => `${eventsUrl}/${encodeURIComponent(eventId)}`;
+  /* "confirmed" on every write: an event deleted in Google is kept as
+     cancelled, and patching it without a status would leave it hidden while
+     DOS reported "synced". DOS owns this meeting, so a sync restores it. */
+  const eventBody = { ...googleEventBody(input), status: "confirmed" };
+  const writeEvent = async (method: "PATCH" | "POST", url: string, body: Record<string, unknown>) => readGoogleResponse<{ id?: string }>(
+    await googleFetch(url, {
+      body: JSON.stringify(body),
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
@@ -1392,24 +1407,38 @@ export async function syncGoogleCalendarEvent(input: DosCalendarEventInput, supa
       method,
     }),
   );
-  let event: { id?: string };
-
-  if (existingLink?.external_event_id) {
-    event = await writeEvent("PATCH");
-  } else {
+  /* Create with the derived id; if a previous attempt already created it,
+     Google answers 409 and that exact event is adopted. */
+  const createOrAdopt = async () => {
     try {
-      event = await writeEvent("POST");
+      return await writeEvent("POST", eventsUrl, { ...eventBody, id: derivedEventId });
     } catch (createError) {
       if (!isGoogleCalendarDuplicateEventError(createError)) {
         throw createError;
       }
 
-      /* A previous attempt already created this exact event. Adopt it. */
-      event = await writeEvent("PATCH");
+      return writeEvent("PATCH", eventUrl(derivedEventId), eventBody);
     }
+  };
+  let event: { id?: string };
+
+  if (linkedEventId) {
+    try {
+      event = await writeEvent("PATCH", eventUrl(linkedEventId), eventBody);
+    } catch (patchError) {
+      /* The linked event is gone from Google. Patching it again can never
+         succeed, so every Retry would fail; recreate it instead. */
+      if (!isGoogleCalendarEventGoneError(patchError)) {
+        throw patchError;
+      }
+
+      event = await createOrAdopt();
+    }
+  } else {
+    event = await createOrAdopt();
   }
 
-  const externalEventId = event.id ?? targetEventId;
+  const externalEventId = event.id ?? linkedEventId ?? derivedEventId;
 
   if (!externalEventId) {
     throw new Error("Google Calendar did not return an event id.");
