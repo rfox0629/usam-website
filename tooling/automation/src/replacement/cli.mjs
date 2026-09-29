@@ -18,6 +18,7 @@ import { createProductionLauncherAdapter } from "./launcher/production-adapter.m
 import { runDigest } from "./digest/index.mjs";
 import { runJanitor } from "./janitor/index.mjs";
 import { runBackup } from "./backup/index.mjs";
+import { formatResult } from "./shared/result-output.mjs";
 
 const JOBS = new Set(["launcher", "digest", "janitor", "backup", "claude-bridge", "claude-bridge-daemon"]);
 
@@ -33,6 +34,7 @@ function parseArgs(argv) {
     else if (rest[i] === "--claude-timeout-ms") opts.claudeTimeoutMs = Number(rest[++i]);
     else if (rest[i] === "--poll-interval-ms") opts.pollIntervalMs = Number(rest[++i]);
     else if (rest[i] === "--once") opts.once = true;
+    else if (rest[i] === "--print-result") opts.printResult = true;
     else if (rest[i] === "--help" || rest[i] === "-h") opts.help = true;
   }
   return opts;
@@ -59,6 +61,7 @@ Options:
   --claude-timeout-ms N  Claude Code timeout override; production default is 1800000ms
   --poll-interval-ms N Poll interval for claude-bridge-daemon
   --once            Run one daemon poll pass and exit
+  --print-result    Print the full JSON result (default only on a TTY or with USAM_PRINT_RESULT=1)
   --config PATH     JSON config overriding the defaults
   -h, --help        This message
 
@@ -158,5 +161,5 @@ try {
 }
 
 logger.info("job_complete", { job: opts.job, dryRun: config.dryRun });
-console.log(JSON.stringify(result, null, 2));
+console.log(formatResult(opts.job, result, { env: process.env, flag: opts.printResult, isTTY: process.stdout.isTTY }));
 process.exit(result?.exitStatus ?? 0);

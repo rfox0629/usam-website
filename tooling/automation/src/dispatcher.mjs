@@ -5,6 +5,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { classifyDispatchEligibility, deprecatedRoutingLabelsForIssue, runnerSelectionsForIssue } from "./dispatch-policy.mjs";
 import { tailLines } from "./dispatcher-log-tail.mjs";
+import { createRepeatSuppressor, DEFAULT_REPEAT_WINDOW_MS } from "./event-dedupe.mjs";
 import { dispatcherLayout } from "./dispatcher-paths.mjs";
 import {
   buildClaimAcknowledgment,
@@ -189,6 +190,30 @@ function writeWorkforceEvent(eventType, fields = {}) {
   const entry = buildLifecycleEvent(eventType, fields);
   writeFileSync(workforceEventLogPath(), `${JSON.stringify(entry)}\n`, { flag: "a" });
   return entry;
+}
+
+/* Per-poll events repeat for every long-ineligible candidate every 30s. Write
+   one only when its signature changes or the window passes (see
+   event-dedupe.mjs). State persists because each poll is a fresh process. */
+let repeatSuppressor = null;
+
+function repeatEventGate() {
+  if (!repeatSuppressor) {
+    repeatSuppressor = createRepeatSuppressor({
+      state: readState("event-dedupe", {}),
+      windowMs: Number(config.logging?.repeatWindowMs) || DEFAULT_REPEAT_WINDOW_MS,
+    });
+  }
+  return repeatSuppressor;
+}
+
+function shouldWriteRepeatedEvent(key, signature) {
+  const gate = repeatEventGate();
+  const emit = gate.shouldEmit(key, signature);
+  if (gate.isDirty()) {
+    writeState("event-dedupe", gate.toState());
+  }
+  return emit;
 }
 
 function recentWorkforceEvents(maxEvents = 100) {
@@ -933,6 +958,9 @@ function writeHealthSnapshot(phase = "service") {
     "ready_for_dispatcher_stuck",
     "runner_process_missing",
   ].includes(item.code))) {
+    if (!shouldWriteRepeatedEvent(`stalled:${alert.code}:${alert.issue || ""}`, alert.reason || alert.code)) {
+      continue;
+    }
     writeWorkforceEvent("stalled", {
       currentStep: alert.code,
       issue: alert.issue || null,
@@ -3449,12 +3477,16 @@ async function pollOnce() {
   }
 
   for (const issue of issues) {
-    writeWorkforceEvent("issue_discovered", {
-      currentStep: "poll",
-      issue: issue.identifier,
-      metadata: { state: issue.state?.name || "unknown" },
-    });
     const classification = classifyIssue(issue);
+    const unchangedIneligible = !classification.eligible
+      && !shouldWriteRepeatedEvent(`ineligible:${issue.identifier}`, `${issue.state?.name || "unknown"}|${classification.reason}`);
+    if (!unchangedIneligible) {
+      writeWorkforceEvent("issue_discovered", {
+        currentStep: "poll",
+        issue: issue.identifier,
+        metadata: { state: issue.state?.name || "unknown" },
+      });
+    }
     const preHold = holdReasonForEligibleIssue(issue, classification);
     const eligibility = buildEligibilityReport({
       classification,
@@ -3462,7 +3494,7 @@ async function pollOnce() {
       issue,
       route: classification.route || null,
     });
-    writeWorkforceEvent(classification.eligible ? "eligibility_passed" : "eligibility_failed", {
+    if (!unchangedIneligible) writeWorkforceEvent(classification.eligible ? "eligibility_passed" : "eligibility_failed", {
       currentStep: "eligibility",
       issue: issue.identifier,
       metadata: { eligibility },
@@ -3471,7 +3503,7 @@ async function pollOnce() {
       runner: eligibility.selectedRunner || null,
     });
     if (!classification.eligible) {
-      jsonLog("issue_not_eligible", { issue: issue.identifier, reason: classification.reason });
+      if (!unchangedIneligible) jsonLog("issue_not_eligible", { issue: issue.identifier, reason: classification.reason });
       holds.push({
         eligibility,
         issue: issue.identifier,
