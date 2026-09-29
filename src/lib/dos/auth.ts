@@ -756,6 +756,11 @@ export async function getDosLaunchWorkspaces(
   }
 }
 
+// USA-289: an account that can open exactly one real workspace goes straight
+// to it. Workspaces provisioned by an approved DOS access request have no
+// USA Missionaries application or public profile, so "confirmed" alone would
+// leave approved users on the chooser. Test/setup workspaces still use it.
 export function getConfirmedDosLaunchDefault(workspaces: DosLaunchWorkspace[]) {
-  return workspaces.length === 1 && workspaces[0]?.isConfirmedDefault ? workspaces[0] : null;
+  const [only] = workspaces;
+  return workspaces.length === 1 && only && !only.isLikelyTest ? only : null;
 }

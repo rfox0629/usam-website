@@ -205,7 +205,7 @@ export default async function DosAccessRequestDetailPage({
                     Walkthrough video: <a className="text-blue-700 underline" href={videoUrl}>{videoUrl}</a>.
                     {request.access_status === "ready" ? (
                       <>
-                        {" "}<a className="text-blue-700 underline" href={`/operations/submissions/dos-access/welcome-email?request=${request.id}`}>Preview the new welcome email for this request</a>.
+                        {" "}<a className="text-blue-700 underline" href={`/operations/submissions/dos-access/welcome-email?request=${request.id}`}>Preview the redesigned welcome email (in review) and send yourself a test</a>.
                       </>
                     ) : null}
                   </p>

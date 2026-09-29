@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
-import { isDosNextPath, RESET_NEXT_COOKIE_NAME } from "@/src/lib/auth/reset-next";
+import { redirect } from "next/navigation";
+import { dosSignInHref, isDosNextPath, RESET_NEXT_COOKIE_NAME } from "@/src/lib/auth/reset-next";
 import { requestMagicLink, requestPasswordReset, signInAdmin } from "./actions";
 
 export const metadata: Metadata = {
@@ -49,6 +50,25 @@ export default async function LoginPage({
     ? requestedNext
     : "/admin";
   const isDosLogin = isDosPath(nextPath);
+
+  // USA-289: DOS has one sign-in page. Old links (/login?next=/dos…) and
+  // flows that still return here for a DOS destination are forwarded with
+  // their message, so this page is only the staff and Operations sign-in.
+  if (isDosLogin) {
+    const carry: Record<string, string> = {};
+
+    for (const key of ["error", "magic", "reset", "signedOut"] as const) {
+      const value = params[key];
+
+      if (typeof value === "string" && value) {
+        carry[key] = value;
+      }
+    }
+
+    redirect(dosSignInHref(nextPath, carry));
+  }
+
+  const isOperationsLogin = nextPath === "/operations" || nextPath.startsWith("/operations/");
   const dosErrors: Record<string, string> = {
     "magic-missing": "Enter your email address.",
     "reset-missing": "Enter your email address.",
@@ -81,7 +101,7 @@ export default async function LoginPage({
         <h1 className={`mt-5 text-4xl font-bold uppercase leading-none md:text-5xl ${
           isDosLogin ? "text-[#0F172A]" : "text-stone-100"
         }`} style={{ fontFamily: font.oswald }}>
-          {isDosLogin ? "DOS Sign In" : "Admin Login"}
+          {isDosLogin ? "DOS Sign In" : isOperationsLogin ? "Operations Sign In" : "Admin Login"}
         </h1>
         <p className={`mt-5 text-sm leading-7 ${isDosLogin ? "text-[#64748B]" : "text-stone-400"}`}>
           {isDosLogin

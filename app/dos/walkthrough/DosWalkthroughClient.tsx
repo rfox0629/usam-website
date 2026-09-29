@@ -2,40 +2,7 @@
 
 import Link from "next/link";
 import { useRef } from "react";
-
-const video = {
-  large: "/videos/dos/dos-walkthrough-v1-1080p.mp4",
-  poster: "/videos/dos/dos-walkthrough-v1-poster.jpg",
-  small: "/videos/dos/dos-walkthrough-v1-720p.mp4",
-};
-
-// Seconds into the video where each step starts.
-const chapters = [
-  {
-    at: 4.4,
-    detail: "Open DOS from your welcome email. New to DOS? Choose Email me a sign-in link and open the link on the same device. Used DOS before? Sign in the way you usually do.",
-    title: "Sign in",
-  },
-  { at: 24, detail: "Home shows who needs you today: birthdays, meetings, and check-ins.", title: "Home" },
-  {
-    at: 35.7,
-    detail: "People keeps everyone you're discipling. Open a person to see your last and next meeting, the Journey you're walking through, and what you've committed to.",
-    title: "People",
-  },
-  { at: 59.7, detail: "Meetings shows what's coming up and what still needs logging. Tap Log Meeting when you're done.", title: "Meetings" },
-  { at: 77.3, detail: "Prayer keeps every request you've promised to pray, with the people it belongs to, and what God has answered.", title: "Prayer" },
-  {
-    at: 89.4,
-    detail: "DOS is a web app, so there's nothing to download. iPhone, in Safari: tap Share, then Add to Home Screen, then Add. Android, in Chrome: tap ⋮, then Install app or Add to Home screen.",
-    title: "Add DOS to your phone",
-  },
-];
-
-function clock(seconds: number) {
-  const whole = Math.floor(seconds);
-
-  return `${Math.floor(whole / 60)}:${String(whole % 60).padStart(2, "0")}`;
-}
+import { dosWalkthroughChapters as chapters, dosWalkthroughVideo as video, walkthroughClock as clock } from "@/src/lib/dos/walkthrough";
 
 const css = `
 .dwk{--navy:#0A1622;--blue:#378ADD;--blue-hi:#6FB2F0;--blue-ink:#1E6FBF;--ink:#0E1822;--muted:#5E6B78;--line:#E6EAEE;--dline:rgba(255,255,255,.12);
@@ -132,8 +99,10 @@ export function DosWalkthroughClient() {
                 ref={videoRef}
                 width={1920}
               >
-                <source media="(max-width: 900px)" src={video.small} type="video/mp4" />
-                <source src={video.large} type="video/mp4" />
+                {video.sources.map((source) => (
+                  <source key={source.src} media={"media" in source ? source.media : undefined} src={source.src} type={source.type} />
+                ))}
+                <track default={false} kind="captions" label="English" src={video.captions} srcLang="en" />
               </video>
             </div>
             <p className="note">No sound. Each step is written on screen and below. The people shown are a made-up demo workspace.</p>

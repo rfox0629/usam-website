@@ -57,6 +57,18 @@ const nextConfig = {
       permanent: true,
     });
 
+    // USA-289: retired DOS signup and sign-in addresses (old emails and
+    // bookmarks) answer with a real HTTP redirect. Asking for DOS is the
+    // reviewed request at /dos/setup; signing in is /dos/sign-in, which
+    // validates any ?next= it is given. The query string is kept.
+    for (const source of ["/dos/signup", "/dos/sign-up", "/dos/register"]) {
+      redirects.push({ source, destination: "/dos/setup", permanent: false });
+    }
+
+    for (const source of ["/dos/login", "/dos/signin"]) {
+      redirects.push({ source, destination: "/dos/sign-in", permanent: false });
+    }
+
     return redirects;
   },
   /**
