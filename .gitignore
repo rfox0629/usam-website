@@ -30,3 +30,6 @@ pnpm-debug.log*
 *.tsbuildinfo
 .vercel
 test-results/
+
+# September newsletter V2 comparison scratch (see docs/newsletter/september-2026/README.md)
+.v2-ref/

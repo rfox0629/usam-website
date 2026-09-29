@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Public Communications routes, rescued from USA-47, plus the September issue's
-// send-safety and locked-design contract.
+// send-safety contract and the guards that keep an unverified story out of
+// anything sendable.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
@@ -9,6 +10,7 @@ import { pathToFileURL } from "node:url";
 const root = process.cwd();
 const read = (...parts) => readFileSync(path.join(root, ...parts), "utf8");
 const load = (rel) => import(pathToFileURL(path.join(root, rel)).href);
+const { normalizeNewsletterSections } = await load("src/lib/communications/newsletter-sections.ts");
 const results = [];
 const check = (name, fn) => {
   try {
@@ -97,8 +99,86 @@ check("preview, test, and broadcast share one renderer", () => {
   assert.doesNotMatch(actions, /renderNewsletterEmail\(/);
 });
 
-check("September renders in the locked editorial design", () => {
-  assert.match(render, /"q2-q3-2026-field-update": septemberNewsletter/);
+check("no issue's content is hard-coded by slug", () => {
+  // The September issue used to render from a TypeScript module selected by
+  // slug, so only a deploy could change its copy. Content belongs on the
+  // record; a slug key here would take an issue out of Operations' hands again.
+  const map = render.slice(render.indexOf("const editorialIssues"), render.indexOf("export { septemberNewsletter }"));
+  assert.doesNotMatch(map, /["'][a-z0-9-]+["']\s*:/, "no slug may be mapped to a hard-coded builder");
+});
+
+check("September renders from its record in the ecosystem design", () => {
+  assert.match(render, /newsletter\.template === "ecosystem"/);
+  assert.match(render, /renderEcosystemNewsletter/);
+
+  const seed = read("supabase", "migrations", "20260917214500_newsletter_record_source_of_truth.sql");
+  assert.match(seed, /template = 'ecosystem'/);
+  assert.match(seed, /where slug = 'q2-q3-2026-field-update'/);
+  // Version A is captured before anything is overwritten.
+  assert.match(seed, /insert into public\.communication_newsletter_revisions/);
+});
+
+check("a story renders only under a verified sharing permission", () => {
+  const sections = normalizeNewsletterSections([
+    // Declined: not one of the two publishable permissions.
+    { body: "", heading: "A", key: "a", story: { permission: "private", text: "x" }, type: "story" },
+    // Anonymous, but carrying a name: a contradiction, not a narrower share.
+    { body: "", heading: "B", key: "b", story: { attribution: "Someone", permission: "anonymous", text: "x" }, type: "story" },
+    // Named, but with no name to attribute.
+    { body: "", heading: "C", key: "c", story: { attribution: "", permission: "with_name", text: "x" }, type: "story" },
+    // Permitted, but with no record of what was verified.
+    { body: "", heading: "D", key: "d", story: { attribution: null, permission: "anonymous", text: "x" }, type: "story" },
+    // Complete.
+    {
+      body: "",
+      heading: "E",
+      key: "e",
+      story: {
+        attribution: null,
+        permission: "anonymous",
+        source: { formId: "1", submissionId: "2", verifiedAt: "2026-09-18", verifiedBy: "ryan" },
+        text: "x",
+      },
+      type: "story",
+    },
+  ]);
+
+  const withStory = sections.filter((section) => section.story).map((section) => section.key);
+  assert.deepEqual(withStory, ["e"], "only a fully verified story may carry copy");
+});
+
+check("the seeded September issue ships no unverified story", () => {
+  const seed = read("supabase", "migrations", "20260917214500_newsletter_record_source_of_truth.sql");
+  const match = seed.match(/sections = '([\s\S]*?)'::jsonb/);
+  assert.ok(match, "the seed must carry structured sections");
+
+  const sections = JSON.parse(match[1].replaceAll("''", "'"));
+  const story = sections.find((section) => section.type === "story");
+  assert.ok(story, "the issue keeps a story section");
+  assert.equal(story.hidden, true, "it stays hidden while the permission is unverified");
+  assert.equal(story.body, "", "and carries no copy");
+  assert.equal(story.story, undefined, "and no permission claim");
+});
+
+check("the unapproved story mockup stays out of everything sendable", () => {
+  // It lives in docs/.../review-only/ and is injected by the preview script
+  // alone. It must not be in src/, in a route, or in a migration.
+  const fingerprints = [/a woman joined us/i, /first encounter of ministry/i];
+  const guarded = [
+    ["src", "lib", "communications", "september-2026-sections.ts"],
+    ["src", "lib", "communications", "newsletter-ecosystem.ts"],
+    ["app", "dev", "newsletter-design-review", "page.tsx"],
+    ["app", "dev", "newsletter-design-review", "raw", "route.ts"],
+    ["supabase", "migrations", "20260917214500_newsletter_record_source_of_truth.sql"],
+    ["docs", "newsletter", "september-2026", "v4", "v4-email.html"],
+  ];
+
+  for (const parts of guarded) {
+    const contents = read(...parts);
+    for (const fingerprint of fingerprints) {
+      assert.doesNotMatch(contents, fingerprint, `${parts.join("/")} must not carry the mockup`);
+    }
+  }
 });
 
 check("a test send can never carry a real subscriber token", () => {

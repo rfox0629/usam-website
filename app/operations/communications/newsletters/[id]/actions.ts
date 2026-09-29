@@ -71,6 +71,7 @@ export async function sendNewsletterTestAction(formData: FormData) {
       cta_label: detail.newsletter.ctaLabel,
       cta_url: detail.newsletter.ctaUrl,
       id: detail.newsletter.id,
+      postal_address: detail.newsletter.postalAddress,
       preheader: detail.newsletter.preheader,
       published_at: null,
       sections: detail.newsletter.sections,
@@ -78,6 +79,7 @@ export async function sendNewsletterTestAction(formData: FormData) {
       status: detail.newsletter.status,
       subject: detail.newsletter.subject,
       summary: detail.newsletter.summary,
+      template: detail.newsletter.template,
       title: detail.newsletter.title,
     },
     subscriber: {

@@ -4,6 +4,7 @@ import {
   type EditorialLinks,
   type EditorialNewsletter,
 } from "./newsletter-editorial";
+import { renderEcosystemNewsletter } from "./newsletter-ecosystem";
 import { renderNewsletterEmail } from "./newsletter-template";
 import { septemberNewsletter } from "./september-2026";
 import type { CommunicationNewsletter, CommunicationSubscriber } from "./types";
@@ -21,12 +22,21 @@ const editorialIssues: Record<
   string,
   (input: { imageBase: string; postalAddress: string | null }) => EditorialNewsletter
 > = {
-  "q2-q3-2026-field-update": septemberNewsletter,
+  // Empty by design. An issue's content belongs on its record, not in a module
+  // only a deploy can change. `septemberNewsletter` is kept as the recoverable
+  // Version A of the September issue and is re-exported for the snapshot
+  // script; adding a slug back here would take that issue out of Operations'
+  // hands again.
 };
+
+export { septemberNewsletter };
 
 export function isEditorialIssue(slug: string) {
   return Object.hasOwn(editorialIssues, slug);
 }
+
+/** Templates an issue can be drawn with. `sections` is the generic fallback. */
+export const newsletterTemplates = ["sections", "ecosystem"] as const;
 
 /**
  * A test render must never carry a real subscriber's token: a forwarded test
@@ -49,6 +59,11 @@ export function newsletterLinks({
     preferencesUrl: `${siteUrl}/preferences/${manageToken}`,
     unsubscribeUrl: `${siteUrl}/unsubscribe/${manageToken}`,
   };
+}
+
+/** Section images are stored site-relative so they follow the deploy. */
+function absolute(url: string, siteUrl: string) {
+  return url.startsWith("/") ? `${siteUrl}${url}` : url;
 }
 
 export type RenderedNewsletter = {
@@ -86,10 +101,33 @@ export function renderNewsletter({
     });
   }
 
+  // The address on the record wins; the argument stays as an override for the
+  // snapshot script, which renders issues outside any request.
+  const address = postalAddress ?? newsletter.postal_address ?? null;
+
+  if (newsletter.template === "ecosystem") {
+    const siteUrl = getConfiguredSiteUrl();
+
+    return renderEcosystemNewsletter({
+      issue: {
+        markBase: siteUrl,
+        postalAddress: address,
+        preheader: newsletter.preheader ?? newsletter.summary ?? "",
+        sections: newsletter.sections.map((section) => ({
+          ...section,
+          ...(section.image ? { image: { ...section.image, url: absolute(section.image.url, siteUrl) } } : {}),
+        })),
+        subject: newsletter.subject,
+      },
+      links: newsletterLinks({ manageToken, siteUrl, slug: newsletter.slug }),
+      recipientFirstName: subscriber.first_name?.trim() || "friend",
+    });
+  }
+
   const rendered = renderNewsletterEmail({
     manageToken,
     newsletter,
-    postalAddress,
+    postalAddress: address,
     subscriber,
   });
 
