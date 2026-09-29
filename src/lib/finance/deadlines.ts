@@ -297,6 +297,7 @@ export type FilingStatus =
   | "upcoming"
   | "due_soon"
   | "ready_for_review"
+  | "filed_needs_evidence"
   | "filed"
   | "extended"
   | "overdue"
@@ -307,17 +308,27 @@ export function deriveFilingStatus({
   dueDate,
   extensionDueDate,
   extensionFiled,
+  filingEvidenceComplete,
+  filingState,
   filedAt,
   today,
 }: {
   dueDate: string | null;
   extensionDueDate?: string | null;
   extensionFiled?: boolean;
+  filingEvidenceComplete?: boolean;
+  filingState?: "not_filed" | "reported_filed" | "filed" | null;
   filedAt?: string | null;
   today: string;
 }): FilingStatus {
-  if (filedAt) {
+  if (filedAt && filingEvidenceComplete !== false) {
     return "filed";
+  }
+
+  // A founder-confirmed completed filing must not become Overdue merely
+  // because its date/evidence record is incomplete.
+  if (filingState === "reported_filed" || filingState === "filed" || filedAt) {
+    return "filed_needs_evidence";
   }
 
   if (extensionFiled) {

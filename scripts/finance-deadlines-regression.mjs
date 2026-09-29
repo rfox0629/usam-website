@@ -17,7 +17,9 @@ const {
 
 const {
   isLastDayOfMonth,
+  latestClosedRecurringTaxPeriod,
   lastDayOfMonth,
+  recurringTaxPeriod,
   recurringYearEnd,
   validateTaxPeriod,
   validateTaxYearDefinition,
@@ -59,9 +61,9 @@ const arizona = {
   ruleVersion: "v1",
 };
 
-check("USA-181 worked example: period ending 2026-08-03 is due 2027-01-15", () => {
+check("USAM fiscal year ending 2026-08-31 is due 2027-01-15", () => {
   const result = computeFilingDueDate(federal990, {
-    periodEnd: "2026-08-03",
+    periodEnd: "2026-08-31",
     periodEndVerified: true,
   });
   assert.equal(result.status, "computed");
@@ -106,7 +108,7 @@ check("weekend and holiday due dates move to the next business day", () => {
 
 check("every computed date records the inputs that produced it", () => {
   const result = computeFilingDueDate(federal990, {
-    periodEnd: "2026-08-03",
+    periodEnd: "2026-08-31",
     periodEndVerified: true,
   });
   const i = result.computedInputs;
@@ -114,7 +116,7 @@ check("every computed date records the inputs that produced it", () => {
   assert.equal(i.ruleVersion, "v1");
   assert.equal(i.months, 5);
   assert.equal(i.dayOfMonth, 15);
-  assert.equal(i.periodEnd, "2026-08-03");
+  assert.equal(i.periodEnd, "2026-08-31");
   assert.equal(i.periodEndVerified, true);
   assert.equal(i.unadjustedDueDate, "2027-01-15");
 });
@@ -169,6 +171,11 @@ check("status derivation never claims filed without a filing date", () => {
   assert.equal(deriveFilingStatus({ dueDate: "2027-01-15", today: "2026-08-19" }), "upcoming");
   assert.equal(deriveFilingStatus({ dueDate: "2026-08-01", today: "2026-08-19" }), "overdue");
   assert.equal(deriveFilingStatus({ dueDate: "2026-08-01", filedAt: "2026-07-30", today: "2026-08-19" }), "filed");
+  assert.equal(
+    deriveFilingStatus({ dueDate: "2026-08-01", filingState: "reported_filed", today: "2026-08-19" }),
+    "filed_needs_evidence",
+    "a known completed filing needs evidence, not an Overdue label",
+  );
   assert.equal(deriveFilingStatus({ dueDate: "2026-08-01", extensionFiled: true, today: "2026-08-19" }), "extended");
 });
 
@@ -285,6 +292,17 @@ check("a recurring tax year is named by month only, so 08-03 is unrepresentable"
   assert.equal(lastDayOfMonth(2028, 2), "2028-02-29");
   assert.equal(isLastDayOfMonth("2026-08-03"), false);
   assert.equal(isLastDayOfMonth("2026-08-31"), true);
+});
+
+check("USAM's recurring August fiscal year is September 1 through August 31", () => {
+  assert.deepEqual(
+    recurringTaxPeriod({ fiscalYearEndMonth: 8, taxYearType: "fiscal", year: 2026 }),
+    { periodEnd: "2026-08-31", periodStart: "2025-09-01", periodType: "fiscal" },
+  );
+  assert.deepEqual(
+    latestClosedRecurringTaxPeriod({ asOf: "2026-09-02", fiscalYearEndMonth: 8, taxYearType: "fiscal" }),
+    { periodEnd: "2026-08-31", periodStart: "2025-09-01", periodType: "fiscal" },
+  );
 });
 
 check("tax year definition rejects anything but calendar or fiscal", () => {

@@ -7,6 +7,7 @@ import {
   type ComplianceRule,
   type FilingStatus,
 } from "@/src/lib/finance/deadlines";
+import { selectFilingForCycle, type FilingRecordCandidate } from "@/src/lib/finance/compliance";
 import { isFactVerified, loadComplianceFacts, type ComplianceFact } from "@/src/lib/finance/facts";
 import { taxPeriodTypes, type TaxPeriodType } from "@/src/lib/finance/tax-period";
 
@@ -62,18 +63,29 @@ export type FinanceTaxPeriod = {
 
 export type FinanceFiling = {
   agency: string;
+  assignedDateSourceDocumentId: string | null;
+  assignedDateVerifiedAt: string | null;
+  assignedDateVerifiedBy: string | null;
+  confirmationReference: string | null;
   computedInputs: Record<string, unknown>;
   dueDate: string | null;
   extensionDueDate: string | null;
+  filedAt: string | null;
+  filingState: "not_filed" | "reported_filed" | "filed";
   filingName: string;
+  filingSourceDocumentId: string | null;
   id: string | null;
   jurisdiction: string;
+  obligationId: string | null;
   reason: string;
   ruleKey: string;
+  ruleLastVerifiedAt: string | null;
+  ruleLastVerifiedBy: string | null;
   ruleVersion: string;
   sourceNote: string | null;
   sourceUrl: string | null;
   status: FilingStatus;
+  taxPeriod: FinanceTaxPeriod | null;
 };
 
 export type FinanceOrganization = {
@@ -146,6 +158,8 @@ type RuleRow = {
   extension_months: number | null;
   filing_name: string;
   jurisdiction: string;
+  last_verified_at: string | null;
+  last_verified_by: string | null;
   rule_key: string;
   rule_version: string;
 };
@@ -170,55 +184,84 @@ function ruleFromRow(row: RuleRow): ComplianceRule {
  * facts. Rules are read from the registry; nothing is researched at runtime.
  */
 export async function loadComplianceCalendar({
-  facts,
   organizationId,
   periods,
   today,
 }: {
-  facts: Map<string, ComplianceFact>;
   organizationId: string;
   periods: FinanceTaxPeriod[];
   today: string;
 }) {
   const supabase = createSupabaseAdminClient();
-  const [rulesResult, obligationsResult, filingsResult] = await Promise.all([
+  const [rulesResult, obligationsResult] = await Promise.all([
     supabase
       .from("compliance_rules")
-      .select("rule_key, rule_version, jurisdiction, filing_name, agency, calculation_type, calculation_config, business_day_adjustment, extension_available, extension_form, extension_months, authoritative_source_url, authoritative_source_note")
+      .select("rule_key, rule_version, jurisdiction, filing_name, agency, calculation_type, calculation_config, business_day_adjustment, extension_available, extension_form, extension_months, authoritative_source_url, authoritative_source_note, last_verified_at, last_verified_by")
       .order("jurisdiction"),
     supabase
       .from("compliance_obligations")
-      .select("id, rule_key, is_applicable, organization_assigned_due_date")
+      .select("id, rule_key, is_applicable, organization_assigned_due_date, assigned_date_source_document_id, assigned_date_verified_by, assigned_date_verified_at")
       .eq("organization_id", organizationId),
-    supabase
-      .from("compliance_filings")
-      .select("id, obligation_id, status, filed_at, extension_filed, extension_due_date, confirmation_reference"),
   ]);
 
+  type ObligationRow = {
+    assigned_date_source_document_id: string | null;
+    assigned_date_verified_at: string | null;
+    assigned_date_verified_by: string | null;
+    id: string;
+    is_applicable: boolean;
+    organization_assigned_due_date: string | null;
+    rule_key: string;
+  };
+  type FilingRow = {
+    computed_due_date: string | null;
+    computed_inputs: Record<string, unknown> | null;
+    confirmation_reference: string | null;
+    extension_due_date: string | null;
+    extension_filed: boolean;
+    filed_at: string | null;
+    filing_status: string | null;
+    id: string;
+    obligation_id: string;
+    rule_version: string | null;
+    source_document_id: string | null;
+    status: string;
+    tax_period_id: string | null;
+    updated_at: string;
+  };
+
+  const obligationRows = (obligationsResult.data ?? []) as ObligationRow[];
+  const obligationIds = obligationRows.map((row) => row.id);
+  const filingsResult = obligationIds.length > 0
+    ? await supabase
+      .from("compliance_filings")
+      .select("id, obligation_id, tax_period_id, rule_version, computed_due_date, computed_inputs, status, filing_status, filed_at, extension_filed, extension_due_date, confirmation_reference, source_document_id, updated_at")
+      .in("obligation_id", obligationIds)
+    : { data: [] as FilingRow[], error: null };
+  const filingRows = (filingsResult.data ?? []) as FilingRow[];
   const obligations = new Map(
-    ((obligationsResult.data ?? []) as {
+    (obligationRows as {
+      assigned_date_source_document_id: string | null;
+      assigned_date_verified_at: string | null;
+      assigned_date_verified_by: string | null;
       id: string;
       is_applicable: boolean;
       organization_assigned_due_date: string | null;
       rule_key: string;
     }[]).map((row) => [row.rule_key, row]),
   );
-  const filingsByObligation = new Map(
-    ((filingsResult.data ?? []) as {
-      confirmation_reference: string | null;
-      extension_due_date: string | null;
-      extension_filed: boolean;
-      filed_at: string | null;
-      id: string;
-      obligation_id: string;
-      status: string;
-    }[]).map((row) => [row.obligation_id, row]),
-  );
+  const filingCandidates: FilingRecordCandidate[] = filingRows.map((row) => ({
+    computedDueDate: row.computed_due_date,
+    filedAt: row.filed_at,
+    filingState: row.filing_status,
+    id: row.id,
+    obligationId: row.obligation_id,
+    taxPeriodId: row.tax_period_id,
+    updatedAt: row.updated_at,
+  }));
 
   // Only a verified period may drive a federal deadline.
   const verifiedPeriod = periods.find((period) => period.isVerified && period.periodEnd) ?? null;
-  const firstPeriodEndFact = facts.get("first_period_end");
-
   const filings: FinanceFiling[] = [];
 
   for (const row of (rulesResult.data ?? []) as RuleRow[]) {
@@ -229,27 +272,50 @@ export async function loadComplianceCalendar({
       continue;
     }
 
-    const periodEnd = verifiedPeriod?.periodEnd
-      ?? (isFactVerified(firstPeriodEndFact) ? firstPeriodEndFact?.value ?? null : null);
-    const periodEndVerified = Boolean(verifiedPeriod) || isFactVerified(firstPeriodEndFact);
+    // A deadline requires a concrete, verified tax_period. A standalone first
+    // period fact is not enough and can never make formation/exemption dates
+    // act as a tax-period start.
+    const periodEnd = verifiedPeriod?.periodEnd ?? null;
+    const periodEndVerified = Boolean(verifiedPeriod);
 
     const computed = computeFilingDueDate(rule, {
       organizationAssignedDueDate: obligation?.organization_assigned_due_date ?? null,
       periodEnd,
       periodEndVerified,
     });
-    const existing = obligation ? filingsByObligation.get(obligation.id) : undefined;
+    const existingCandidate = obligation
+      ? selectFilingForCycle(filingCandidates, {
+        dueDate: computed.dueDate,
+        obligationId: obligation.id,
+        taxPeriodId: verifiedPeriod?.id ?? null,
+      })
+      : null;
+    const existing = existingCandidate
+      ? filingRows.find((filing) => filing.id === existingCandidate.id) ?? null
+      : null;
 
     filings.push({
       agency: row.agency,
+      assignedDateSourceDocumentId: obligation?.assigned_date_source_document_id ?? null,
+      assignedDateVerifiedAt: obligation?.assigned_date_verified_at ?? null,
+      assignedDateVerifiedBy: obligation?.assigned_date_verified_by ?? null,
+      confirmationReference: existing?.confirmation_reference ?? null,
       computedInputs: computed.computedInputs,
       dueDate: computed.dueDate,
-      extensionDueDate: computed.extensionDueDate,
+      extensionDueDate: existing?.extension_due_date ?? computed.extensionDueDate,
+      filedAt: existing?.filed_at ?? null,
+      filingState: existing?.filing_status === "filed" || existing?.filing_status === "reported_filed"
+        ? existing.filing_status
+        : "not_filed",
       filingName: rule.filingName,
+      filingSourceDocumentId: existing?.source_document_id ?? null,
       id: existing?.id ?? null,
       jurisdiction: rule.jurisdiction,
+      obligationId: obligation?.id ?? null,
       reason: computed.reason,
       ruleKey: rule.ruleKey,
+      ruleLastVerifiedAt: row.last_verified_at,
+      ruleLastVerifiedBy: row.last_verified_by,
       ruleVersion: rule.ruleVersion,
       sourceNote: row.authoritative_source_note,
       sourceUrl: row.authoritative_source_url,
@@ -257,9 +323,18 @@ export async function loadComplianceCalendar({
         dueDate: computed.dueDate,
         extensionDueDate: existing?.extension_due_date ?? computed.extensionDueDate,
         extensionFiled: existing?.extension_filed ?? false,
+        filingEvidenceComplete: Boolean(
+          existing?.filed_at
+          && existing.confirmation_reference
+          && existing.source_document_id,
+        ),
+        filingState: existing?.filing_status === "filed" || existing?.filing_status === "reported_filed"
+          ? existing.filing_status
+          : "not_filed",
         filedAt: existing?.filed_at ?? null,
         today,
       }),
+      taxPeriod: verifiedPeriod,
     });
   }
 
@@ -341,7 +416,6 @@ export async function loadFinanceOverview({ today }: { today: string }): Promise
   ]);
 
   const filings = await loadComplianceCalendar({
-    facts,
     organizationId: organization.id,
     periods,
     today,

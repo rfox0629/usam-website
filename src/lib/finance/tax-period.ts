@@ -138,6 +138,87 @@ export function recurringYearEnd({
   return lastDayOfMonth(year, month);
 }
 
+export type RecurringTaxPeriod = {
+  periodEnd: string;
+  periodStart: string;
+  periodType: TaxPeriodType;
+};
+
+/** Builds one full recurring year from its verified year-end definition. */
+export function recurringTaxPeriod({
+  fiscalYearEndMonth,
+  taxYearType,
+  year,
+}: {
+  fiscalYearEndMonth?: number | null;
+  taxYearType: TaxYearType;
+  year: number;
+}): RecurringTaxPeriod | null {
+  const periodEnd = recurringYearEnd({ fiscalYearEndMonth, taxYearType, year });
+
+  if (!periodEnd) {
+    return null;
+  }
+
+  if (taxYearType === "calendar") {
+    return {
+      periodEnd,
+      periodStart: `${year}-01-01`,
+      periodType: "calendar",
+    };
+  }
+
+  const priorEnd = recurringYearEnd({ fiscalYearEndMonth, taxYearType, year: year - 1 });
+
+  if (!priorEnd) {
+    return null;
+  }
+
+  const priorEndDate = new Date(`${priorEnd}T00:00:00.000Z`);
+  priorEndDate.setUTCDate(priorEndDate.getUTCDate() + 1);
+
+  return {
+    periodEnd,
+    periodStart: `${priorEndDate.getUTCFullYear()}-${pad(priorEndDate.getUTCMonth() + 1)}-${pad(priorEndDate.getUTCDate())}`,
+    periodType: "fiscal",
+  };
+}
+
+/**
+ * Returns the latest completed recurring year as of a date. This deliberately
+ * says nothing about an organization's initial short period; that period needs
+ * its own independently supported start and end.
+ */
+export function latestClosedRecurringTaxPeriod({
+  asOf,
+  fiscalYearEndMonth,
+  taxYearType,
+}: {
+  asOf: string;
+  fiscalYearEndMonth?: number | null;
+  taxYearType: TaxYearType;
+}): RecurringTaxPeriod | null {
+  const asOfParts = parts(asOf);
+
+  if (!asOfParts) {
+    return null;
+  }
+
+  const currentYearEnd = recurringYearEnd({
+    fiscalYearEndMonth,
+    taxYearType,
+    year: asOfParts.year,
+  });
+
+  if (!currentYearEnd) {
+    return null;
+  }
+
+  const year = asOf >= currentYearEnd ? asOfParts.year : asOfParts.year - 1;
+
+  return recurringTaxPeriod({ fiscalYearEndMonth, taxYearType, year });
+}
+
 function monthsBetween(start: { day: number; month: number; year: number }, end: { day: number; month: number; year: number }) {
   return (end.year - start.year) * 12 + (end.month - start.month) + (end.day >= start.day ? 0 : -1);
 }
