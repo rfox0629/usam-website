@@ -1,0 +1,381 @@
+# Application Ownership Manifest — rfox0629/usam-website
+#
+# Describes ownership AS IT IS TODAY, not the approved target structure.
+# The `desired_future_workspace` field records the target; everything else is current truth.
+#
+# Evidence commit: b90dbc72183a (main, 2026-07-28)
+# Approved direction: structured monorepo evolved in place. See
+#   rfox0629/usam-automation/docs/architecture/target-repository-architecture.md
+#   § "Founder Architecture Decision — Approved Direction"
+#
+# NOTHING in this file changes runtime behaviour. It is consumed by
+# scripts/architecture/validate-architecture.mjs and the dependency reporter.
+
+version: 1
+generated: '2026-07-28'
+evidence_commit: b90dbc72183a
+canonical_repository: rfox0629/usam-website
+
+# Canonical repository slugs permitted anywhere in this manifest set.
+# Must stay in sync with usam-automation config/repository-registry.json v2.
+known_repositories:
+  - rfox0629/usam-website
+  - rfox0629/usam-automation
+  - rfox0629/save-website
+  - rfox0629/stewardship.capital
+  - rfox0629/theLordsarmy
+
+# Repository names that must never appear as a current canonical source.
+retired_repositories:
+  - usam-platform
+  - save-standard
+  - stewardship-capital
+  - thelords-army
+  - USA-Missionaries/usam-dashboard
+
+# Legacy reference only. Never canonical, never revived.
+legacy_repositories:
+  - slug: USA-Missionaries/dos-platform
+    status: legacy-reference
+    archived_on_github: false   # verified 2026-07-28 — contradicts prior documentation
+    note: >-
+      Preserve-then-delete approved; deletion NOT authorized. Unique artifacts live on
+      rescue/dos-platform-legacy-reference-20260727 (51ffeefc7d1f).
+
+known_linear_applications:
+  - USAM Website
+  - DOS
+  - Kitchen Table Gospel
+  - Organization OS
+  - SAVE
+  - Stewardship Capital
+  - The Lord's Army
+  - Automation
+  - Infrastructure
+
+domains:
+
+  - name: usam-public-web
+    status: active-production
+    linear_application: USAM Website
+    canonical_repository: rfox0629/usam-website
+    codeowners_owner: '@rfox0629'
+    desired_future_workspace: apps/usam-web
+    current_deployment: vercel:usam-website
+    current_domains: [usamissionaries.org]
+    authentication_boundary: >-
+      Mostly anonymous. Two cookie gates enforced in middleware.ts:
+      PARTNERS_ACCESS_COOKIE (/partners) and VISION_ACCESS_COOKIE (/vision).
+    path_patterns:
+      - app/page.tsx
+      - app/mission/**
+      - app/missionaries/**
+      - app/missionary-intake/**
+      - app/missionary-team/**
+      - app/partners/**
+      - app/prayer/**
+      - app/support/**
+      - app/join/**
+      - app/vision/**
+      - app/financialfreedom/**
+      - app/briefing/**
+      - app/system/**
+      - src/lib/missionaries/**
+      - src/components/missionaries/**
+      - src/data/missionaries.ts
+      - src/lib/major-gifts/**
+      - src/lib/giving.ts
+      - src/lib/partners-documents.ts
+      - src/lib/vision-media.ts
+      - components/missionaries/**
+    primary_database_ownership:
+      - missionary_profiles
+      - missionary_people
+      - missionary_households   # shared — see shared_database_dependencies
+      - missionary_field_people
+      - missionary_team_members
+      - missionary_encounters
+      - missionary_fruit_items
+      - missionary_support_settings
+      - support_commitments
+      - support_commitment_matches
+      - major_gift_inquiries
+      - financial_freedom_inquiries
+      - financial_freedom_uploads
+      - form_submissions
+      - prayer_requests
+      - prayer_partners
+      - prayer_partner_applications
+      - partners_documents
+      - system_access_codes
+      - usam_missionary_applications
+      - public_sites
+    shared_database_dependencies: [profiles, missionary_households, organizations, organization_memberships]
+    environment_variables: [NEXT_PUBLIC_GA_MEASUREMENT_ID, NEXT_PUBLIC_CLARITY_PROJECT_ID, PARTNERS_ACCESS_KEY, VISION_ACCESS_KEY]
+    shared_packages_used: [shared-platform]
+    production_criticality: high
+    migration_readiness: not-ready
+    notes: >-
+      `app/system` is the PUBLIC system/ecosystem marketing surface shipped by USA-82
+      plus a gated preview. The USA-94 CODEOWNERS incorrectly filed it under
+      Organization OS. Measured ~12,031 LOC across public route families.
+
+  - name: kitchen-table-gospel
+    status: active-marketing-surface
+    linear_application: Kitchen Table Gospel
+    canonical_repository: rfox0629/usam-website
+    codeowners_owner: '@rfox0629'
+    desired_future_workspace: apps/usam-web   # founder ruling 4 — stays with public web for now
+    current_deployment: vercel:usam-website
+    current_domains: [kitchentablegospel.org, ktgospel.com]
+    authentication_boundary: anonymous
+    path_patterns:
+      - app/domain-sites/kitchen-table-gospel/**
+    route_patterns: ['/domain-sites/kitchen-table-gospel']
+    primary_database_ownership: []
+    shared_database_dependencies: []
+    environment_variables: []
+    shared_packages_used: [shared-platform]
+    production_criticality: medium
+    migration_readiness: deferred-by-ruling
+    notes: >-
+      Served by host-based rewrite in middleware.ts via src/lib/domain-sites.ts.
+      Direct /domain-sites/* access returns 404 unless the x-usam-domain-route header
+      is set or VERCEL_ENV=preview. Tiny surface — part of the 1,775 LOC / 6 files
+      shared with dos-marketing. Founder ruling 4: no separate workspace now.
+
+  - name: dos-marketing
+    status: active-marketing-surface
+    linear_application: DOS
+    canonical_repository: rfox0629/usam-website
+    codeowners_owner: '@rfox0629'
+    desired_future_workspace: apps/usam-web   # founder ruling 5 — stays with public web for now
+    current_deployment: vercel:usam-website
+    current_domains: [discipleshipoperatingsystem.com]
+    authentication_boundary: anonymous
+    path_patterns:
+      - app/domain-sites/discipleship-operating-system/**
+      - dos.html
+    route_patterns: ['/domain-sites/discipleship-operating-system']
+    primary_database_ownership: []
+    shared_database_dependencies: []
+    environment_variables: []
+    shared_packages_used: [shared-platform]
+    production_criticality: medium
+    migration_readiness: deferred-by-ruling
+    notes: >-
+      Same host-rewrite mechanism as kitchen-table-gospel. Marketing only; distinct from
+      the authenticated dos-app domain. Founder ruling 5: does not move in this phase.
+
+  - name: dos-app
+    status: mature-authenticated-product
+    linear_application: DOS
+    canonical_repository: rfox0629/usam-website
+    codeowners_owner: '@rfox0629'
+    desired_future_workspace: apps/dos-app
+    current_deployment: vercel:usam-website
+    current_domains: [usamissionaries.org]
+    authentication_boundary: >-
+      Supabase auth session for /dos/**. Token-gated anonymous access for
+      /dos/review/[token], /dos/book/[token], /dos/testimony/[token],
+      /guide/[slug], and /groups/[slug]/member via dos_group_member_access_tokens.
+    path_patterns:
+      - app/dos/**
+      - app/api/dos/**
+      - app/groups/**
+      - app/guide/**
+      - src/lib/dos/**
+      - src/lib/groups/**
+      - src/lib/prayer/**
+      - src/lib/public-groups.ts
+      - src/components/dos/**
+    primary_database_ownership:
+      - dos_*            # 48 tables, prefix-namespaced
+      - meetings
+      - meeting_people
+      - meeting_ministers
+      - meeting_reflections
+      - fruit_events
+      - discipleship_relationships
+      - ministry_events
+      - ministry_event_people
+      - ministry_event_person_responses
+      - participant_reviews
+      - participant_testimonies
+      - relationship_reminders
+      - visibility_rules
+      - collectives
+      - collective_memberships
+      - networks
+      - network_memberships
+      - connected_calendars
+      - calendar_sources
+      - calendar_event_links
+      - calendar_sync_cursors
+      - external_calendar_events
+    shared_database_dependencies: [profiles, people, person_roles, organizations, organization_memberships, missionary_households]
+    environment_variables: []   # Supabase vars consumed but UNDOCUMENTED in .env.example — see gap below
+    shared_packages_used: [shared-platform]
+    production_criticality: critical
+    migration_readiness: blocked
+    migration_blockers: [USA-100, USA-86]
+    notes: >-
+      Largest domain: 81,679 LOC across 129 files (app/dos 46,237; src/lib/dos 20,039;
+      app/api/dos 14,024; src/components/dos 1,379), plus 4,015 LOC of Community
+      (app/groups + src/lib/groups). 31 of 39 regression scripts are test:dos-*.
+      Founder ruling 6: becomes its own app workspace eventually, preserving production
+      URLs where practical. Does not move in this session.
+
+  - name: organization-platform
+    status: planned-and-partial
+    linear_application: Organization OS
+    canonical_repository: rfox0629/usam-website
+    codeowners_owner: '@rfox0629'
+    desired_future_workspace: apps/organization-os   # only after graduation criteria are met
+    current_deployment: vercel:usam-website
+    current_domains: [usamissionaries.org]
+    independently_deployable: false
+    authentication_boundary: >-
+      GLOBAL admin allowlist via src/lib/admin-auth.ts + admin_users. NOT per-organization.
+      The data model is multi-organization; the auth model is single-organization.
+      This contradiction is the primary unresolved design question.
+    path_patterns:
+      - app/admin/organizations/**
+      - app/admin/workspaces/**
+      - app/admin/people/**
+      - app/admin/finance/**
+      - src/lib/admin/organization-data.ts
+      - src/lib/admin/organization-shared.ts
+    primary_database_ownership: [organizations, organization_memberships, person_roles]
+    shared_database_dependencies: [profiles, people, admin_users, missionary_households]
+    environment_variables: []
+    shared_packages_used: [shared-platform]
+    production_criticality: low
+    migration_readiness: not-a-product-yet
+    notes: >-
+      ~2,621 LOC (9% of app/admin). app/admin/organizations renders a hardcoded
+      `previewOrganizations` array flagged isPreviewOnly:true. app/admin/finance is a
+      thin wrapper over the shared OperationsInboxPage titled "Finance Inbox" — a
+      form-submission inbox, NOT a finance system. Founder ruling 3: must be
+      intentionally defined and built before extraction is reconsidered. See
+      usam-automation/docs/architecture/organization-os-product-boundary.md.
+
+  - name: shared-platform
+    status: active-shared-kernel
+    linear_application: Infrastructure
+    canonical_repository: rfox0629/usam-website
+    codeowners_owner: '@rfox0629'
+    desired_future_workspace: packages/*
+    current_deployment: vercel:usam-website
+    current_domains: [usamissionaries.org, kitchentablegospel.org, ktgospel.com, discipleshipoperatingsystem.com]
+    authentication_boundary: defines-the-boundary
+    path_patterns:
+      - middleware.ts
+      - app/layout.tsx
+      - app/globals.css
+      - app/auth/**
+      - app/login/**
+      - app/update-password/**
+      - app/api/access/**
+      - app/api/partners-access/**
+      - app/api/vision-access/**
+      - src/lib/supabase/**
+      - src/lib/access.ts
+      - src/lib/admin-auth.ts
+      - src/lib/partners-access.ts
+      - src/lib/vision-access.ts
+      - src/lib/analytics.ts
+      - src/lib/domain-sites.ts
+      - src/lib/domain-metadata.ts
+      - src/lib/site-url.ts
+      - src/lib/email/**
+      - src/lib/forms/**
+      - src/lib/platform/**
+      - tailwind.config.js
+      - public/**
+      # Site chrome and generic form primitives. Classified shared because they
+      # are consumed by usam-public-web, kitchen-table-gospel, dos-marketing and
+      # dos-app alike — verified by dependency-report.mjs, which flagged
+      # app/layout.tsx importing these as a shared-platform boundary violation
+      # under the earlier (incorrect) classification.
+      - components/PrimaryNav.tsx
+      - components/SiteFooter.tsx
+      - components/RouteAwareSiteFooter.tsx
+      - components/AnalyticsScripts.tsx
+      - components/VercelWebAnalytics.tsx
+      - components/forms/**
+    primary_database_ownership: []
+    shared_database_dependencies: [auth.users, profiles, admin_users]
+    environment_variables: [PARTNERS_ACCESS_KEY, VISION_ACCESS_KEY]
+    shared_packages_used: []
+    production_criticality: critical
+    migration_readiness: extract-first
+    notes: >-
+      src/lib/supabase is only 87 LOC across 3 files but has 99 consumers
+      (dos 60, admin 33, public 6) — the highest fan-out module in the repository
+      and the natural first shared package. middleware.ts is a single chokepoint
+      spanning host routing plus both cookie gates; it must remain shared.
+
+  - name: transitional-or-unclear
+    status: transitional
+    linear_application: USAM Website
+    canonical_repository: rfox0629/usam-website
+    codeowners_owner: '@rfox0629'
+    desired_future_workspace: unresolved
+    current_deployment: vercel:usam-website
+    current_domains: [usamissionaries.org]
+    authentication_boundary: mixed
+    path_patterns:
+      - app/admin/**            # everything not claimed by organization-platform
+      - app/api/admin/**
+      - app/review/**
+      - app/testimony/**
+      - src/lib/admin/**
+      - src/lib/planning-center/**
+      - scripts/**
+      - config/**
+      - data/**
+    primary_database_ownership: [pco_giving_records, pco_giving_sync_runs, product_feedback]
+    shared_database_dependencies: [profiles, people, organizations, missionary_households, admin_users]
+    environment_variables: []
+    shared_packages_used: [shared-platform]
+    production_criticality: high
+    migration_readiness: needs-decomposition
+    notes: >-
+      app/admin is 28,076 LOC of which ~91% is USAM Website back-office
+      (missionary-profiles alone is 14,635 = 52%) and ~9% is organization-platform.
+      Splitting this is the single hardest task in Stage B. app/review and
+      app/testimony are token-gated DOS surfaces living outside app/dos.
+      src/lib/planning-center carries the open pco_people RLS finding.
+
+# Known gaps recorded rather than guessed.
+unresolved:
+  - id: ENV-CONTRACT-INCOMPLETE
+    severity: high
+    description: >-
+      .env.example declares only NEXT_PUBLIC_CLARITY_PROJECT_ID,
+      NEXT_PUBLIC_GA_MEASUREMENT_ID, PARTNERS_ACCESS_KEY and VISION_ACCESS_KEY.
+      Supabase URL and keys are consumed throughout via @supabase/ssr but are
+      entirely undocumented. No new environment can be provisioned from the template.
+    owner: usa-102
+  - id: ADMIN-BOUNDARY-UNRESOLVED
+    severity: high
+    description: >-
+      app/admin mixes usam-public-web back-office with organization-platform.
+      Per-file classification has not been performed; the 91/9 split is by
+      subdirectory LOC, not line-by-line reading.
+    owner: usa-103
+  - id: ORGOS-TENANCY-CONTRADICTION
+    severity: high
+    description: >-
+      organizations/organization_memberships/person_roles model multi-organization
+      tenancy, but access control is a single global admin_users allowlist.
+      Requires a founder decision before Organization OS V1.
+    owner: usa-101
+  - id: ALIGNED-INSIGHTS-TABLE
+    severity: medium
+    description: >-
+      Remote migration create_aligned_insights_inquiries exists in the production
+      database with no local migration file. Aligned Insights ownership is
+      unconfirmed. Classified external-or-unknown.
+    owner: usa-100
