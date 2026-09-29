@@ -5,6 +5,10 @@ import { googleCalendarReconnectMessage, pullGoogleCalendarEvents } from "@/src/
 import { resolveDosAppWorkspaceId } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 
+/* USA-273: reading a month of Google events is several round trips. The ceiling
+   is the backstop behind the per-call timeouts in google-calendar.ts. */
+export const maxDuration = 60;
+
 type CalendarSyncPayload = {
   timeMax?: unknown;
   timeMin?: unknown;
@@ -103,8 +107,24 @@ export async function POST(request: Request) {
       });
     }
 
+    /* One calendar that times out no longer discards the ones that imported:
+       pullGoogleCalendarEvents reports "partial" and the events it did read are
+       already persisted (USA-273). */
+    if (result.status === "partial") {
+      return NextResponse.json({
+        ...result,
+        message: `Synced ${result.eventCount} Google events. ${result.failedSourceCount} ${result.failedSourceCount === 1 ? "calendar" : "calendars"} did not respond. Try again.`,
+        ok: true,
+      });
+    }
+
     return NextResponse.json({ ...result, ok: true });
-  } catch {
+  } catch (syncError) {
+    console.error("[DOS calendar] workspace pull failed", JSON.stringify({
+      message: syncError instanceof Error ? syncError.message : "Unable to sync Google Calendar events.",
+      workspaceId,
+    }));
+
     return NextResponse.json({ error: "Unable to sync Google Calendar events." }, { status: 500 });
   }
 }
