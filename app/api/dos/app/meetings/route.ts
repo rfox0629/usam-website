@@ -12,10 +12,18 @@ import {
   type DosConversationFlowKey,
   type DosConversationResponses,
 } from "@/src/lib/dos/meeting-engine";
-import { deleteGoogleCalendarEventForSource, recordCalendarSyncFailure, syncGoogleCalendarEvent } from "@/src/lib/dos/google-calendar";
+import { deleteGoogleCalendarEventForSource, syncDosMeetingCalendarEvent } from "@/src/lib/dos/google-calendar";
+import { dosMeetingSaveResponse, type DosCalendarSyncState } from "@/src/lib/dos/meeting-calendar-sync";
+import { syncStoredMeetingCalendarEvent } from "@/src/lib/dos/meeting-calendar-stored";
 import { dosAppMeetingTypes, dosAppTableRoles, isMissingWorkspaceScopeColumn, resolveDosAppWorkspace, type DosAppMeetingType, type DosAppTableRole } from "@/src/lib/dos/missionary-app";
 import { createSupabaseAdminClient, isSupabaseAdminConfigured } from "@/src/lib/supabase/admin";
 import { isUsamWorkspaceById } from "@/src/lib/dos/usam-workspace";
+
+/* USA-273: scheduling is a write plus a Google round trip. The Google call is
+   bounded in src/lib/dos/google-calendar.ts, and this ceiling is the backstop
+   so the platform never kills an invocation mid-write and leaves the client
+   with an unexplained gateway error. */
+export const maxDuration = 60;
 
 type MeetingPayload = {
   conversationFlowKey?: unknown;
@@ -431,17 +439,9 @@ function meetingRecordCandidates(record: Record<string, unknown>) {
   return [record, legacyRecord].flatMap((candidate) => dropKeySets.map((keys) => omitKeys(candidate, keys)));
 }
 
-function meetingTitleForCalendar(participantNames: string[], tableType: DosAppMeetingType) {
-  if (participantNames.length) {
-    return `Meeting with ${participantNames.slice(0, 2).join(", ")}${participantNames.length > 2 ? " +" : ""}`;
-  }
-
-  return `${tableType.replace(/_/g, " ")} meeting`;
-}
-
-function meetingDescriptionForCalendar(notes: string | null) {
-  return [notes?.trim() ?? "", "Created from DOS."].filter(Boolean).join("\n\n");
-}
+/* The calendar title and description moved to
+   src/lib/dos/meeting-calendar-sync.ts (USA-273) so the retry endpoint rebuilds
+   the identical event instead of a near-miss copy. */
 
 function eventTypeFromTableType(tableType: DosAppMeetingType) {
   return tableType === "kitchen_table" ? "kitchen_table" : tableType;
@@ -738,17 +738,10 @@ async function syncMinistryEvent(input: MinistryEventSyncInput) {
   return ministryEventId;
 }
 
-async function syncMeetingCalendarEvent({
-  meetingId,
-  notes,
-  participantNames,
-  scheduledEndAt,
-  scheduledStartAt,
-  supabase,
-  tableType,
-  timezone,
-  workspaceId,
-}: {
+/* USA-273: the meeting row is already written when this runs. Calendar sync is
+   a secondary effect that reports a state instead of throwing, so a slow or
+   broken Google can never turn a saved meeting into a failed request. */
+async function syncMeetingCalendarEvent(input: {
   meetingId: string;
   notes: string | null;
   participantNames: string[];
@@ -758,40 +751,8 @@ async function syncMeetingCalendarEvent({
   tableType: DosAppMeetingType;
   timezone: string | null;
   workspaceId: string;
-}) {
-  if (!scheduledStartAt) {
-    await recordCalendarSyncFailure({
-      error: "Scheduled start time is required before syncing to Google Calendar.",
-      sourceId: meetingId,
-      sourceType: "meeting",
-      supabase,
-      workspaceId,
-    }).catch(() => undefined);
-    return;
-  }
-
-  const start = new Date(scheduledStartAt);
-  const defaultEnd = new Date(start.getTime() + 60 * 60 * 1000).toISOString();
-
-  await syncGoogleCalendarEvent({
-    description: meetingDescriptionForCalendar(notes),
-    endAt: scheduledEndAt ?? defaultEnd,
-    reminderMinutes: [60],
-    sourceId: meetingId,
-    sourceType: "meeting",
-    startAt: scheduledStartAt,
-    timezone,
-    title: meetingTitleForCalendar(participantNames, tableType),
-    workspaceId,
-  }, supabase).catch(async (calendarError) => {
-    await recordCalendarSyncFailure({
-      error: calendarError instanceof Error ? calendarError.message : "Unable to sync Google Calendar event.",
-      sourceId: meetingId,
-      sourceType: "meeting",
-      supabase,
-      workspaceId,
-    }).catch(() => undefined);
-  });
+}): Promise<DosCalendarSyncState> {
+  return syncDosMeetingCalendarEvent(input);
 }
 
 async function loadMeetingDeleteTarget(
@@ -1249,6 +1210,7 @@ function unavailableConversationFlowResponse(value: unknown, allowGatedConversat
 }
 
 export async function POST(request: Request) {
+  const requestStartedAt = Date.now();
   const authResult = await authorizeWrite();
 
   if ("response" in authResult) {
@@ -1409,6 +1371,7 @@ export async function POST(request: Request) {
     }
   }
 
+  let replayedExistingMeeting = false;
   let data: { id: unknown } | null = insertResult?.data ?? null;
   /* `??` must key off insertResult itself, never insertResult.error. Supabase
      returns `error: null` on success, so `insertResult?.error ?? fallback`
@@ -1443,8 +1406,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Meeting operation ID is already in use." }, { status: 409 });
     }
 
+    /* The row from a previous attempt that the client never saw an answer for.
+       Returning it is what makes a retry after a timeout a no-op rather than a
+       second meeting (USA-273). */
     data = { id: existing.data.id };
     error = null;
+    replayedExistingMeeting = true;
   }
 
   if (error) {
@@ -1452,12 +1419,37 @@ export async function POST(request: Request) {
       return schedulingSetupResponse();
     }
 
+    console.error("[DOS meetings] save failed", JSON.stringify({
+      code: error.code ?? null,
+      durationMs: Date.now() - requestStartedAt,
+      message: error.message,
+      meetingStatus,
+      workspaceId,
+    }));
+
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   if (!data) {
+    console.error("[DOS meetings] save failed", JSON.stringify({
+      durationMs: Date.now() - requestStartedAt,
+      message: "Unable to create meeting.",
+      meetingStatus,
+      workspaceId,
+    }));
+
     return NextResponse.json({ error: "Unable to create meeting." }, { status: 500 });
   }
+
+  /* The primary operation is done. Everything after this point is a side effect
+     and may not change the answer to "did the meeting save?" (USA-273). */
+  console.info("[DOS meetings] saved", JSON.stringify({
+    durationMs: Date.now() - requestStartedAt,
+    meetingId: String(data.id),
+    meetingStatus,
+    replayed: replayedExistingMeeting,
+    workspaceId,
+  }));
 
   try {
     await syncMinistryEvent({
@@ -1502,24 +1494,38 @@ export async function POST(request: Request) {
     });
   }
 
-  if (data?.id && googleSyncEnabled && meetingStatus === "scheduled") {
-    await syncMeetingCalendarEvent({
-      meetingId: String(data.id),
-      notes,
-      participantNames,
-      scheduledEndAt,
-      scheduledStartAt,
-      supabase,
-      tableType,
-      timezone,
-      workspaceId,
-    });
-  }
+  /* A replayed save keeps the first attempt's row, but this request may carry
+     edited values. Sync the calendar from the stored row so Google never shows
+     a different time from the meeting DOS saved (USA-273). */
+  const replayedCalendarSync = async (): Promise<DosCalendarSyncState> => {
+    const stored = await syncStoredMeetingCalendarEvent({ meetingId: String(data.id), supabase, workspaceId });
 
-  return NextResponse.json({ id: data.id, ok: true });
+    return "state" in stored ? stored.state : "failed";
+  };
+  const calendarSync: DosCalendarSyncState = data?.id && googleSyncEnabled && meetingStatus === "scheduled"
+    ? replayedExistingMeeting
+      ? await replayedCalendarSync()
+      : await syncMeetingCalendarEvent({
+        meetingId: String(data.id),
+        notes,
+        participantNames,
+        scheduledEndAt,
+        scheduledStartAt,
+        supabase,
+        tableType,
+        timezone,
+        workspaceId,
+      })
+    : "disabled";
+
+  /* Always 200: the meeting is saved. The calendar outcome travels in the body
+     so the UI can say "scheduled, not synced" and offer a retry of the sync
+     alone, instead of making the user resubmit the whole form (USA-273). */
+  return NextResponse.json(dosMeetingSaveResponse(String(data.id), calendarSync));
 }
 
 export async function PATCH(request: Request) {
+  const requestStartedAt = Date.now();
   const authResult = await authorizeWrite();
 
   if ("response" in authResult) {
@@ -1731,12 +1737,29 @@ export async function PATCH(request: Request) {
       return schedulingSetupResponse();
     }
 
+    console.error("[DOS meetings] save failed", JSON.stringify({
+      durationMs: Date.now() - requestStartedAt,
+      meetingId: id,
+      meetingStatus,
+      message: error.message,
+      operation: "update",
+      workspaceId,
+    }));
+
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
   if (!data) {
     return NextResponse.json({ error: "Unable to update meeting." }, { status: 500 });
   }
+
+  console.info("[DOS meetings] saved", JSON.stringify({
+    durationMs: Date.now() - requestStartedAt,
+    meetingId: String(data.id),
+    meetingStatus,
+    operation: "update",
+    workspaceId,
+  }));
 
   await syncMinistryEvent({
     meetingId: id,
@@ -1773,8 +1796,8 @@ export async function PATCH(request: Request) {
     });
   }
 
-  if (data?.id && googleSyncEnabled && meetingStatus === "scheduled") {
-    await syncMeetingCalendarEvent({
+  const calendarSync: DosCalendarSyncState = data?.id && googleSyncEnabled && meetingStatus === "scheduled"
+    ? await syncMeetingCalendarEvent({
       meetingId: String(data.id),
       notes,
       participantNames,
@@ -1784,10 +1807,10 @@ export async function PATCH(request: Request) {
       tableType,
       timezone,
       workspaceId,
-    });
-  }
+    })
+    : "disabled";
 
-  return NextResponse.json({ id: data.id, ok: true });
+  return NextResponse.json(dosMeetingSaveResponse(String(data.id), calendarSync));
 }
 
 export async function DELETE(request: Request) {

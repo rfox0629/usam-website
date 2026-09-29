@@ -54,6 +54,7 @@ import {
 } from "@/src/lib/dos/circle-tiers";
 import { DosConfirmDialog, DosDetailSection, DosDetailSheet, DosWorkflowPage, MobileBottomSheet, Sheet, useEditableSurface } from "@/src/components/dos/overlays/DosSurfaces";
 import { backdropMayDismiss, leaveWithoutSavingCopy, type DosSurfaceKind } from "@/src/lib/dos/unsaved-work";
+import { dosCalendarRetryFailureMessage, dosCalendarSyncCanRetry, dosSaveFailureMessage, dosSaveGenericFailureMessage, isDosCalendarSyncState, type DosCalendarSyncState } from "@/src/lib/dos/meeting-calendar-sync";
 import { Chip, ChipGroup, Stepper } from "@/src/components/dos/forms/primitives";
 import { Avatar, Button, Card, EmptyState as DosEmptyState, Eyebrow, IconTile, PageHeader, PillRail, Row, SearchField, Segmented, StatusPill, type PillRailOption, type StatusTone } from "@/src/components/dos/ui";
 import { AppButton, CompactButton, MoreBackButton, SectionHeading, TabPageHeader, UserProfileAvatar } from "@/src/components/dos/ui/legacy-controls";
@@ -40332,6 +40333,16 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
      open so a retry after a failure reuses it and cannot apply twice. Cleared
      with the rest of the meeting form state. */
   const loggingOperationKeyRef = useRef<string | null>(null);
+  /* USA-273: the same rule for scheduling, which had no key at all. Six retries
+     against a timing-out backend could each have written a meeting. The key is
+     minted once per open Schedule form and reused by every retry, so the server
+     returns the meeting the first attempt already created. */
+  const scheduleOperationKeyRef = useRef<string | null>(null);
+  /* A meeting that saved but did not reach Google. Held at app level because
+     the form closes on success, and retried on its own rather than by
+     resubmitting the meeting. */
+  const [meetingCalendarAlert, setMeetingCalendarAlert] = useState<{ meetingId: string; message: string; state: DosCalendarSyncState } | null>(null);
+  const [isRetryingCalendarSync, setIsRetryingCalendarSync] = useState(false);
   /* USA-246: where the meeting flow started, so a successful save returns
      there. Saving used to send everyone to the Meetings tab regardless, and a
      router.refresh() that remounted the shell could drop them on Home — losing
@@ -41674,6 +41685,54 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
     setSelectedSupportingAttendeeIds([]);
     setSupportingAttendeeSubRoles({});
     setSelectedOutcomeTags([]);
+    /* A new draft is a new operation: the next schedule mints its own key. */
+    scheduleOperationKeyRef.current = null;
+  }
+
+  /* USA-273: the meeting is already saved, so the retry is the calendar write
+     alone. Both sides are idempotent, so pressing it repeatedly cannot produce
+     a second Google event. */
+  function retryMeetingCalendarSync(meetingId: string) {
+    if (isRetryingCalendarSync) {
+      return;
+    }
+
+    setIsRetryingCalendarSync(true);
+
+    void (async () => {
+      try {
+        const response = await fetch("/api/dos/app/calendar/google/event-sync", {
+          body: JSON.stringify({ meetingId, workspaceId: data.workspace.id }),
+          headers: { "Content-Type": "application/json" },
+          method: "POST",
+        });
+        const result = await response.json().catch(() => ({})) as {
+          calendarSync?: string;
+          calendarWarning?: string | null;
+          error?: string;
+        };
+
+        if (!response.ok) {
+          setMeetingCalendarAlert({ meetingId, message: dosCalendarRetryFailureMessage(response.status), state: "failed" });
+          return;
+        }
+
+        const state = isDosCalendarSyncState(result.calendarSync) ? result.calendarSync : "failed";
+
+        if (state === "synced") {
+          setMeetingCalendarAlert(null);
+          setCalendarSyncMessage("Meeting added to Google Calendar.");
+          router.refresh();
+          return;
+        }
+
+        setMeetingCalendarAlert({ meetingId, message: result.calendarWarning ?? "Google Calendar sync failed.", state });
+      } catch {
+        setMeetingCalendarAlert({ meetingId, message: dosCalendarRetryFailureMessage(null), state: "failed" });
+      } finally {
+        setIsRetryingCalendarSync(false);
+      }
+    })();
   }
 
   /* Return to where the flow began. Only the Home origin lands on Home, and it
@@ -45161,6 +45220,12 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
     }
 
     setIsSubmitting(true);
+    /* USA-273: a request that never reached the server and a request the server
+       answered badly are different problems with different advice, and the old
+       code reported both as "Unable to save." A gateway timeout in particular
+       arrives with no JSON body at all, which is how the user ended up reading
+       "Gateway Timeout" and resubmitting a meeting that had already saved. */
+    let reachedServer = false;
 
     try {
       const response = await fetch(endpoint, {
@@ -45173,10 +45238,13 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
         },
         method,
       });
-      const result = await response.json().catch(() => ({})) as { calendarWarning?: string | null; error?: string; id?: string };
+
+      reachedServer = true;
+
+      const result = await response.json().catch(() => ({})) as { calendarSync?: string; calendarWarning?: string | null; error?: string; id?: string };
 
       if (!response.ok) {
-        throw new Error(result.error ?? "Unable to save.");
+        throw new Error(result.error ?? dosSaveFailureMessage(response.status));
       }
 
       if (closeAfterSave) {
@@ -45187,7 +45255,9 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
 
       return result;
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : "Unable to save.");
+      setErrorMessage(!reachedServer
+        ? dosSaveFailureMessage(null)
+        : error instanceof Error ? error.message : dosSaveGenericFailureMessage);
       return null;
     } finally {
       setIsSubmitting(false);
@@ -45954,6 +46024,14 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
           throw new Error(result.error ?? "Unable to sync Google Calendar.");
         }
 
+        /* USA-273: some calendars imported and some did not. That used to be a
+           500 that threw away the ones that worked. */
+        if (result.status === "partial") {
+          await refreshExternalCalendarEventsForWindow(syncStart, syncEnd);
+          setCalendarSyncMessage(result.message ?? "Some Google calendars did not respond. Try again.");
+          return;
+        }
+
         if (result.status === "needs_reconnect" || result.status === "not_connected") {
           setCalendarSyncMessage(result.status === "needs_reconnect" ? result.message ?? googleCalendarReconnectCopy : result.message ?? "Connect Google Calendar to read events.");
           setCalendarConnectionOverride((current) => ({
@@ -46680,6 +46758,11 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
     const scheduledEndAt = new Date(new Date(scheduledStartAt).getTime() + durationMinutes * 60_000).toISOString();
     const timezone = dosDisplayTimeZone;
 
+    /* USA-273: minted once for this open form. Every retry of this schedule
+       carries the same id, so the server answers with the meeting the first
+       attempt already wrote instead of creating another one. */
+    scheduleOperationKeyRef.current = scheduleOperationKeyRef.current ?? crypto.randomUUID();
+
     void (async () => {
       const result = await submitJson("/api/dos/app/meetings", {
         // TODO: Later allow scheduling with a planned conversation flow; capture responses during Log Meeting.
@@ -46689,6 +46772,7 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
         ...meetingRolePayload(formData),
         durationMinutes,
         googleSyncEnabled: formData.get("google_sync_enabled") === "on",
+        idempotencyKey: scheduleOperationKeyRef.current,
         meetingStatus: "scheduled",
         notes: String(formData.get("notes") ?? ""),
         /* USA-246: what this meeting is scheduled for, snapshotted now so
@@ -46706,7 +46790,18 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
       }, "POST", false);
 
       if (result?.id) {
+        const meetingId = result.id;
+
         closeForm();
+        /* The meeting is saved; this operation is finished whatever Google did.
+           A later schedule mints a fresh key (USA-273). */
+        scheduleOperationKeyRef.current = null;
+
+        const calendarSync = isDosCalendarSyncState(result.calendarSync) ? result.calendarSync : "disabled";
+
+        setMeetingCalendarAlert(result.calendarWarning
+          ? { meetingId, message: result.calendarWarning, state: calendarSync }
+          : null);
 
         // Scheduling from a Person exists to answer "when are we meeting
         // next?", so return to that Person and let NEXT show the new meeting
@@ -46839,6 +46934,16 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
         if (!result) {
           return;
         }
+
+        /* Rescheduling re-syncs the calendar; the same saved-but-unsynced state
+           applies, and the same retry clears it (USA-273). */
+        setMeetingCalendarAlert(result.calendarWarning
+          ? {
+            meetingId: selectedMeeting.id,
+            message: result.calendarWarning,
+            state: isDosCalendarSyncState(result.calendarSync) ? result.calendarSync : "failed",
+          }
+          : null);
 
         if (!isScheduledMeeting && shouldSaveReflection) {
           const reflectionResult = await submitJson("/api/dos/app/reflections", {
@@ -48080,6 +48185,37 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
           ) : null}
 
           <main className={`min-w-0 max-w-full transition-[opacity,transform] duration-150 ease-out motion-reduce:transition-none ${isTabSettling ? "translate-y-1 opacity-0" : "translate-y-0 opacity-100"} ${activeTab === "home" ? "mt-10 md:mt-0" : ""}`}>
+            {/* USA-273: the meeting saved and Google did not. It says which of
+                the two happened, and Retry re-runs the calendar write alone --
+                the user never resubmits the meeting to fix a calendar. */}
+            {meetingCalendarAlert ? (
+              <div
+                aria-live="polite"
+                className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-dos-amber/30 bg-dos-amberBg px-3.5 py-2.5 text-[14px] font-semibold text-dos-amber"
+                role="status"
+              >
+                <span className="min-w-0 flex-1">{meetingCalendarAlert.message}</span>
+                {dosCalendarSyncCanRetry(meetingCalendarAlert.state) ? (
+                  <button
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-[11px] border border-dos-amber bg-white px-3 text-[13.5px] font-black text-dos-amber disabled:opacity-60"
+                    disabled={isRetryingCalendarSync}
+                    onClick={() => retryMeetingCalendarSync(meetingCalendarAlert.meetingId)}
+                    type="button"
+                  >
+                    <RefreshCw aria-hidden="true" className={`h-3.5 w-3.5 ${isRetryingCalendarSync ? "animate-spin" : ""}`} strokeWidth={2.2} />
+                    {isRetryingCalendarSync ? "Retrying" : "Retry"}
+                  </button>
+                ) : null}
+                <button
+                  aria-label="Dismiss calendar sync message"
+                  className="inline-flex min-h-11 items-center rounded-[11px] px-2 text-[13.5px] font-bold text-dos-amber"
+                  onClick={() => setMeetingCalendarAlert(null)}
+                  type="button"
+                >
+                  Dismiss
+                </button>
+              </div>
+            ) : null}
             {activeTab === "home" ? (
               <>
               {/* Returning to Home after a save is the one case with nothing on

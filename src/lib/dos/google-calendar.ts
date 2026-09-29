@@ -1,6 +1,11 @@
 import "server-only";
 
 import { createCipheriv, createDecipheriv, createHmac, createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  dosMeetingCalendarDescription,
+  dosMeetingCalendarTitle,
+  type DosCalendarSyncState,
+} from "@/src/lib/dos/meeting-calendar-sync";
 import { createSupabaseAdminClient } from "@/src/lib/supabase/admin";
 
 const googleAuthUrl = "https://accounts.google.com/o/oauth2/v2/auth";
@@ -9,6 +14,12 @@ const googleUserInfoUrl = "https://www.googleapis.com/oauth2/v2/userinfo";
 const googleCalendarApiBase = "https://www.googleapis.com/calendar/v3";
 const tokenPrefix = "dos-gcal-v1";
 const googleCalendarReconnectError = "Calendar permissions need to be updated.";
+/* USA-273: no call to Google may run unbounded. Before this, a single slow
+   Google response held the whole serverless invocation until Vercel killed it,
+   so a meeting that had already been written answered "Gateway Timeout" and the
+   user resubmitted. A bounded call fails fast, in a way the caller can report
+   as "saved, not synced" instead of as a dead request. */
+const googleRequestTimeoutMs = Number.parseInt(process.env.DOS_GOOGLE_API_TIMEOUT_MS ?? "", 10) || 8000;
 
 export type GoogleCalendarConnectionHealthStatus = "connected" | "needs_reconnect" | "not_connected";
 
@@ -268,6 +279,32 @@ export function googleAuthorizationUrl({
   return `${googleAuthUrl}?${params.toString()}`;
 }
 
+/* Every Google request goes through here. The abort is converted into an
+   ordinary Error so the existing reconnect/scope classifiers keep working and
+   the caller can log "Google did not respond" as a dependency fact rather than
+   as an unexplained invocation failure (USA-273). */
+async function googleFetch(url: string, init: RequestInit = {}, timeoutMs = googleRequestTimeoutMs) {
+  try {
+    return await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (error) {
+    const name = error instanceof Error ? error.name : "";
+
+    if (name === "TimeoutError" || name === "AbortError") {
+      const timeoutError = new Error(`Google Calendar did not respond within ${Math.round(timeoutMs / 1000)}s.`) as Error & { googleTimeout?: boolean };
+
+      timeoutError.googleTimeout = true;
+
+      throw timeoutError;
+    }
+
+    throw error;
+  }
+}
+
+export function isGoogleCalendarTimeoutError(error: unknown) {
+  return error instanceof Error && (error as Error & { googleTimeout?: boolean }).googleTimeout === true;
+}
+
 async function readGoogleResponse<T>(response: Response) {
   const body = await response.json().catch(() => ({})) as T & {
     error?: {
@@ -347,7 +384,7 @@ export function isGoogleCalendarReconnectError(error: unknown) {
 }
 
 export async function exchangeGoogleCodeForTokens(code: string, origin: string) {
-  const response = await fetch(googleTokenUrl, {
+  const response = await googleFetch(googleTokenUrl, {
     body: new URLSearchParams({
       client_id: process.env.GOOGLE_CLIENT_ID ?? "",
       client_secret: process.env.GOOGLE_CLIENT_SECRET ?? "",
@@ -365,7 +402,7 @@ export async function exchangeGoogleCodeForTokens(code: string, origin: string) 
 }
 
 async function refreshGoogleAccessToken(refreshToken: string) {
-  const response = await fetch(googleTokenUrl, {
+  const response = await googleFetch(googleTokenUrl, {
     body: new URLSearchParams({
       client_id: process.env.GOOGLE_CLIENT_ID ?? "",
       client_secret: process.env.GOOGLE_CLIENT_SECRET ?? "",
@@ -382,7 +419,7 @@ async function refreshGoogleAccessToken(refreshToken: string) {
 }
 
 export async function getGoogleAccountEmail(accessToken: string) {
-  const response = await fetch(googleUserInfoUrl, {
+  const response = await googleFetch(googleUserInfoUrl, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
@@ -715,7 +752,7 @@ async function fetchGoogleCalendarEventPages({
       params.set("pageToken", pageToken);
     }
 
-    const response = await fetch(`${googleCalendarApiBase}/calendars/${encodeURIComponent(externalCalendarId)}/events?${params.toString()}`, {
+    const response = await googleFetch(`${googleCalendarApiBase}/calendars/${encodeURIComponent(externalCalendarId)}/events?${params.toString()}`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
@@ -934,7 +971,7 @@ export async function syncGoogleCalendarSources(workspaceId: string, supabase = 
         params.set("pageToken", pageToken);
       }
 
-      const response = await fetch(`${googleCalendarApiBase}/users/me/calendarList?${params.toString()}`, {
+      const response = await googleFetch(`${googleCalendarApiBase}/users/me/calendarList?${params.toString()}`, {
         headers: {
           Authorization: `Bearer ${accessToken}`,
         },
@@ -988,13 +1025,13 @@ export async function pullGoogleCalendarEvents({
   const connectedCalendar = await loadConnectedCalendar(supabase, workspaceId);
 
   if (!connectedCalendar) {
-    return { eventCount: 0, sourceCount: 0, status: "not_connected" as const };
+    return { eventCount: 0, failedSourceCount: 0, sourceCount: 0, status: "not_connected" as const };
   }
 
   const sourceSync = await syncGoogleCalendarSources(workspaceId, supabase);
 
   if (sourceSync.status !== "synced") {
-    return { eventCount: 0, sourceCount: 0, status: sourceSync.status };
+    return { eventCount: 0, failedSourceCount: 0, sourceCount: 0, status: sourceSync.status };
   }
 
   const start = timeMin ? new Date(timeMin) : new Date();
@@ -1028,13 +1065,18 @@ export async function pullGoogleCalendarEvents({
         workspaceId,
       }).catch(() => undefined);
 
-      return { eventCount: 0, sourceCount: (sources ?? []).length, status: "needs_reconnect" as const };
+      return { eventCount: 0, failedSourceCount: 0, sourceCount: (sources ?? []).length, status: "needs_reconnect" as const };
     }
 
     throw error;
   }
 
   let eventCount = 0;
+  /* USA-273: one calendar that times out used to throw out of the loop and make
+     the whole sync route answer 500, discarding the calendars that had already
+     imported. The failure is recorded against its own source and the pull
+     reports "partial" so the UI can say which part did not land. */
+  let failedSourceCount = 0;
 
   for (const source of sources ?? []) {
     const sourceId = String(source.id);
@@ -1125,14 +1167,26 @@ export async function pullGoogleCalendarEvents({
           workspaceId,
         }).catch(() => undefined);
 
-        return { eventCount, sourceCount: (sources ?? []).length, status: "needs_reconnect" as const };
+        return { eventCount, failedSourceCount, sourceCount: (sources ?? []).length, status: "needs_reconnect" as const };
       }
+
+      const message = error instanceof Error ? error.message : "Unable to sync Google Calendar events.";
+
+      failedSourceCount += 1;
+
+      console.warn("[DOS calendar] source pull failed", JSON.stringify({
+        externalCalendarId,
+        message,
+        sourceId,
+        timedOut: isGoogleCalendarTimeoutError(error),
+        workspaceId,
+      }));
 
       await supabase
         .from("calendar_sync_cursors")
         .upsert({
           calendar_source_id: sourceId,
-          last_error: "Unable to sync Google Calendar events.",
+          last_error: message,
           last_finished_at: new Date().toISOString(),
           provider: "google",
           sync_token: existingSyncToken,
@@ -1142,12 +1196,15 @@ export async function pullGoogleCalendarEvents({
         }, {
           onConflict: "workspace_id,calendar_source_id,provider",
         });
-
-      throw error;
     }
   }
 
-  return { eventCount, sourceCount: (sources ?? []).length, status: "synced" as const };
+  return {
+    eventCount,
+    failedSourceCount,
+    sourceCount: (sources ?? []).length,
+    status: failedSourceCount ? "partial" as const : "synced" as const,
+  };
 }
 
 export async function checkGoogleCalendarConnectionHealth(workspaceId: string, supabase = createSupabaseAdminClient()) {
@@ -1165,7 +1222,7 @@ export async function checkGoogleCalendarConnectionHealth(workspaceId: string, s
       showDeleted: "false",
       showHidden: "false",
     });
-    const response = await fetch(`${googleCalendarApiBase}/users/me/calendarList?${params.toString()}`, {
+    const response = await googleFetch(`${googleCalendarApiBase}/users/me/calendarList?${params.toString()}`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
@@ -1220,7 +1277,7 @@ export async function deleteGoogleCalendarEventForSource(
 
   try {
     const accessToken = await calendarAccessToken(supabase, connectedCalendar);
-    const response = await fetch(
+    const response = await googleFetch(
       `${googleCalendarApiBase}/calendars/${encodeURIComponent(existingLink.calendar_id)}/events/${encodeURIComponent(existingLink.external_event_id)}?sendUpdates=none`,
       {
         headers: {
@@ -1277,6 +1334,33 @@ export async function recordCalendarSyncFailure({
     });
 }
 
+/* Google accepts a caller-supplied event id in base32hex (0-9 and a-v, 5-1024
+   characters). A sha256 of the DOS source record fits that alphabet exactly and
+   is stable across retries, which is the whole point (USA-273). */
+export function googleCalendarEventIdForSource(sourceType: CalendarSyncSourceType, sourceId: string) {
+  return `dos${createHash("sha256").update(`${sourceType}:${sourceId}`).digest("hex").slice(0, 40)}`;
+}
+
+export function isGoogleCalendarEventGoneError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const status = (error as Error & { status?: number }).status;
+
+  return status === 404 || status === 410;
+}
+
+export function isGoogleCalendarDuplicateEventError(error: unknown) {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const googleError = error as Error & { googleReason?: string; status?: number };
+
+  return googleError.status === 409 || googleError.googleReason === "duplicate";
+}
+
 export async function syncGoogleCalendarEvent(input: DosCalendarEventInput, supabase = createSupabaseAdminClient()) {
   if (!input.startAt) {
     return { status: "skipped" as const };
@@ -1299,21 +1383,62 @@ export async function syncGoogleCalendarEvent(input: DosCalendarEventInput, supa
   const accessToken = await calendarAccessToken(supabase, connectedCalendar);
   const existingLink = await loadEventLink(supabase, input);
   const calendarId = existingLink?.calendar_id || connectedCalendar.calendar_id || "primary";
-  const eventBody = googleEventBody(input);
   const encodedCalendarId = encodeURIComponent(calendarId);
-  const requestUrl = existingLink?.external_event_id
-    ? `${googleCalendarApiBase}/calendars/${encodedCalendarId}/events/${encodeURIComponent(existingLink.external_event_id)}`
-    : `${googleCalendarApiBase}/calendars/${encodedCalendarId}/events`;
-  const response = await fetch(requestUrl, {
-    body: JSON.stringify(eventBody),
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    method: existingLink?.external_event_id ? "PATCH" : "POST",
-  });
-  const event = await readGoogleResponse<{ id?: string }>(response);
-  const externalEventId = event.id ?? existingLink?.external_event_id;
+  /* USA-273: the event id is derived from the DOS record, not handed out by
+     Google. A create that timed out may still have reached Google, leaving an
+     event with no link row; letting Google mint the id meant the next attempt
+     created a SECOND event. With a derived id the retry either creates the one
+     event or is told it already exists, and updates it. */
+  const derivedEventId = googleCalendarEventIdForSource(input.sourceType, input.sourceId);
+  const linkedEventId = existingLink?.external_event_id ?? null;
+  const eventsUrl = `${googleCalendarApiBase}/calendars/${encodedCalendarId}/events`;
+  const eventUrl = (eventId: string) => `${eventsUrl}/${encodeURIComponent(eventId)}`;
+  /* "confirmed" on every write: an event deleted in Google is kept as
+     cancelled, and patching it without a status would leave it hidden while
+     DOS reported "synced". DOS owns this meeting, so a sync restores it. */
+  const eventBody = { ...googleEventBody(input), status: "confirmed" };
+  const writeEvent = async (method: "PATCH" | "POST", url: string, body: Record<string, unknown>) => readGoogleResponse<{ id?: string }>(
+    await googleFetch(url, {
+      body: JSON.stringify(body),
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      method,
+    }),
+  );
+  /* Create with the derived id; if a previous attempt already created it,
+     Google answers 409 and that exact event is adopted. */
+  const createOrAdopt = async () => {
+    try {
+      return await writeEvent("POST", eventsUrl, { ...eventBody, id: derivedEventId });
+    } catch (createError) {
+      if (!isGoogleCalendarDuplicateEventError(createError)) {
+        throw createError;
+      }
+
+      return writeEvent("PATCH", eventUrl(derivedEventId), eventBody);
+    }
+  };
+  let event: { id?: string };
+
+  if (linkedEventId) {
+    try {
+      event = await writeEvent("PATCH", eventUrl(linkedEventId), eventBody);
+    } catch (patchError) {
+      /* The linked event is gone from Google. Patching it again can never
+         succeed, so every Retry would fail; recreate it instead. */
+      if (!isGoogleCalendarEventGoneError(patchError)) {
+        throw patchError;
+      }
+
+      event = await createOrAdopt();
+    }
+  } else {
+    event = await createOrAdopt();
+  }
+
+  const externalEventId = event.id ?? linkedEventId ?? derivedEventId;
 
   if (!externalEventId) {
     throw new Error("Google Calendar did not return an event id.");
@@ -1336,4 +1461,105 @@ export async function syncGoogleCalendarEvent(input: DosCalendarEventInput, supa
     });
 
   return { externalEventId, status: "synced" as const };
+}
+
+/* USA-273: the one place a DOS meeting becomes a Google event. It never throws
+   and never rejects: the meeting row is already written by the time this runs,
+   so the only useful output is a state the caller can report and the user can
+   retry. Both the meeting write path and the standalone retry endpoint call
+   this, so a retry rebuilds the identical event rather than a near-miss copy.
+
+   It also emits the production log line that separates calendar-sync failures
+   from meeting-save failures, which the incident logs could not distinguish. */
+export async function syncDosMeetingCalendarEvent({
+  meetingId,
+  notes,
+  participantNames,
+  scheduledEndAt,
+  scheduledStartAt,
+  supabase = createSupabaseAdminClient(),
+  tableType,
+  timezone,
+  workspaceId,
+}: {
+  meetingId: string;
+  notes: string | null;
+  participantNames: string[];
+  scheduledEndAt: string | null;
+  scheduledStartAt: string | null;
+  supabase?: SupabaseAdminClient;
+  tableType: string;
+  timezone: string | null;
+  workspaceId: string;
+}): Promise<DosCalendarSyncState> {
+  const startedAt = Date.now();
+
+  if (!scheduledStartAt) {
+    await recordCalendarSyncFailure({
+      error: "Scheduled start time is required before syncing to Google Calendar.",
+      sourceId: meetingId,
+      sourceType: "meeting",
+      supabase,
+      workspaceId,
+    }).catch(() => undefined);
+
+    console.warn("[DOS calendar] meeting sync failed", JSON.stringify({
+      durationMs: Date.now() - startedAt,
+      meetingId,
+      reason: "missing_scheduled_start",
+      workspaceId,
+    }));
+
+    return "failed";
+  }
+
+  const endAt = scheduledEndAt ?? new Date(new Date(scheduledStartAt).getTime() + 60 * 60 * 1000).toISOString();
+
+  try {
+    const result = await syncGoogleCalendarEvent({
+      description: dosMeetingCalendarDescription(notes),
+      endAt,
+      reminderMinutes: [60],
+      sourceId: meetingId,
+      sourceType: "meeting",
+      startAt: scheduledStartAt,
+      timezone,
+      title: dosMeetingCalendarTitle(participantNames, tableType),
+      workspaceId,
+    }, supabase);
+    const state: DosCalendarSyncState = result.status === "synced"
+      ? "synced"
+      : result.status === "not_connected" ? "not_connected" : "failed";
+
+    console.info("[DOS calendar] meeting sync", JSON.stringify({
+      durationMs: Date.now() - startedAt,
+      meetingId,
+      state,
+      workspaceId,
+    }));
+
+    return state;
+  } catch (calendarError) {
+    const message = calendarError instanceof Error ? calendarError.message : "Unable to sync Google Calendar event.";
+    const state: DosCalendarSyncState = isGoogleCalendarReconnectError(calendarError) ? "needs_reconnect" : "failed";
+
+    await recordCalendarSyncFailure({
+      error: message,
+      sourceId: meetingId,
+      sourceType: "meeting",
+      supabase,
+      workspaceId,
+    }).catch(() => undefined);
+
+    console.warn("[DOS calendar] meeting sync failed", JSON.stringify({
+      durationMs: Date.now() - startedAt,
+      meetingId,
+      message,
+      state,
+      timedOut: isGoogleCalendarTimeoutError(calendarError),
+      workspaceId,
+    }));
+
+    return state;
+  }
 }
