@@ -46,6 +46,7 @@
     "test:dos-circle-alignment": "node --no-warnings scripts/dos-circle-alignment-regression.mjs",
     "test:dos-circle-placement": "node --no-warnings scripts/dos-circle-placement-regression.mjs",
     "test:dos-people-experience-correction": "node --no-warnings scripts/dos-people-experience-correction-regression.mjs",
+    "test:dos-relationship-select": "node scripts/dos-relationship-select-behavior.mjs",
     "test:dos-person-form": "node --no-warnings scripts/dos-person-form-regression.mjs",
     "test:dos-review-link-send-state": "node scripts/dos-review-link-send-state-regression.mjs",
     "test:dos-meeting-lifecycle": "node --no-warnings scripts/dos-meeting-lifecycle-regression.mjs",

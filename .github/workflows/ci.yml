@@ -90,6 +90,13 @@ jobs:
       - name: Smoke test
         run: npm run smoke
 
+      - name: Install WebKit for the Relationship select check (USA-274)
+        timeout-minutes: 6
+        run: npx playwright install --with-deps webkit || npx playwright install webkit
+
+      - name: Relationship select closes on tap in WebKit, touch, mouse and keyboard (USA-274)
+        run: npm run test:dos-relationship-select
+
       - name: My Record navigation and unsaved-work browser checks (USA-272)
         run: node scripts/dos-my-record-browser.mjs
 

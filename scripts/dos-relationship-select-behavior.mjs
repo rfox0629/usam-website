@@ -1,13 +1,43 @@
 // USA-274: Relationship select behavior in a real browser (touch, mouse, keyboard).
 //
-// Runs against a running DOS server with the token-gated demo route:
+// Uses the token-gated demo route; never writes production data.
+//   npm run build && npm run test:dos-relationship-select   (starts its own server)
 //   BASE=http://localhost:3000 node scripts/dos-relationship-select-behavior.mjs
 // Not part of `npm run test:dos` (that aggregate is static and needs no
-// server). Covers WebKit + touch -- the engine where a tapped option used to
-// leave its list open -- and Chromium with touch, mouse and keyboard.
+// server); CI runs it after the build. Covers WebKit + touch -- the engine
+// where a tapped option used to leave its list open -- and Chromium with
+// touch, mouse and keyboard.
+import { spawn } from "node:child_process";
 import { chromium, webkit } from "playwright";
 
-const base = process.env.BASE || "http://localhost:3000";
+/* Without BASE, start the production build on a private port, like the
+   My Record browser checks, and stop it on exit. */
+const ownServerPort = 4274;
+const ownServer = process.env.BASE
+  ? null
+  : spawn("npm", ["run", "start", "--", "--hostname", "127.0.0.1", "--port", String(ownServerPort)], {
+    detached: true,
+    env: process.env,
+    stdio: "ignore",
+  });
+const base = process.env.BASE || `http://127.0.0.1:${ownServerPort}`;
+
+if (ownServer) {
+  /* Do not let the server keep this process alive once the checks finish. */
+  ownServer.unref();
+  process.on("exit", () => {
+    try { process.kill(-ownServer.pid, "SIGTERM"); } catch {}
+  });
+  let ready = false;
+  for (let attempt = 0; attempt < 90 && !ready; attempt += 1) {
+    try { ready = (await fetch(base)).status < 500; } catch {}
+    if (!ready) await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+  if (!ready) {
+    console.error("Production build server did not start (run npm run build first).");
+    process.exit(1);
+  }
+}
 const token = process.env.DOS_PREVIEW_TOKEN?.trim() || "dos2026";
 let failures = 0;
 
@@ -169,3 +199,4 @@ if (failures) {
   process.exit(1);
 }
 console.log("\nDOS Relationship select behavior (USA-274) passed.");
+process.exit(0);
