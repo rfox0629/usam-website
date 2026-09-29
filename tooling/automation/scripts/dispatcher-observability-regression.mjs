@@ -71,6 +71,37 @@ function classify(testIssue) {
 
 {
   const candidate = issue({
+    labels: labels(["Ready for Dispatcher", "Ready for Claude", claudeLabel, "Automation"]),
+  });
+  const { classification } = classify(candidate);
+  assert.equal(classification.eligible, true);
+  assert.equal(classification.runner, "claude");
+  assert.deepEqual(
+    classification.diagnostics.satisfied.find((item) => item.id === "deprecated_routing_labels")?.metadata.tolerated,
+    ["Ready for Claude"],
+  );
+}
+
+{
+  const candidate = issue({
+    labels: labels(["Ready for Dispatcher", "Ready for Claude", codexLabel, "Automation"]),
+  });
+  const { classification } = classify(candidate);
+  assert.equal(classification.eligible, false);
+  assert.equal(classification.reason, "deprecated routing labels present: Ready for Claude");
+}
+
+{
+  const candidate = issue({
+    labels: labels(["Ready for Dispatcher", "Ready for Claude", "Automation"]),
+  });
+  const { classification } = classify(candidate);
+  assert.equal(classification.eligible, false);
+  assert.equal(classification.reason, "deprecated routing labels present: Ready for Claude");
+}
+
+{
+  const candidate = issue({
     delegate: { name: "Codex" },
     labels: labels([codexLabel, "Automation"]),
   });

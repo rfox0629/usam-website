@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "npm run test:cooldowns && npm run test:review-policy && npm run test:production-authorization && npm run test:execution-env && npm run test:routing && npm run test:repository-layout && npm run test:founder-revisions && npm run test:website-auto-publish && npm run test:publisher && npm run test:observability && npm run test:log-tail && npm run replacement:test",
+    "test": "npm run test:cooldowns && npm run test:review-policy && npm run test:production-authorization && npm run test:execution-env && npm run test:routing && npm run test:repository-layout && npm run test:founder-revisions && npm run test:website-auto-publish && npm run test:publisher && npm run test:observability && npm run test:log-tail && npm run test:log-growth && npm run replacement:test",
     "test:cooldowns": "node scripts/dispatcher-cooldown-regression.mjs",
+    "test:log-growth": "node scripts/dispatcher-log-growth-regression.mjs",
     "test:execution-env": "node scripts/dispatcher-execution-environment-regression.mjs",
     "test:founder-revisions": "node scripts/dispatcher-founder-revision-regression.mjs",
     "test:production-authorization": "node scripts/dispatcher-production-authorization-regression.mjs",
