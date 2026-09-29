@@ -84,6 +84,16 @@ export function classifyDispatchEligibility(issue, options = {}) {
   const labels = issueLabels(issue);
   const runnerSelections = runnerSelectionsForIssue(issue, linear);
   const deprecatedRoutingLabels = deprecatedRoutingLabelsForIssue(issue, linear);
+  // The Claude bridge still emits/accepts Ready for Claude during the label
+  // migration. Treat it as a redundant compatibility label only when the
+  // canonical Runner -> Claude ownership is already unique. Legacy-only and
+  // contradictory combinations must continue to fail closed.
+  const toleratedDeprecatedRoutingLabels = runnerSelections.length === 1 && runnerSelections[0] === "claude"
+    ? deprecatedRoutingLabels.filter((label) => label === "Ready for Claude")
+    : [];
+  const conflictingDeprecatedRoutingLabels = deprecatedRoutingLabels.filter(
+    (label) => !toleratedDeprecatedRoutingLabels.includes(label),
+  );
   const blocked = (linear.blockedLabels || []).filter((label) => labels.has(label));
   const stateName = issue.state?.name || "unknown";
   const revision = founderRevisionInfo(issue, options.previousCompletedLock || null, {
@@ -145,15 +155,19 @@ export function classifyDispatchEligibility(issue, options = {}) {
     label: linear.labelReadyForDispatcher,
   }));
 
-  if (deprecatedRoutingLabels.length) {
-    const reason = `deprecated routing labels present: ${deprecatedRoutingLabels.join(", ")}`;
+  if (conflictingDeprecatedRoutingLabels.length) {
+    const reason = `deprecated routing labels present: ${conflictingDeprecatedRoutingLabels.join(", ")}`;
     conditions.push(condition("deprecated_routing_labels", "conflicting", reason, {
-      labels: deprecatedRoutingLabels,
+      labels: conflictingDeprecatedRoutingLabels,
+      tolerated: toleratedDeprecatedRoutingLabels,
     }));
     return finish(false, reason);
   }
-  conditions.push(condition("deprecated_routing_labels", "satisfied", "no deprecated routing labels present", {
+  conditions.push(condition("deprecated_routing_labels", "satisfied", toleratedDeprecatedRoutingLabels.length
+    ? `matching Claude compatibility label tolerated: ${toleratedDeprecatedRoutingLabels.join(", ")}`
+    : "no deprecated routing labels present", {
     deprecatedRoutingLabels: linear.deprecatedRoutingLabels || ["Ready for Codex", "Ready for Claude"],
+    tolerated: toleratedDeprecatedRoutingLabels,
   }));
 
   if (runnerSelections.length !== 1) {
