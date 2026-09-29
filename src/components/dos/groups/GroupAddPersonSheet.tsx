@@ -335,7 +335,9 @@ export function GroupAddPersonSheet({
 
   const memberIds = useMemo(() => new Set([...memberPersonIds, ...addedPersonIds]), [addedPersonIds, memberPersonIds]);
   const activePeople = useMemo(() => people.filter((person) => !person.archived), [people]);
-  const results = useMemo(() => searchPeople(activePeople, query).slice(0, query.trim() ? 8 : 5), [activePeople, query]);
+  /* The whole list, in its own scroll area. It used to stop at five people
+     (eight when searching) with nothing to scroll to. */
+  const results = useMemo(() => searchPeople(activePeople, query).slice(0, 200), [activePeople, query]);
   const trimmedQuery = compactNamePart(query);
   const queryLooksLikeName = Boolean(trimmedQuery) && !/@|\d{3}/.test(trimmedQuery);
   const draftName = joinNameParts(draft.firstName, draft.lastName);
@@ -681,7 +683,7 @@ export function GroupAddPersonSheet({
               ) : null}
             </div>
             {results.length ? (
-              <div className="rounded-dos-1 border border-dos-line px-3">
+              <div className="max-h-[max(12rem,calc(100dvh_-_33rem))] overflow-y-auto overscroll-contain rounded-dos-1 border border-dos-line px-3 [-webkit-overflow-scrolling:touch]" data-testid="group-add-results">
                 {results.map((person) => {
                   const inGroup = memberIds.has(person.id);
 

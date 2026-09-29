@@ -76,6 +76,7 @@ import { getCanonicalSiteUrl } from "@/src/lib/site-url";
 import { compactNamePart, joinNameParts, splitNameParts } from "@/src/lib/dos/person-name";
 import { formatPhoneNumber, phoneDigitsOnly } from "@/src/lib/dos/phone-format";
 import { GroupAddPersonSheet, type GroupAddMemberOutcome, type GroupAddNearDuplicate, type GroupAddPersonOption } from "@/src/components/dos/groups/GroupAddPersonSheet";
+import { GroupLeaderAssignSheet, type GroupLeaderAssignOutcome, type GroupLeaderAssignRequest } from "@/src/components/dos/groups/GroupLeaderAssignSheet";
 import {
   dosResourceCatalog,
   dosSendableResourceCategories,
@@ -517,6 +518,13 @@ type GroupMemberAddResult = {
     name: string;
     phone: string;
   };
+};
+type GroupLeaderAssignResult = {
+  addedToGroup?: boolean;
+  error?: string;
+  member?: Pick<DosAppGroupMember, "id" | "personId" | "personName" | "role" | "status"> & Partial<DosAppGroupMember>;
+  person?: GroupMemberAddResult["person"];
+  unchanged?: boolean;
 };
 type GroupMemberRemoveResult = {
   error?: string;
@@ -7695,6 +7703,7 @@ function GroupDetailWorkspaceV2({
   onCopyGroupReminder,
   onCopyPublicLink,
   onEditGathering,
+  onAddLeader,
   onEditGroup,
   onInvite,
   onJoinRequestAccepted,
@@ -7722,6 +7731,7 @@ function GroupDetailWorkspaceV2({
   onCopyGroupReminder: () => void;
   onCopyPublicLink: () => void;
   onEditGathering: (gathering: GroupGatheringView) => void;
+  onAddLeader: () => void;
   onEditGroup: () => void;
   onInvite: () => void;
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
@@ -7869,7 +7879,7 @@ function GroupDetailWorkspaceV2({
           workspaceId={workspaceId}
         />
       ) : null}
-      {selectedTab === "people" ? <GroupPeopleTabV2 group={group} isPreview={isPreview} onInvite={onInvite} onJoinRequestAccepted={onJoinRequestAccepted} onJoinRequestResolved={onJoinRequestResolved} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}
+      {selectedTab === "people" ? <GroupPeopleTabV2 group={group} isPreview={isPreview} onAddLeader={onAddLeader} onJoinRequestAccepted={onJoinRequestAccepted} onJoinRequestResolved={onJoinRequestResolved} onRemoveMember={onRemoveMember} workspaceId={workspaceId} /> : null}
       {selectedTab === "gatherings" ? (
         <GroupGatheringsTab
           group={group}
@@ -8029,7 +8039,7 @@ function GroupOverviewTabV2({
 function GroupPeopleTabV2({
   group,
   isPreview,
-  onInvite,
+  onAddLeader,
   onJoinRequestAccepted,
   onJoinRequestResolved,
   onRemoveMember,
@@ -8037,7 +8047,9 @@ function GroupPeopleTabV2({
 }: {
   group: DosAppGroup;
   isPreview: boolean;
-  onInvite: () => void;
+  /* Shared Leadership has its own sheet: choosing a leader is not adding a
+     member. */
+  onAddLeader: () => void;
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
   onJoinRequestResolved: (groupId: string) => void;
   onRemoveMember: (groupId: string, member: DosAppGroupMember) => Promise<void>;
@@ -8054,7 +8066,7 @@ function GroupPeopleTabV2({
     <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3 md:gap-4">
       {/* USA-283: Add Person already leads the page header; here it is a
           quiet text action so two filled buttons never compete. */}
-      <GroupHomeSection action={<GroupHomeTextAction label="Add Person" onClick={onInvite} />} title="Shared Leadership">
+      <GroupHomeSection action={<GroupHomeTextAction label="Add Person" onClick={onAddLeader} />} title="Shared Leadership">
         {leaders.length ? (
           <div className="grid sm:grid-cols-2 sm:gap-x-6 xl:grid-cols-3">
             {leaders.map((member) => (
@@ -8067,7 +8079,7 @@ function GroupPeopleTabV2({
             ))}
           </div>
         ) : (
-          <p className="pb-3 text-dos-body text-dos-secondary">No leaders assigned. Add a primary leader, co-leader, or helper in Edit Group.</p>
+          <p className="pb-3 text-dos-body text-dos-secondary">No leaders assigned yet.</p>
         )}
       </GroupHomeSection>
       <GroupMembersTab
@@ -8978,6 +8990,7 @@ function GroupsWorkspace({
   onCreateGroup,
   onDetailTabChange,
   onEditGathering,
+  onAddLeader,
   onEditGroup,
   onInvite,
   onJoinRequestAccepted,
@@ -9016,6 +9029,7 @@ function GroupsWorkspace({
   onCreateGroup: () => void;
   onDetailTabChange: (tab: GroupDetailTab) => void;
   onEditGathering: (gathering: GroupGatheringView) => void;
+  onAddLeader: () => void;
   onEditGroup: () => void;
   onInvite: () => void;
   onJoinRequestAccepted: (groupId: string, result: GroupJoinRequestActionResult) => void;
@@ -9053,6 +9067,7 @@ function GroupsWorkspace({
           onCancelGathering={onCancelGathering}
           onCopyGroupReminder={() => onCopyGroupReminder(selectedGroup)}
           onCopyPublicLink={() => onCopyPublicLink(selectedGroup)}
+          onAddLeader={onAddLeader}
           onEditGathering={onEditGathering}
           onEditGroup={onEditGroup}
           onInvite={onInvite}
@@ -40398,6 +40413,7 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
   const [groupMemberAdditions, setGroupMemberAdditions] = useState<Record<string, DosAppGroupMember[]>>({});
   const [isGroupCreateOpen, setIsGroupCreateOpen] = useState(false);
   const [isGroupInviteOpen, setIsGroupInviteOpen] = useState(false);
+  const [isGroupLeaderSheetOpen, setIsGroupLeaderSheetOpen] = useState(false);
   const [isGroupSettingsOpen, setIsGroupSettingsOpen] = useState(false);
   const [groupCreateMessage, setGroupCreateMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
   const [groupSettingsMessage, setGroupSettingsMessage] = useState<{ text: string; tone: "error" | "success" } | null>(null);
@@ -42221,6 +42237,15 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
     setIsGroupInviteOpen(false);
   }
 
+  function openGroupLeaderSheet() {
+    if (!selectedGroup) {
+      return;
+    }
+
+    setGroupsNotice("");
+    setIsGroupLeaderSheetOpen(true);
+  }
+
   function openGroupSettingsSheet() {
     if (!selectedGroup) {
       return;
@@ -42510,6 +42535,121 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
       return { alreadyMember: Boolean(result.alreadyMember), ok: true, personId: result.member.personId, personName: result.member.personName };
     } catch (error) {
       return { error: error instanceof Error ? error.message : "Unable to add this person to the group.", ok: false };
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  /* Shared Leadership: one role change on the person's one membership (or,
+     confirmed in the sheet, a new active membership with that role). The
+     group behind the sheet updates at once, then re-reads the server. */
+  function applyGroupMemberRole(groupId: string, member: Pick<DosAppGroupMember, "id" | "personId" | "personName" | "role" | "status">) {
+    setGroupOverrides((current) => {
+      const currentGroup = groups.find((candidate) => candidate.id === groupId) ?? selectedGroup;
+      const currentMembers = current[groupId]?.members ?? currentGroup?.members ?? [];
+      const existing = currentMembers.find((candidate) => candidate.id === member.id || candidate.personId === member.personId);
+      const members = existing
+        ? currentMembers.map((candidate) => candidate === existing ? { ...candidate, role: member.role, status: member.status } : candidate)
+        : [...currentMembers, {
+          id: member.id,
+          joinedAt: new Date().toISOString(),
+          memberAccess: null,
+          notes: null,
+          permissions: {},
+          personId: member.personId,
+          personName: member.personName,
+          role: member.role,
+          status: member.status,
+          title: null,
+        }];
+
+      return {
+        ...current,
+        [groupId]: {
+          ...(current[groupId] ?? {}),
+          memberCount: members.filter((candidate) => candidate.status === "active").length,
+          members,
+        },
+      };
+    });
+  }
+
+  async function assignGroupLeader(groupId: string, request: GroupLeaderAssignRequest): Promise<GroupLeaderAssignOutcome> {
+    setErrorMessage("");
+
+    const group = groups.find((candidate) => candidate.id === groupId) ?? null;
+    const person = people.find((candidate) => candidate.id === request.personId) ?? null;
+    const existing = group?.members.find((member) => member.personId === request.personId && member.status === "active") ?? null;
+
+    if (isPreview) {
+      const personName = existing?.personName ?? person?.name ?? "";
+
+      if (!personName) {
+        return { error: "Preview mode is read-only. Demo changes are not saved.", ok: false };
+      }
+
+      const unchanged = existing?.role === request.role;
+
+      applyGroupMemberRole(groupId, {
+        id: existing?.id ?? `preview-member-${groupId}-${request.personId}`,
+        personId: request.personId,
+        personName,
+        role: request.role,
+        status: "active",
+      });
+
+      return { addedToGroup: !existing, ok: true, personName, role: request.role, unchanged };
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch("/api/dos/app/groups/members", {
+        body: JSON.stringify({
+          action: "set_leadership_role",
+          confirmAddToGroup: request.confirmAddToGroup,
+          groupId,
+          personId: request.personId,
+          role: request.role,
+          workspaceId: data.workspace.id,
+        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        method: "POST",
+      });
+      const result = await response.json().catch(() => ({})) as GroupLeaderAssignResult;
+
+      if (!response.ok || !result.member) {
+        return {
+          error: response.status === 403
+            ? "Only this group's leaders can change Shared Leadership."
+            : result.error ?? "Unable to save this leader.",
+          ok: false,
+        };
+      }
+
+      applyGroupMemberRole(groupId, result.member);
+
+      const resultPerson = result.person;
+
+      if (resultPerson) {
+        setQuickAddedPeople((current) => current.some((item) => item.id === resultPerson.id)
+          ? current
+          : [...current, optimisticPersonFromGroupResult(resultPerson)]);
+      }
+
+      router.refresh();
+
+      return {
+        addedToGroup: Boolean(result.addedToGroup),
+        ok: true,
+        personName: result.member.personName,
+        role: request.role,
+        unchanged: Boolean(result.unchanged),
+      };
+    } catch {
+      return { error: "Unable to save this leader. Check your connection and try again.", ok: false };
     } finally {
       setIsSubmitting(false);
     }
@@ -48424,6 +48564,7 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
                     onDetailTabChange={setGroupDetailTab}
                     onEditGathering={openEditGatheringSheet}
                     onEditGroup={openGroupSettingsSheet}
+                    onAddLeader={openGroupLeaderSheet}
                     onInvite={openGroupInviteSheet}
                     onJoinRequestAccepted={applyGroupJoinRequestResult}
                     onJoinRequestResolved={handleGroupJoinRequestResolved}
@@ -50014,6 +50155,24 @@ export function DosMvpAppClient({ buildId = "development", data, renderedAt }: {
               openPersonDetail(personId);
             }}
             people={people}
+          />
+        ) : null}
+
+        {isGroupLeaderSheetOpen && selectedGroup ? (
+          <GroupLeaderAssignSheet
+            groupName={selectedGroup.name}
+            isPreview={isPreview}
+            members={selectedGroup.members}
+            onAssign={(request) => assignGroupLeader(selectedGroup.id, request)}
+            onClose={() => setIsGroupLeaderSheetOpen(false)}
+            people={people.map((person) => ({
+              archived: person.status === "archived",
+              detail: "",
+              email: person.email,
+              id: person.id,
+              name: person.name,
+              phone: person.phone,
+            }))}
           />
         ) : null}
 
