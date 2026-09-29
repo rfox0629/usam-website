@@ -1,4 +1,4 @@
--- Rollback for 20260916121000_dos_meeting_start_time_repair.sql.
+-- Rollback for 20260916203633_dos_meeting_start_time_repair.sql.
 --
 -- The repair recorded every previous value before clearing it, so the reverse
 -- restores the exact timestamps rather than recomputing a noon. Only rows the

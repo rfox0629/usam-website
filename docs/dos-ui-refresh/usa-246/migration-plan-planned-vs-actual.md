@@ -2,7 +2,7 @@
 
 2026-09-08. This is the report the founder required **before** the migration is applied. It is additive, backward compatible, and reversible.
 
-Files: `supabase/migrations/20260908180000_usa_246_planned_vs_actual_meeting_time.sql` and its `..._rollback.sql`.
+Files: `supabase/migrations/20260908190059_usa_246_planned_vs_actual_meeting_time.sql` and its `..._rollback.sql`.
 
 ## 1. Exact existing columns and their current meanings
 `public.missionary_tables`:

@@ -1,4 +1,4 @@
--- Rollback for 20260909180000_usa_247_circle_placements.sql
+-- Rollback for 20260910010115_usa_247_circle_placements.sql
 --
 -- The forward migration is purely additive, so this rollback is complete: it
 -- removes only objects that migration created. Nothing it drops existed before.

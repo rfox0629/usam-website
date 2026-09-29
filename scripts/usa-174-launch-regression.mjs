@@ -6,7 +6,7 @@ import path from "node:path";
 const root = process.cwd();
 const read = (...parts) => readFileSync(path.join(root, ...parts), "utf8");
 
-const migration = read("supabase", "migrations", "20260818162143_usa_174_operations_launch_safety_fundraising_finance.sql");
+const migration = read("supabase", "migrations", "20260818163529_usa_174_operations_launch_safety_fundraising_finance.sql");
 const joinClient = read("app", "join", "usam", "UsamJoinClient.tsx");
 const joinRoute = read("app", "api", "join", "submit", "route.ts");
 const applicationWriter = read("src", "lib", "dos", "usam-application.ts");

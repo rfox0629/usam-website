@@ -1,4 +1,4 @@
--- Rollback for 20260909090000_usa_246_booking_write_path.sql.
+-- Rollback for 20260909014931_usa_246_booking_write_path.sql.
 -- Drops the two functions, the new indexes and constraints, and the new
 -- columns. Historical rows are untouched by both directions; new bookings
 -- lose their operation key, host and match metadata but keep every column

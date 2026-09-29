@@ -159,7 +159,7 @@ assert.deepEqual(payload.questions[0].scores, { Husband: 8, Wife: 10 }, "each sp
 
 /* ---- Migration: additive, scoped, revocable ----------------------------- */
 
-const migration = read("supabase/migrations/20260916120000_dos_resource_share_assignments.sql");
+const migration = read("supabase/migrations/20260916190608_dos_resource_share_assignments.sql");
 
 for (const required of [
   "create table if not exists public.dos_resource_share_assignments",
@@ -189,7 +189,7 @@ assert.ok(
   "the migration is additive; it drops nothing that already holds data",
 );
 assert.ok(
-  read("supabase/migrations/20260916120000_dos_resource_share_assignments_rollback.sql").includes("drop table if exists public.dos_resource_share_assignments"),
+  read("supabase/rollbacks/20260916190608_dos_resource_share_assignments_rollback.sql").includes("drop table if exists public.dos_resource_share_assignments"),
   "an additive migration ships with its rollback",
 );
 
@@ -705,7 +705,7 @@ assert.ok(
   "each choice routes to that resource's own setup, carrying the person",
 );
 
-const removalMigration = read("supabase/migrations/20260918120000_usa_281_resource_assignment_removal.sql");
+const removalMigration = read("supabase/migrations/20260918204612_usa_281_resource_assignment_removal.sql");
 
 assert.ok(
   removalMigration.includes("add column if not exists removed_at timestamptz"),
@@ -857,7 +857,7 @@ assert.ok(
   "restore says plainly that it did not reopen the link",
 );
 
-const shareMigration = read("supabase/migrations/20260919120000_usa_281_share_assignment_removal.sql");
+const shareMigration = read("supabase/migrations/20260919011651_usa_281_share_assignment_removal.sql");
 assert.ok(
   shareMigration.includes("add column if not exists public_access_revoked_at timestamptz"),
   "the migration adds the public-access column",
@@ -1017,7 +1017,7 @@ assert.ok(
   "removal names which assignment it acts on",
 );
 
-const indexMigration = read("supabase/migrations/20260918140000_usa_281_active_assignment_index.sql");
+const indexMigration = read("supabase/migrations/20260918205128_usa_281_active_assignment_index.sql");
 
 assert.ok(
   indexMigration.includes("and removed_at is null"),
@@ -1058,7 +1058,7 @@ assert.ok(
   "the rebuilt index keeps production's columns exactly",
 );
 
-const indexRollback = read("supabase/migrations/20260918140000_usa_281_active_assignment_index_rollback.sql");
+const indexRollback = read("supabase/rollbacks/20260918205128_usa_281_active_assignment_index_rollback.sql");
 
 assert.ok(
   /^begin;$/m.test(indexRollback) && /^commit;$/m.test(indexRollback),

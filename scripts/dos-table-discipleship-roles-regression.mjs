@@ -4,7 +4,7 @@ const files = {
   appClient: "app/dos/app/DosMvpAppClient.tsx",
   dataLoader: "src/lib/dos/missionary-app.ts",
   meetingsRoute: "app/api/dos/app/meetings/route.ts",
-  migration: "supabase/migrations/20260702194002_dos_table_discipleship_roles.sql",
+  migration: "supabase/migrations/20260920103336_dos_table_discipleship_roles.sql",
   peopleRoute: "app/api/dos/app/people/route.ts",
 };
 

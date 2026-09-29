@@ -11,8 +11,8 @@ function read(path) {
   return readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-const migration = read("supabase/migrations/20260909180000_usa_247_circle_placements.sql");
-const rollback = read("supabase/migrations/20260909180000_usa_247_circle_placements_rollback.sql");
+const migration = read("supabase/migrations/20260910010115_usa_247_circle_placements.sql");
+const rollback = read("supabase/rollbacks/20260910010115_usa_247_circle_placements_rollback.sql");
 const store = read("src/lib/dos/circle-placement-store.ts");
 const route = read("app/api/dos/app/circle-placements/route.ts");
 const code = store.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "");

@@ -1,4 +1,4 @@
--- Rollback for 20260910150000_dos_person_feedback_import.sql
+-- Rollback for 20260910151053_dos_person_feedback_import.sql
 --
 -- Refuses to run while any Person-level feedback exists, because restoring
 -- NOT NULL would otherwise fail halfway or, worse, invite someone to "fix" it

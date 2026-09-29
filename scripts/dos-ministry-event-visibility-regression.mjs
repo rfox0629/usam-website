@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 const files = {
   loader: "src/lib/dos/missionary-app.ts",
-  migration: "supabase/migrations/20260625175625_dos_ministry_event_model.sql",
+  migration: "supabase/migrations/20260920103132_dos_ministry_event_model.sql",
   page: "app/dos/[collectiveSlug]/page.tsx",
   route: "app/api/dos/app/meetings/route.ts",
 };

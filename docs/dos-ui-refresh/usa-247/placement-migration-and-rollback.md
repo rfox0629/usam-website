@@ -8,8 +8,8 @@ Companion to [`circle-reporting-contract.md`](./circle-reporting-contract.md). R
 
 | | |
 |---|---|
-| Forward | `supabase/migrations/20260909180000_usa_247_circle_placements.sql` |
-| Rollback | `supabase/migrations/20260909180000_usa_247_circle_placements_rollback.sql` |
+| Forward | `supabase/migrations/20260910010115_usa_247_circle_placements.sql` |
+| Rollback | `supabase/rollbacks/20260910010115_usa_247_circle_placements_rollback.sql` |
 | Proofs | `docs/dos-ui-refresh/usa-247/evidence/placement-proofs.sql` |
 | Guard | `scripts/dos-circle-placement-regression.mjs` |
 
@@ -63,7 +63,7 @@ Retrofitting all five is not an additive migration. It is a rewrite of a table t
 
 ### What the old table represented before
 
-**Nothing, going forward.** It holds zero rows, no code writes it, and no product surface offers to. It stays in the schema only so the person-merge function (`20260806111227_dos_person_merge_records.sql`) keeps working unchanged, and so this pull request touches nothing it does not have to.
+**Nothing, going forward.** It holds zero rows, no code writes it, and no product surface offers to. It stays in the schema only so the person-merge function (`20260806111433_dos_person_merge_records.sql`) keeps working unchanged, and so this pull request touches nothing it does not have to.
 
 ### How every read and write resolves to one source
 

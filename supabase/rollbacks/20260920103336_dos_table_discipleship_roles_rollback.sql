@@ -1,4 +1,4 @@
-/* Rollback for 20260702194002_dos_table_discipleship_roles.sql (USA-278).
+/* Rollback for 20260920103336_dos_table_discipleship_roles.sql (USA-278).
  *
  * Like the ministry-event model, this migration had never reached production
  * and was applied on 2026-09-20. Until then `table_role`, every `growth_*` and

@@ -65,8 +65,8 @@ assert.deepEqual([hosts.rule, hosts.candidates], ["none", []], "no configured ho
 
 /* ---- Structural guards on the write path ------------------------------ */
 const data = read("src/lib/dos/table-invitation-data.ts");
-const migration = read("supabase/migrations/20260909090000_usa_246_booking_write_path.sql");
-const rollback = read("supabase/migrations/20260909090000_usa_246_booking_write_path_rollback.sql");
+const migration = read("supabase/migrations/20260909014931_usa_246_booking_write_path.sql");
+const rollback = read("supabase/rollbacks/20260909014931_usa_246_booking_write_path_rollback.sql");
 
 assert.ok(migration.includes("pg_advisory_xact_lock(hashtext('dos_table_booking:' || v_workspace_id::text))"), "bookings are serialized per workspace inside the transaction");
 assert.ok(migration.includes("dos_table_invitation_bookings_operation_key_unique") && migration.includes("(invitation_id, operation_key)"), "the operation key is unique per link");
@@ -76,7 +76,7 @@ assert.ok(rollback.includes("drop function if exists public.dos_create_table_boo
 assert.ok(data.includes('.rpc("dos_create_table_booking"'), "the JS write path goes through the transactional function");
 assert.ok(data.includes("matchBookingPerson(") && data.includes("bookingHostCandidates("), "the JS write path uses the shared matching and host modules");
 assert.ok(data.includes("host_candidates: hostCandidates") && !data.includes("host_member_id: host.member"), "the write path sends the ordered candidate list and lets the transaction choose the free host");
-const hostMigration = read("supabase/migrations/20260909120000_usa_246_booking_host_availability.sql");
+const hostMigration = read("supabase/migrations/20260909021813_usa_246_booking_host_availability.sql");
 assert.ok(hostMigration.includes("raise exception 'host_unavailable'") && hostMigration.includes("for v_candidate in select value from jsonb_array_elements(v_host_candidates) loop") && hostMigration.includes("and t.created_by = v_candidate_user"), "host availability (live bookings as that host, meetings they own) is decided inside the transaction and a busy host is never assigned");
 assert.ok(data.includes("bookingWritePathV2Enabled()"), "the new path is gated until the founder enables it in production");
 const v2Start = data.indexOf("async function createPublicTableInvitationBookingV2(");

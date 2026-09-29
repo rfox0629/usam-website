@@ -108,19 +108,19 @@ check("approval requires a completed test send and a named approver", () => {
   const approve = actions.slice(actions.indexOf("export async function approveNewsletterAction"), actions.indexOf("export async function sendNewsletterToAudienceAction"));
   assert.match(approve, /lastTestSentAt/);
   assert.match(approve, /approved_by_email: authorization\.email/);
-  const sql = read("supabase", "migrations", "20260903220000_operations_communications_newsletter_workflow.sql");
+  const sql = read("supabase", "migrations", "20260903211935_operations_communications_newsletter_workflow.sql");
   assert.match(sql, /communication_newsletters_approval_check/);
   assert.match(sql, /approved_at is not null and approved_by_email is not null/);
 });
 
 check("the database phase-1 recipient guard is left in place", () => {
-  const sql = read("supabase", "migrations", "20260903220000_operations_communications_newsletter_workflow.sql");
+  const sql = read("supabase", "migrations", "20260903211935_operations_communications_newsletter_workflow.sql");
   assert.doesNotMatch(sql, /drop constraint if exists communication_sends_phase1_recipient_check/);
   assert.match(sql, /phase-1 recipient CHECK/i);
 });
 
 check("no duplicate communication tables are created", () => {
-  const sql = read("supabase", "migrations", "20260903220000_operations_communications_newsletter_workflow.sql");
+  const sql = read("supabase", "migrations", "20260903211935_operations_communications_newsletter_workflow.sql");
   assert.doesNotMatch(sql, /create table/i, "the existing USA-47 tables are reused, not recreated");
 });
 

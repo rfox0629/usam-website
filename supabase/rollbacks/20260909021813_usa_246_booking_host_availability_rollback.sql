@@ -1,4 +1,4 @@
--- Rollback for 20260909120000_usa_246_booking_host_availability.sql: restores the
+-- Rollback for 20260909021813_usa_246_booking_host_availability.sql: restores the
 -- previous dos_create_table_booking (host chosen by the caller, no host
 -- availability check inside the transaction).
 create or replace function public.dos_create_table_booking(p_input jsonb)
